@@ -1,5 +1,11 @@
 # pi-sketchbook
 
+## 0.2.2
+
+### Patch Changes
+
+- 8b06b05: Restore direct access to diagram zoom, Reset, source view, and input help without the More controls panel. Preserve keyboard focus during source updates and keep the toolbar contained on narrow screens with enlarged text.
+
 ## 0.2.1
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "pi-sketchbook",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Local, hand-drawn Mermaid walkthroughs for Pi agents.",
   "type": "module",
   "license": "AGPL-3.0-only",
