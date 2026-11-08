@@ -145,10 +145,13 @@ async function historicalCompactBaseline(
   expect(spacing.paddingTop).toBeCloseTo(spacing.expectedPadding, 2)
   expect(spacing.paddingBottom).toBeCloseTo(spacing.expectedPadding, 2)
   expect(spacing.rowGap).toBeCloseTo(spacing.expectedGap, 2)
-  // Exclude only the intentional height change from always-visible controls/help.
-  const toolbarHeightChangePx = toolbar.height - before.toolbar.height
+  // Normalize only the controls restoration, not the compact toolbar's earlier
+  // mobile padding reduction from 0.6rem to 0.35rem at the baseline's 16px root.
+  const compactToolbarHeightPx = before.toolbar.height + 2 * (spacing.expectedPadding - 0.6 * 16)
+  const toolbarHeightChangePx = toolbar.height - compactToolbarHeightPx
   return {
     ...reference,
+    compactToolbarHeightPx,
     toolbarHeightChangePx,
     firstParagraphY:
       before.firstParagraph.y +
@@ -169,6 +172,14 @@ test("historical comparison detects added heading padding and frame whitespace",
   const before = baseline.measurements.find((item) => item.width === 390 && !item.touch)
   if (!before) throw new Error("Missing mobile reference")
   const reference = await historicalCompactBaseline(deck, before)
+  // Keep the earlier 8px mobile padding saving in the historical comparison.
+  expect(reference.compactToolbarHeightPx).toBeCloseTo(before.toolbar.height - 8, 2)
+  const { toolbar } = await readingMetrics(deck)
+  if (!toolbar) throw new Error("Missing diagram controls")
+  expect(reference.toolbarHeightChangePx).toBeCloseTo(
+    toolbar.height - (before.toolbar.height - 8),
+    2,
+  )
   const threshold = reference.firstParagraphY - before.lineHeight + 0.5
   expect((await readingMetrics(deck)).firstParagraph?.y).toBeLessThanOrEqual(threshold)
   for (const css of [
@@ -340,7 +351,7 @@ for (const viewport of [
             baseline: before,
             reference,
             baselineCalibration:
-              "Frozen historical heading styles and frame inset/clamp formula with same-browser system font and intrinsic SVG geometry; excludes the measured toolbar height delta for always-visible controls/help",
+              "Frozen historical heading styles and frame inset/clamp formula with same-browser system font and intrinsic SVG geometry; excludes the restored controls height relative to the former compact toolbar, retaining its 8px mobile padding saving",
             evidence,
           },
           null,

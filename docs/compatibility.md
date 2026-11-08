@@ -213,7 +213,7 @@ Controlled captures on 2026-11-08 compare the former compact toolbar with the re
 | 390x844, coarse pointer | 577.02px / 609.48px            | 56.19px / 88.66px             |
 
 The restored controls and help intentionally increase toolbar height. The earlier mobile paragraph-offset improvement is historical, not a target for the restored toolbar.
-Historical comparison tests account for this toolbar-height change while retaining authored-content, heading, frame, and font checks. Separate padding and row-gap assertions guard toolbar spacing.
+Historical comparison tests account for this toolbar-height change while retaining authored-content, heading, frame, and font checks. Normalize against the former compact toolbar, including its existing 8px mobile padding reduction, not the older toolbar height. The one-body-line improvement requirement and negative heading/frame checks remain unchanged. Separate padding and row-gap assertions guard toolbar spacing.
 Graph labels remain unchanged at 15.98px for this compact fixture; all 12 captured compact/wide/tall views remain contained.
 Before/after evidence is under `test-results/reading-layout/controls-before/` and `controls-after/`.
 Agent review inspected the desktop and 390px compact views, including coarse-pointer help and toolbar wrapping with 20px root text. Physical-device behavior and human acceptance remain unverified.
@@ -224,6 +224,7 @@ Validation passed on Node.js 26.11.1 with local Chromium:
   - Unit tests use a canonical `TMPDIR` path on macOS; the default `/var` alias otherwise causes three unrelated path-equality failures against `/private/var`.
 - All 63 browser tests passed, including direct keyboard access, live-source focus recovery, independent decks, native/fallback fullscreen, touch scrolling, and enlarged root text at 390px.
 - The browser suite retains complete-article and per-slide evidence under `test-results/browser/`.
+- The 11 focused reading-layout tests also passed on macOS and in a Linux arm64 container with Node.js 26.11.1. A mutation that restores the incorrect toolbar normalization fails the new regression assertion by exactly 8px.
 
 ## Fixture coverage
 
