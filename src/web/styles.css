@@ -232,8 +232,7 @@ button:disabled {
   margin: 0;
   background: #fff;
 }
-.diagram-controls,
-.diagram-secondary-controls {
+.diagram-controls {
   position: relative;
   z-index: 2;
   display: flex;
@@ -247,10 +246,7 @@ button:disabled {
   border-bottom: 1px solid #e8edf4;
   background: #fcfdff;
 }
-.diagram-secondary-controls[hidden] {
-  display: none;
-}
-.diagram-secondary-controls output {
+.diagram-controls output {
   min-width: 2.75rem;
   color: #5b6e88;
   font-size: 0.75rem;
@@ -272,13 +268,6 @@ button:disabled {
   border-radius: 0.5rem;
   color: #536b8a;
   background: #f0f4fa;
-}
-.diagram-control-labelled {
-  display: flex;
-  gap: 0.4rem;
-  width: auto;
-  padding-inline: 0.65rem;
-  font-size: 0.85rem;
 }
 .diagram-control svg {
   flex-shrink: 0;
@@ -491,8 +480,7 @@ blockquote {
   .slide-pagination {
     padding-inline: 0.5rem;
   }
-  .diagram-controls,
-  .diagram-secondary-controls {
+  .diagram-controls {
     gap: 0.25rem;
     padding: 0.35rem 0.5rem;
   }

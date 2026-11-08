@@ -86,13 +86,6 @@ export async function rendered(deck: Locator) {
   await expect(deck.locator(".diagram-svg > svg")).toBeVisible()
 }
 
-export async function openDiagramControls(deck: Locator) {
-  const disclosure = deck.getByRole("button", { name: "More controls", exact: true })
-  if ((await disclosure.getAttribute("aria-expanded")) === "false") await disclosure.click()
-  await expect(disclosure).toHaveAttribute("aria-expanded", "true")
-  await expect(deck.locator(".diagram-secondary-controls")).toBeVisible()
-}
-
 export async function selectSlide(deck: Locator, id: string) {
   await deck.locator(`.slide-dot[data-slide-id="${id}"]`).click()
 }

@@ -5,6 +5,7 @@ import { readingFixture } from "../fixtures/reading-layout.js"
 import { captureArticle, getDeck, readingMetrics, rendered, save, selectSlide } from "./helpers.js"
 
 for (const { width, fontSize, stacked } of [
+  { width: 390, fontSize: 20, stacked: true },
   { width: 900, fontSize: 16, stacked: true },
   { width: 1024, fontSize: 16, stacked: false },
   { width: 1024, fontSize: 20, stacked: true },
@@ -13,7 +14,7 @@ for (const { width, fontSize, stacked } of [
   test(`reading columns fit available width at ${width}px with ${fontSize}px root text`, async ({
     page,
     request,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto((await save(request, readingFixture())).url)
     await page.addStyleTag({ content: `:root { font-size: ${fontSize}px; }` })
@@ -33,6 +34,22 @@ for (const { width, fontSize, stacked } of [
     const { frame, graph } = await readingMetrics(deck)
     expect(graph.width).toBeLessThanOrEqual(frame.width + 1)
     await expect(deck.locator(".slide-explanation p").first()).toBeVisible()
+    const toolbar = deck.locator("fieldset.diagram-controls")
+    const bounds = await toolbar.boundingBox()
+    if (!bounds) throw new Error("Missing toolbar")
+    for (const button of await toolbar.getByRole("button").all()) {
+      await expect(button).toBeVisible()
+      const box = await button.boundingBox()
+      if (!box) throw new Error("Missing toolbar button")
+      expect(box.x).toBeGreaterThanOrEqual(bounds.x)
+      expect(box.x + box.width).toBeLessThanOrEqual(bounds.x + bounds.width)
+    }
+    if (width === 390) {
+      const fit = await toolbar.getByRole("button", { name: "Fit to screen" }).boundingBox()
+      const source = await toolbar.getByRole("button", { name: "Show source" }).boundingBox()
+      expect(source?.y).toBeGreaterThan(fit?.y ?? 0)
+      await deck.screenshot({ path: testInfo.outputPath("enlarged-text-toolbar.png") })
+    }
   })
 }
 
@@ -48,6 +65,7 @@ const baseline = JSON.parse(
     slide: string
     firstParagraph: { y: number }
     heading: { height: number }
+    toolbar: { height: number }
     frame: { height: number; width: number }
     lineHeight: number
     minFontPx: number
@@ -110,12 +128,36 @@ async function historicalCompactBaseline(
     },
     { width: before.frame.width, height: before.height },
   )
+  const { toolbar } = await readingMetrics(deck)
+  if (!toolbar) throw new Error("Missing diagram controls")
+  const spacing = await deck.locator(".diagram-controls").evaluate((element) => {
+    const style = getComputedStyle(element)
+    const rootPx = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+    return {
+      paddingTop: Number.parseFloat(style.paddingTop),
+      paddingBottom: Number.parseFloat(style.paddingBottom),
+      rowGap: Number.parseFloat(style.rowGap),
+      expectedPadding: rootPx * (innerWidth <= 600 ? 0.35 : 0.6),
+      expectedGap: rootPx * (innerWidth <= 600 ? 0.25 : 0.4),
+    }
+  })
+  // Calibrating toolbar height must not hide extra padding or row spacing.
+  expect(spacing.paddingTop).toBeCloseTo(spacing.expectedPadding, 2)
+  expect(spacing.paddingBottom).toBeCloseTo(spacing.expectedPadding, 2)
+  expect(spacing.rowGap).toBeCloseTo(spacing.expectedGap, 2)
+  // Normalize only the controls restoration, not the compact toolbar's earlier
+  // mobile padding reduction from 0.6rem to 0.35rem at the baseline's 16px root.
+  const compactToolbarHeightPx = before.toolbar.height + 2 * (spacing.expectedPadding - 0.6 * 16)
+  const toolbarHeightChangePx = toolbar.height - compactToolbarHeightPx
   return {
     ...reference,
+    compactToolbarHeightPx,
+    toolbarHeightChangePx,
     firstParagraphY:
       before.firstParagraph.y +
       (reference.headingHeight - before.heading.height) +
-      (reference.frameHeight - before.frame.height),
+      (reference.frameHeight - before.frame.height) +
+      toolbarHeightChangePx,
   }
 }
 
@@ -130,6 +172,14 @@ test("historical comparison detects added heading padding and frame whitespace",
   const before = baseline.measurements.find((item) => item.width === 390 && !item.touch)
   if (!before) throw new Error("Missing mobile reference")
   const reference = await historicalCompactBaseline(deck, before)
+  // Keep the earlier 8px mobile padding saving in the historical comparison.
+  expect(reference.compactToolbarHeightPx).toBeCloseTo(before.toolbar.height - 8, 2)
+  const { toolbar } = await readingMetrics(deck)
+  if (!toolbar) throw new Error("Missing diagram controls")
+  expect(reference.toolbarHeightChangePx).toBeCloseTo(
+    toolbar.height - (before.toolbar.height - 8),
+    2,
+  )
   const threshold = reference.firstParagraphY - before.lineHeight + 0.5
   expect((await readingMetrics(deck)).firstParagraph?.y).toBeLessThanOrEqual(threshold)
   for (const css of [
@@ -195,12 +245,21 @@ for (const viewport of [
         await expect(deck.locator(".diagram")).toHaveCount(1)
         await expect(deck.locator(".diagram-svg > svg")).toHaveCount(1)
         await expect(deck.locator(".slide-explanation")).toHaveCount(1)
-        await expect(deck.locator(".diagram-secondary-controls")).toBeHidden()
+        const toolbar = deck.locator("fieldset.diagram-controls")
+        await expect(toolbar).toHaveCount(1)
+        for (const name of [
+          "Fit to screen",
+          "Fullscreen",
+          "Zoom out",
+          "Zoom in",
+          "Reset zoom",
+          "Show source",
+        ])
+          await expect(toolbar.getByRole("button", { name, exact: true })).toBeVisible()
+        await expect(toolbar.getByRole("status", { name: "Current zoom" })).toBeVisible()
+        await expect(toolbar.locator(".diagram-pan-hint")).toBeVisible()
         await expect(deck.getByRole("alert")).toHaveCount(0)
-        if (viewport.width <= 600) {
-          await expect(deck.locator(".deck-kind")).toBeHidden()
-          await expect(deck.locator(".diagram-pan-hint")).toBeHidden()
-        }
+        if (viewport.width <= 600) await expect(deck.locator(".deck-kind")).toBeHidden()
         const metrics = await readingMetrics(deck)
         const { frame, graph, explanation, pagination, firstParagraph } = metrics
         if (!explanation || !pagination || !firstParagraph)
@@ -292,7 +351,7 @@ for (const viewport of [
             baseline: before,
             reference,
             baselineCalibration:
-              "Frozen historical heading styles and frame inset/clamp formula with same-browser system font and intrinsic SVG geometry",
+              "Frozen historical heading styles and frame inset/clamp formula with same-browser system font and intrinsic SVG geometry; excludes the restored controls height relative to the former compact toolbar, retaining its 8px mobile padding saving",
             evidence,
           },
           null,
@@ -315,21 +374,33 @@ for (const viewport of [
         await page.goto((await save(request, readingFixture())).url)
         const deck = page.locator('[data-block-id="reading"]')
         await rendered(deck)
-        const disclosure = deck.getByRole("button", { name: "More controls" })
+        const toolbar = deck.locator("fieldset.diagram-controls")
         const frame = deck.locator(".diagram-viewport")
-        const help = deck.locator(".diagram-pan-hint")
+        const help = toolbar.locator(".diagram-pan-hint")
+        const inlineHelp = "Use the controls to zoom. Swipe to scroll the article."
         expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true)
-        await expect(help).toBeHidden()
-        await expect(frame).toHaveAccessibleName("Interactive diagram")
-        await expect(frame).toHaveAccessibleDescription(/controls.*zoom.*scroll/i)
-        await expect(frame).not.toHaveAccessibleDescription(/pan|pinch|wheel|drag/i)
-        await disclosure.tap()
-        await expect(disclosure).toHaveAttribute("aria-expanded", "true")
         await expect(help).toBeVisible()
-        await expect(help).toContainText(/controls.*zoom.*scroll/i)
-        await expect(help).not.toContainText(/pan|pinch|wheel|drag/i)
-        await expect(deck.getByRole("button", { name: "Zoom in", exact: true })).toBeVisible()
-        await disclosure.tap()
+        await expect(help).toHaveText(inlineHelp)
+        await expect(frame).toHaveAccessibleName("Interactive diagram")
+        await expect(frame).toHaveAccessibleDescription(inlineHelp)
+        await expect(frame).not.toHaveAccessibleDescription(/pan|pinch|wheel|drag/i)
+        for (const name of [
+          "Fit to screen",
+          "Fullscreen",
+          "Zoom out",
+          "Zoom in",
+          "Reset zoom",
+          "Show source",
+        ])
+          await expect(toolbar.getByRole("button", { name, exact: true })).toBeVisible()
+        await toolbar.getByRole("button", { name: "Reset zoom", exact: true }).tap()
+        await toolbar.getByRole("button", { name: "Zoom in", exact: true }).tap()
+        await expect(toolbar.getByRole("status", { name: "Current zoom" })).toHaveText("125%")
+        await toolbar.getByRole("button", { name: "Show source", exact: true }).tap()
+        await expect(deck.locator(".diagram-source")).toBeVisible()
+        await expect(help).toBeVisible()
+        await toolbar.getByRole("button", { name: "Show diagram", exact: true }).tap()
+        await expect(toolbar.getByRole("status", { name: "Current zoom" })).toHaveText("125%")
         await frame.scrollIntoViewIfNeeded()
         expect(await frame.evaluate((node) => getComputedStyle(node).touchAction)).toBe("pan-y")
         const stage = deck.locator(".diagram-svg")
@@ -357,14 +428,16 @@ for (const viewport of [
         await expect(stage).toHaveAttribute("style", camera ?? "")
         await deck.getByRole("button", { name: "Fullscreen", exact: true }).tap()
         await expect(page.getByRole("dialog")).toBeVisible()
-        await expect(disclosure).toHaveAttribute("aria-expanded", "false")
-        await disclosure.tap()
+        await expect(toolbar.getByRole("button", { name: "Zoom in", exact: true })).toBeVisible()
+        await expect(toolbar.getByRole("status", { name: "Current zoom" })).toHaveText("125%")
         await expect(help).toBeVisible()
         await expect(help).toContainText(/controls.*zoom.*exit fullscreen.*scroll/i)
         await expect(frame).toHaveAccessibleDescription(/controls.*zoom.*exit fullscreen.*scroll/i)
         await expect(frame).not.toHaveAccessibleDescription(/pan|pinch|wheel|drag/i)
         await deck.getByRole("button", { name: "Exit fullscreen", exact: true }).tap()
         await expect(page.getByRole("dialog")).toHaveCount(0)
+        await expect(help).toBeVisible()
+        await expect(help).toHaveText(inlineHelp)
       })
     }
   })

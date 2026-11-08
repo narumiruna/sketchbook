@@ -272,12 +272,10 @@ export function Diagram({ source, blockId, slideId }: Props) {
   const controller = useRef<ReturnType<typeof createDiagramView> | null>(null)
   const generation = useRef(0)
   const sourceId = useId()
-  const controlsId = useId()
   const helpId = useId()
-  const disclosure = useRef<HTMLButtonElement>(null)
-  const secondary = useRef<HTMLFieldSetElement>(null)
+  const controls = useRef<HTMLFieldSetElement>(null)
+  const sourceToggle = useRef<HTMLButtonElement>(null)
   const coarsePointer = useCoarsePointer()
-  const [moreControls, setMoreControls] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
   const [view, setView] = useState({ scale: 1, minScale: 0.25, ready: false, cropped: false })
   const [showSource, setShowSource] = useState(false)
@@ -293,13 +291,15 @@ export function Diagram({ source, blockId, slideId }: Props) {
     }
   }, [])
 
-  // Restore focus and hide stale controls before the browser paints a new source.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: A new source starts with the primary controls and diagram visible.
+  // Keep keyboard focus in the toolbar while a new source disables camera controls.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A new source starts with the diagram visible.
   useLayoutEffect(() => {
-    if (secondary.current?.contains(document.activeElement)) {
-      disclosure.current?.focus({ preventScroll: true })
+    if (
+      controls.current?.contains(document.activeElement) &&
+      document.activeElement?.matches("button:disabled")
+    ) {
+      sourceToggle.current?.focus({ preventScroll: true })
     }
-    setMoreControls(false)
     setShowSource(false)
   }, [source])
 
@@ -344,7 +344,7 @@ export function Diagram({ source, blockId, slideId }: Props) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: Refresh after visibility or fullscreen geometry changes.
   useEffect(() => {
     controller.current?.refresh()
-  }, [showSource, moreControls, fullscreen.mode])
+  }, [showSource, fullscreen.mode])
 
   const active = result?.source === source ? result : null
   const error = active && "error" in active ? active.error : null
@@ -354,7 +354,7 @@ export function Diagram({ source, blockId, slideId }: Props) {
   const help = coarsePointer
     ? expanded
       ? "Use the controls to zoom. Exit fullscreen to scroll the article."
-      : "Open More controls to zoom. Swipe to scroll the article."
+      : "Use the controls to zoom. Swipe to scroll the article."
     : "Drag with a mouse or pen to pan. Use Ctrl or Command + wheel to zoom. With the diagram focused, use plus or minus to zoom and zero to fit."
   return (
     // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-modal is set only when the frame has the dialog role.
@@ -367,7 +367,7 @@ export function Diagram({ source, blockId, slideId }: Props) {
       aria-modal={fullscreen.mode === "fallback" ? true : undefined}
       tabIndex={fullscreen.mode === "fallback" ? -1 : undefined}
     >
-      <fieldset className="diagram-controls" aria-label="Diagram controls">
+      <fieldset ref={controls} className="diagram-controls" aria-label="Diagram controls">
         <DiagramControl
           label="Fit to screen"
           icon="fit"
@@ -380,23 +380,6 @@ export function Diagram({ source, blockId, slideId }: Props) {
           disabled={fullscreen.pending}
           onClick={fullscreen.toggle}
         />
-        <DiagramControl
-          ref={disclosure}
-          label="More controls"
-          icon="more"
-          text="More controls"
-          aria-expanded={moreControls}
-          aria-controls={controlsId}
-          onClick={() => setMoreControls((visible) => !visible)}
-        />
-      </fieldset>
-      <fieldset
-        ref={secondary}
-        id={controlsId}
-        className="diagram-secondary-controls"
-        aria-label="More diagram controls"
-        hidden={!moreControls}
-      >
         <DiagramControl
           label="Zoom out"
           icon="minus"
@@ -419,6 +402,7 @@ export function Diagram({ source, blockId, slideId }: Props) {
           onClick={() => controller.current?.reset()}
         />
         <DiagramControl
+          ref={sourceToggle}
           label={showSource ? "Show diagram" : "Show source"}
           icon={showSource ? "diagram" : "source"}
           aria-controls={sourceId}
