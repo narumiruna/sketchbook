@@ -151,7 +151,7 @@ Keep saved, rendered, readable, content-correct, and human acceptance evidence s
 
 The user or documentation reviewer owns subjective visual and comprehension acceptance after agent checks pass.
 Inspect the complete articles and every slide at both captured widths, then record acceptance or remaining problems with meaning, reading comfort, and control discovery.
-The physical-device owner checks scrolling, disclosure access, and fullscreen on a real device after browser touch emulation passes.
+The physical-device owner checks scrolling, direct toolbar access, and fullscreen on a real device after browser touch emulation passes.
 Expected behavior is contained content and supported control-based zoom, not touch panning or pinch zoom.
 Native-device behavior, user acceptance, automatic skill discovery, and broader model reliability remain unverified until their owners check them.
 Do not claim release readiness from the agent evidence or perform release operations without separate authorization.
@@ -169,8 +169,10 @@ Use `sketchbook_write` to save each bundled asset, then `sketchbook_open` to obt
   - [ ] Scroll long fenced code to its right edge; default captures do not show every column. Confirm the complete code remains reachable on the target input device.
 - [ ] Confirm Markdown emphasis renders without exposing literal delimiters.
 - [ ] Change slides by visible bottom Previous/Next buttons, labelled position dots, and Left/Right keys while a deck has focus.
-- [ ] Confirm the stable chapter title, current slide title, compact toolbar, content-sized bounded graph, and nearby explanation are comfortable to read.
-- [ ] Confirm More controls starts closed, opens by keyboard, and exposes zoom, Reset, source view, and accurate input help without hiding the primary Fit/Fullscreen controls.
+- [ ] Confirm the stable chapter title, current slide title, toolbar, content-sized bounded graph, and nearby explanation are comfortable to read.
+- [ ] Confirm Fit, Fullscreen, zoom, Reset, source view, and input help are visible without opening a panel.
+  - [ ] Confirm enabled controls are keyboard-accessible and the toolbar wraps without page overflow on narrow screens or with enlarged text.
+  - [ ] Confirm a live source update moves focus from a temporarily disabled camera control to Show source without taking focus from outside the toolbar.
 - [ ] Compare initial Fit with Reset zoom; confirm large graphs remain accessible through zoom and mouse/pen dragging.
 - [ ] Check native browser fullscreen, in-page fallback, Escape, and focus restoration on the target browser.
 - [ ] Check document scrolling and pointer behavior on any required physical touch devices; pinch zoom is not implemented.

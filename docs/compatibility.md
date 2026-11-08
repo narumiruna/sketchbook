@@ -167,7 +167,8 @@ The Viewer places graph and prose side by side when their 34rem/20rem flex bases
 They wrap into one reading column when space is insufficient, including enlarged root text.
 At the default 16px root size, the combined bases are 864px; they scale with the font instead of relying on a fixed viewport breakpoint.
 Fit still does not enlarge native SVGs, and inline height still follows SVG geometry within its bounds.
-The default toolbar contains Fit, Fullscreen, and More controls; zoom, Reset, source view, and input help are in the inline disclosure.
+The measurements in this reading-layout update used the former compact toolbar: Fit, Fullscreen, and More controls, with zoom, Reset, source view, and input help in an inline disclosure.
+The direct-toolbar restoration described below supersedes that control layout.
 Footer Previous/Next labels, count, and position dots remain available, including a 20-slide case.
 
 Controlled before/after checks use identical `readingFixture()` content against baseline `348c400`:
@@ -196,6 +197,33 @@ The fresh Viewer authoring trial also needed a narrower request view after its f
 These corrections are evidence that render success alone is insufficient, not evidence that future model outputs cannot fail.
 The source-backed Viewer and unrelated package-receipt trials, their saved IDs/revisions, limits, and human handoff are recorded in [acceptance](acceptance.md#generation-and-reading-quality-handoff).
 The existing user walkthrough was not rewritten.
+
+## Direct diagram controls
+
+The toolbar now shows Fit, Fullscreen, Zoom out, current zoom, Zoom in, Reset, and source view directly.
+Input help is always visible, and there is no More controls disclosure.
+Enabled buttons remain in keyboard order when the source changes or fullscreen is used.
+
+Controlled captures on 2026-11-08 compare the former compact toolbar with the restored controls using identical `readingFixture()` content:
+
+| Viewport                | First paragraph before / after | Toolbar height before / after |
+| ----------------------- | ------------------------------ | ----------------------------- |
+| 1440x1000 and 1280x960  | 109.56px / 109.56px            | 64.19px / 119.52px            |
+| 390x844, fine pointer   | 577.02px / 650.42px            | 56.19px / 129.59px            |
+| 390x844, coarse pointer | 577.02px / 609.48px            | 56.19px / 88.66px             |
+
+The restored controls and help intentionally increase toolbar height. The earlier mobile paragraph-offset improvement is historical, not a target for the restored toolbar.
+Historical comparison tests account for this toolbar-height change while retaining authored-content, heading, frame, and font checks. Separate padding and row-gap assertions guard toolbar spacing.
+Graph labels remain unchanged at 15.98px for this compact fixture; all 12 captured compact/wide/tall views remain contained.
+Before/after evidence is under `test-results/reading-layout/controls-before/` and `controls-after/`.
+Agent review inspected the desktop and 390px compact views, including coarse-pointer help and toolbar wrapping with 20px root text. Physical-device behavior and human acceptance remain unverified.
+
+Validation passed on Node.js 26.11.1 with local Chromium:
+
+- Static checks, 193 unit tests, and the production build passed.
+  - Unit tests use a canonical `TMPDIR` path on macOS; the default `/var` alias otherwise causes three unrelated path-equality failures against `/private/var`.
+- All 63 browser tests passed, including direct keyboard access, live-source focus recovery, independent decks, native/fallback fullscreen, touch scrolling, and enlarged root text at 390px.
+- The browser suite retains complete-article and per-slide evidence under `test-results/browser/`.
 
 ## Fixture coverage
 

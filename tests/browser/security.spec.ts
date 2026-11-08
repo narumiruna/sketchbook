@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test"
-import { documentFixture, getDeck, openDiagramControls, rendered, save } from "./helpers.js"
+import { documentFixture, getDeck, rendered, save } from "./helpers.js"
 
 test("Markdown and KaTeX cannot run HTML, load images, or create unsafe links", async ({
   page,
@@ -61,12 +61,17 @@ test("Mermaid and formula errors stay local, include IDs and source, and recover
   const deck = page.locator('[data-block-id="first"]')
   await expect(deck.getByRole("alert")).toContainText("Block first, slide overview")
   await expect(deck.locator("pre code")).toHaveText(first.slides[0].mermaid)
-  await expect(deck.getByRole("button", { name: "More controls" })).toHaveAttribute(
-    "aria-expanded",
-    "false",
-  )
-  await expect(deck.locator(".diagram-secondary-controls")).toBeHidden()
-  await openDiagramControls(deck)
+  for (const name of [
+    "Fit to screen",
+    "Fullscreen",
+    "Zoom out",
+    "Zoom in",
+    "Reset zoom",
+    "Show source",
+  ])
+    await expect(
+      deck.locator(".diagram-controls").getByRole("button", { name, exact: true }),
+    ).toBeVisible()
   await expect(deck.getByRole("button", { name: "Fit to screen" })).toBeDisabled()
   for (const name of ["Zoom out", "Zoom in", "Reset zoom"])
     await expect(deck.getByRole("button", { name, exact: true })).toBeDisabled()
@@ -85,10 +90,8 @@ test("Mermaid and formula errors stay local, include IDs and source, and recover
   await expect(page.getByText("Last text stays readable.")).toBeVisible()
   await deck.getByRole("button", { name: "Next slide" }).click()
   await rendered(deck)
-  await expect(deck.getByRole("button", { name: "More controls" })).toHaveAttribute(
-    "aria-expanded",
-    "false",
-  )
+  await expect(deck.getByRole("button", { name: "Show source", exact: true })).toBeVisible()
+  await expect(deck.getByRole("button", { name: "Zoom in", exact: true })).toBeEnabled()
   await expect(deck.locator(".diagram-source")).toHaveCount(0)
   await expect(deck.getByRole("alert")).toContainText("Block first, slide detail: Formula error")
   await expect(deck.locator(".render-error code")).toContainText("\\frac{a}{")

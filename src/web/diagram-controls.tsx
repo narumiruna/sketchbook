@@ -1,15 +1,6 @@
 import { type ComponentProps, useId } from "react"
 
-type Icon =
-  | "minus"
-  | "plus"
-  | "fit"
-  | "reset"
-  | "expand"
-  | "collapse"
-  | "source"
-  | "diagram"
-  | "more"
+type Icon = "minus" | "plus" | "fit" | "reset" | "expand" | "collapse" | "source" | "diagram"
 
 const paths: Record<Icon, string> = {
   minus: "M5 12h14",
@@ -19,23 +10,21 @@ const paths: Record<Icon, string> = {
   expand: "M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5",
   collapse: "M3 8h5V3m8 0v5h5M8 21v-5H3m13 5v-5h5",
   source: "m8 6-6 6 6 6m8-12 6 6-6 6M14 4l-4 16",
-  more: "M4 11v2m8-2v2m8-2v2",
   diagram: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0",
 }
 
 export function DiagramControl({
   label,
   icon,
-  text,
   ...props
-}: { label: string; icon: Icon; text?: string } & Omit<ComponentProps<"button">, "children">) {
+}: { label: string; icon: Icon } & Omit<ComponentProps<"button">, "children">) {
   const tooltipId = useId()
   return (
     <span className="diagram-control-wrap">
       <button
         {...props}
         type="button"
-        className={`diagram-control${text ? " diagram-control-labelled" : ""}`}
+        className="diagram-control"
         aria-label={label}
         aria-describedby={tooltipId}
       >
@@ -53,7 +42,6 @@ export function DiagramControl({
         >
           <path d={paths[icon]} />
         </svg>
-        {text && <span>{text}</span>}
       </button>
       <span id={tooltipId} className="diagram-tooltip" role="tooltip">
         {label}

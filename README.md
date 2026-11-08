@@ -133,12 +133,11 @@ Stop the Pi session to close the listener and invalidate its capability; no docu
 
 ## Diagram controls
 
-The primary toolbar provides Fit to screen, Fullscreen, and More controls.
-More controls opens an inline panel with Zoom out, current zoom, Zoom in, Reset zoom, Show source, and input-specific help.
-The panel starts closed for each new diagram source; camera changes, source view, and fullscreen retain its current state.
+The toolbar directly shows Fit to screen, Fullscreen, Zoom out, current zoom, Zoom in, Reset zoom, and Show source.
+Input-specific help remains visible below the buttons; no More controls panel is used.
+Enabled controls are available in the keyboard tab order.
 Hover or focus an icon button to show its label.
-Show source displays inert text, not executable HTML.
-Secondary controls remain outside the keyboard tab order while closed.
+Show source displays inert text, not executable HTML. A new diagram source restores the diagram view.
 
 - Fit shows the complete graph; Reset restores 100% native size.
 - Zoom is limited to 400%; the lower limit is 25% or the fitted scale when smaller.

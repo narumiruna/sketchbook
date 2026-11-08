@@ -45,10 +45,19 @@ for (const fixture of fixtures) {
         if (block.type !== "diagram-deck") continue
         const deck = page.locator(`.deck[data-block-id="${block.id}"]`)
         await rendered(deck)
-        await expect(deck.getByRole("button", { name: "More controls" })).toHaveAttribute(
-          "aria-expanded",
-          "false",
-        )
+        const toolbar = deck.locator("fieldset.diagram-controls")
+        await expect(toolbar).toHaveCount(1)
+        for (const name of [
+          "Fit to screen",
+          "Fullscreen",
+          "Zoom out",
+          "Zoom in",
+          "Reset zoom",
+          "Show source",
+        ])
+          await expect(toolbar.getByRole("button", { name, exact: true })).toBeVisible()
+        await expect(toolbar.getByRole("status", { name: "Current zoom" })).toBeVisible()
+        await expect(toolbar.locator(".diagram-pan-hint")).toBeVisible()
         initial.push({
           blockId: block.id,
           slideId: block.slides[0].id,

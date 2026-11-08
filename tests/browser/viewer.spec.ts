@@ -1,15 +1,7 @@
 import { readdir, readFile, writeFile } from "node:fs/promises"
 import { expect, test } from "@playwright/test"
 import { paginationFixture } from "../fixtures/reading-layout.js"
-import {
-  asset,
-  documentFixture,
-  getDeck,
-  openDiagramControls,
-  rendered,
-  save,
-  selectSlide,
-} from "./helpers.js"
+import { asset, documentFixture, getDeck, rendered, save, selectSlide } from "./helpers.js"
 
 test("bundled Markdown, math, code, Chinese subgraphs, sanitized styles and native Rough.js paths coexist", async ({
   page,
@@ -190,7 +182,6 @@ test("decks switch independently with focused keyboard controls and preserve scr
   await page.keyboard.press("ArrowRight")
   await expect(second).toHaveAttribute("data-slide-id", "detail")
   await expect(first).toHaveAttribute("data-slide-id", "end")
-  await openDiagramControls(second)
   await second.getByRole("button", { name: "Zoom in", exact: true }).focus()
   await page.keyboard.press("ArrowLeft")
   await expect(second).toHaveAttribute("data-slide-id", "overview")
@@ -619,7 +610,6 @@ for (const name of ["architecture-walkthrough", "process-walkthrough"]) {
         expect(await deck.locator("svg .rough-node path").count()).toBeGreaterThan(0)
         const viewport = await deck.locator(".diagram-viewport").boundingBox()
         expect(viewport?.height).toBeLessThanOrEqual(576)
-        await openDiagramControls(deck)
         await deck.getByRole("button", { name: "Reset zoom", exact: true }).click()
         const textScale = await deck
           .locator(".diagram-svg svg text")
