@@ -5,55 +5,61 @@
     {
       "id": "architecture-intro",
       "type": "markdown",
-      "markdown": "## Scope and terms\n\n**資料範圍**：此例是教學模型，不是已查證的服務實作。\nClient sends a complete document to API, the Document API that validates requests.\nStore is the Document Store that owns persistence inside the service.\nA revision is the stored version number used to reject stale replacements."
+      "markdown": "## Scope and terms\n\n**資料範圍**：此例是教學模型，不是已查證的服務實作。\nClient sends a complete document to API, the Document API.\nStore is the Document Store that persists accepted replacements inside the service.\nA revision is the stored version number used to reject stale replacements.\nWhich boundaries can reject a replacement before a stored file changes?"
     },
     {
       "id": "architecture-deck",
       "type": "diagram-deck",
-      "title": "Request path",
+      "title": "Save boundaries",
       "slides": [
         {
           "id": "architecture-overview",
-          "title": "Service boundary",
-          "mermaid": "flowchart TD\n  Client[\"Client\"] --> Api[\"API\"]\n  subgraph Backend[\"Service 服務\"]\n    Api --> Store[\"Store\"]\n  end",
-          "explanationMarkdown": "Client stays outside the service boundary.\nAPI accepts the request, while Store owns the persistent document."
+          "title": "Component responsibilities",
+          "mermaid": "flowchart TD\n  Client[\"Client\"] -->|calls| Api[\"API\"]\n  subgraph Backend[\"Service 服務\"]\n    Api -->|delegates| Store[\"Store\"]\n  end",
+          "explanationMarkdown": "These arrows show component relationships, not execution order.\nClient calls API; API delegates persistence to Store.\nThe rejection boundaries are input validation in API and the revision check in Store."
         },
         {
           "id": "architecture-api",
-          "title": "Validation and handoff",
-          "mermaid": "flowchart TD\n  Client[\"Client\"] --> Api[\"API\"]\n  subgraph ApiDetail[\"API internals\"]\n    Api --> Validator[\"Validator\"]\n    Validator --> Handler[\"Handler\"]\n  end\n  Handler --> Store[\"Store\"]",
-          "explanationMarkdown": "Inside API, Validator checks the complete document before any storage operation.\nHandler passes an accepted request to Store; invalid input stops without a write."
+          "title": "Validation gates the handoff",
+          "mermaid": "flowchart TD\n  subgraph ApiDetail[\"API checks\"]\n    Api[\"API\"] --> Valid{\"Valid?\"}\n  end\n  Valid -->|Yes| Store[\"Store\"]\n  Valid -->|No| Invalid[\"No write\"]",
+          "explanationMarkdown": "API receives the complete document from Client and checks schema and content policy at Valid?.\nThe Yes branch sends the accepted replacement through Handler to Store.\nThe No branch returns a validation error to Client: invalid input stops without a write and cannot reach Store."
         },
         {
           "id": "architecture-storage",
-          "title": "Serialized commit",
-          "mermaid": "flowchart TD\n  Api[\"API\"] --> Store[\"Store\"]\n  subgraph StorageDetail[\"Store internals\"]\n    Store --> Queue[\"Queue\"]\n    Queue --> Revision[\"Revision check\"]\n    Revision --> Temp[\"Temp JSON\"]\n    Temp --> Commit[\"Rename\"]\n    Commit --> Files[\"Files\"]\n  end",
-          "explanationMarkdown": "Store serializes writes through Queue.\nRevision check rejects a stale replacement; the path shown continues only after a match.\nTemp JSON holds the new content until Rename replaces the stored file atomically.\nFiles then contains the committed version.\n\n```typescript\nif (expectedRevision !== currentRevision) {\n  throw new Error(\"Revision conflict\");\n}\n```"
+          "title": "Serialized revision check",
+          "mermaid": "flowchart TD\n  Queue[\"Queue\"] --> Current[\"Read rev\"]\n  Queue -->|expected rev| Compare{\"Match?\"}\n  Current -->|current rev| Compare\n  Compare -->|Yes| Temp[\"Temp JSON\"]\n  Compare -->|No| Conflict[\"No write\"]",
+          "explanationMarkdown": "Store serializes replacements through Queue, then Read rev reads the stored revision inside that operation.\nQueue supplies the request's expected revision to Match?; Read rev supplies the current revision.\nNo rejects a stale replacement without creating Temp JSON, calling Rename, or incrementing the revision.\nOnly after a match does Temp JSON hold the complete replacement for atomic commit.\nAnother replacement cannot enter between Read rev, Match?, and Rename; they remain one serialized Store operation.\n\n```typescript\nif (expectedRevision !== currentRevision) {\n  throw new Error(\"Revision conflict\");\n}\n```"
+        },
+        {
+          "id": "architecture-commit",
+          "title": "Atomic file replacement",
+          "mermaid": "flowchart TD\n  Temp[\"Temp JSON\"] --> Commit[\"Rename\"]\n  Commit --> Files[\"Files\"]",
+          "explanationMarkdown": "Temp JSON contains the accepted replacement from Match?.\nRename atomically replaces the stored file in Files within the same serialized Store operation.\nWriting Temp JSON alone does not replace the stored file; Rename is the commit boundary.\nA successful save increments the revision and confirms persistence, not rendering.\nFor expected revision $r_e$ and stored revision $r_s$, a successful replacement obeys:\n\n$$\nr_e = r_s,\\quad r_{next} = r_s + 1\n$$"
         }
       ]
     },
     {
       "id": "architecture-context",
       "type": "markdown",
-      "markdown": "## Latency model\n\nFor an accepted request, $T = T_{api} + T_{store}$.\n$T_{api}$ covers validation and handling, while $T_{store}$ covers queueing and writing:\n\n$$\nT_{store} = T_{queue} + T_{write}\n$$\n\nThese terms describe a simple model, not measured performance.\nThe public interface below separates the caller's contract from the service's private write path."
+      "markdown": "## Opening a saved document\n\nSaving returns a revision, not a rendered article.\nClient can request a viewer URL from Link API and pass the returned URL to Browser.\nLink API creates the URL but does not launch Browser or fetch the page.\nBrowser later requests the page from Viewer.\nThis caller handoff is separate from Store's private commit steps."
     },
     {
       "id": "architecture-boundary",
       "type": "diagram-deck",
-      "title": "Public interface",
+      "title": "Viewer handoff",
       "slides": [
         {
           "id": "architecture-boundary-slide",
-          "title": "Caller contract",
-          "mermaid": "flowchart LR\n  Client[\"Client\"] --> Api[\"API\"]",
-          "explanationMarkdown": "Client submits the complete document and expected revision to API.\nThe response reports the saved revision without exposing Store's internal write steps."
+          "title": "A link is not a request",
+          "mermaid": "flowchart TD\n  Client[\"Client\"] -->|1 ask| Link[\"Link API\"]\n  Link -->|2 URL| Client\n  Client -->|3 open URL| Browser[\"Browser\"]\n  Browser -->|4 GET| Viewer[\"Viewer\"]",
+          "explanationMarkdown": "Link API returns the URL to Client, not Browser.\nClient then supplies it to Browser; only Browser sends the page request to Viewer.\nA returned URL is not evidence that a browser opened or that the article rendered."
         }
       ]
     },
     {
       "id": "architecture-conclusion",
       "type": "markdown",
-      "markdown": "## Conclusion\n\nValidation protects the input boundary; serialized revision checks and atomic replacement protect the write boundary.\nA conflict requires a fresh read, while a successful save confirms persistence, not rendering.\nVerify this teaching model against the implementation before using it as an operational guide."
+      "markdown": "## Conclusion\n\nValidation protects the input boundary; serialized revision checks and atomic replacement protect the write boundary.\nA conflict requires a fresh read, while a successful save confirms persistence, not rendering.\nThe URL response goes to Client; Browser is responsible for the later request.\nVerify this teaching model against the implementation before using it as an operational guide."
     }
   ]
 }

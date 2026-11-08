@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises"
-import { expect, type Locator, type Page, test } from "@playwright/test"
+import { expect, test } from "@playwright/test"
 import { type SketchbookDocument, validateDocument } from "../../src/document.js"
-import { rendered, save, selectSlide } from "./helpers.js"
+import { captureArticle, readingMetrics, rendered, save, selectSlide } from "./helpers.js"
 
 const fixtures = [
   {
@@ -19,85 +19,9 @@ const fixtures = [
     ),
   },
   { name: "agent-substrate", path: new URL("../fixtures/agent-substrate.json", import.meta.url) },
+  { name: "viewer-handoff", path: new URL("../fixtures/viewer-handoff.json", import.meta.url) },
+  { name: "receipt-check", path: new URL("../fixtures/receipt-check.json", import.meta.url) },
 ]
-
-async function diagramMetrics(deck: Locator) {
-  return deck.evaluate((element) => {
-    const frame = element.querySelector(".diagram-viewport")?.getBoundingClientRect()
-    const svg = element.querySelector<SVGSVGElement>(".diagram-svg > svg")
-    if (!frame || !svg) throw new Error("Missing rendered diagram")
-    const bounds = svg.getBoundingClientRect()
-    const fonts = [...svg.querySelectorAll("text")]
-      .filter((label) => label.textContent?.trim())
-      .map((label) => {
-        const matrix = label.getScreenCTM()
-        return (
-          Number.parseFloat(getComputedStyle(label).fontSize) *
-          Math.hypot(matrix?.a ?? 0, matrix?.b ?? 0)
-        )
-      })
-    return {
-      labels: fonts.length,
-      minFontPx: Math.min(...fonts),
-      maxFontPx: Math.max(...fonts),
-      frameHeight: frame.height,
-      graphHeight: bounds.height,
-      frameWidth: frame.width,
-      graphWidth: bounds.width,
-    }
-  })
-}
-
-async function captureArticle(page: Page, path: string) {
-  await page.evaluate(async () => {
-    window.scrollTo(0, 0)
-    await document.fonts.ready
-    await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-    )
-  })
-  const regions = await page.locator(".diagram-viewport").evaluateAll((frames) =>
-    frames.map((frame) => {
-      const bounds = frame.getBoundingClientRect()
-      return {
-        x: Math.floor(bounds.left + scrollX + 1),
-        y: Math.floor(bounds.top + scrollY + 1),
-        width: Math.floor(bounds.width - 2),
-        height: Math.floor(bounds.height - 2),
-      }
-    }),
-  )
-  const capture = await page.screenshot({
-    path,
-    fullPage: true,
-    scale: "css",
-    animations: "disabled",
-  })
-  const painted = await page.evaluate(
-    async ({ base64, regions }) => {
-      const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0))
-      const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }))
-      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
-      const context = canvas.getContext("2d")
-      if (!context) throw new Error("Cannot inspect article capture")
-      context.drawImage(bitmap, 0, 0)
-      const counts = regions.map(({ x, y, width, height }) => {
-        const pixels = context.getImageData(x, y, width, height).data
-        let count = 0
-        for (let index = 0; index < pixels.length; index += 4) {
-          if (Math.min(pixels[index], pixels[index + 1], pixels[index + 2]) < 240) count++
-        }
-        return count
-      })
-      bitmap.close()
-      return counts
-    },
-    { base64: capture.toString("base64"), regions },
-  )
-  for (const count of painted) {
-    expect(count, "Every diagram must also paint in the complete-page capture").toBeGreaterThan(100)
-  }
-}
 
 for (const fixture of fixtures) {
   for (const width of [390, 1440]) {
@@ -111,14 +35,25 @@ for (const fixture of fixtures) {
       )
       const errors: string[] = []
       page.on("pageerror", (error) => errors.push(error.message))
-      await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 })
+      const height = width === 390 ? 844 : 1000
+      await page.setViewportSize({ width, height })
       await page.goto((await save(request, content)).url)
       await expect(page.locator("main h1")).toHaveCount(1)
       await expect(page.locator("main h1")).toHaveText(content.title)
+      const initial = []
       for (const block of content.blocks) {
-        if (block.type === "diagram-deck") {
-          await rendered(page.locator(`.deck[data-block-id="${block.id}"]`))
-        }
+        if (block.type !== "diagram-deck") continue
+        const deck = page.locator(`.deck[data-block-id="${block.id}"]`)
+        await rendered(deck)
+        await expect(deck.getByRole("button", { name: "More controls" })).toHaveAttribute(
+          "aria-expanded",
+          "false",
+        )
+        initial.push({
+          blockId: block.id,
+          slideId: block.slides[0].id,
+          ...(await readingMetrics(deck)),
+        })
       }
       await captureArticle(page, testInfo.outputPath("article-initial.png"))
       const chapters = await page.locator("main h2").allTextContents()
@@ -140,22 +75,53 @@ for (const fixture of fixtures) {
           await expect(page.locator("main h1")).toHaveCount(1)
           await expect(page.getByRole("alert")).toHaveCount(0)
           await expect
-            .poll(async () => (await diagramMetrics(deck)).minFontPx)
+            .poll(async () => (await readingMetrics(deck)).minFontPx)
             .toBeGreaterThanOrEqual(12)
-          const metrics = await diagramMetrics(deck)
+          const metrics = await readingMetrics(deck)
           expect(metrics.labels).toBeGreaterThan(0)
           expect(metrics.graphWidth).toBeLessThanOrEqual(metrics.frameWidth + 1)
           expect(metrics.frameHeight - metrics.graphHeight).toBeLessThanOrEqual(64)
-          const explanationFont = await deck
-            .locator(".slide-explanation")
-            .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize))
-          expect(explanationFont).toBeGreaterThanOrEqual(16)
+          expect(metrics.bodyFontPx).toBeGreaterThanOrEqual(16)
+          expect(metrics.overflow).toBe(false)
+          expect(metrics.heading).not.toBeNull()
+          expect(metrics.toolbar).not.toBeNull()
+          expect(metrics.explanation).not.toBeNull()
+          if (block.slides.length > 1) expect(metrics.pagination).not.toBeNull()
+          await expect(deck.locator(".diagram-svg > svg")).toHaveCount(1)
+          await expect(deck.locator(".slide-explanation")).toHaveCount(1)
           const text = await page.locator(".markdown p, .markdown li").allTextContents()
           expect(text.filter((paragraph) => paragraph.includes("**"))).toEqual([])
-          const screenshot = testInfo.outputPath(`${slide.id}.png`)
+          const screenshot = testInfo.outputPath(`${block.id}-${slide.id}.png`)
           await deck.screenshot({ path: screenshot })
-          await testInfo.attach(slide.id, { path: screenshot, contentType: "image/png" })
-          evidence.push({ blockId: block.id, slideId: slide.id, ...metrics })
+          await testInfo.attach(`${block.id}/${slide.id}`, {
+            path: screenshot,
+            contentType: "image/png",
+          })
+          const codeScrolling = []
+          for (const [index, pre] of (await page.locator("main .markdown pre").all()).entries()) {
+            const original = await pre.textContent()
+            const overflow = await pre.evaluate((node) => node.scrollWidth - node.clientWidth)
+            if (overflow > 1) {
+              await pre.evaluate((node) => {
+                node.scrollLeft = node.scrollWidth
+              })
+              await expect
+                .poll(() => pre.evaluate((node) => node.scrollLeft))
+                .toBeGreaterThanOrEqual(overflow - 1)
+              const codePath = testInfo.outputPath(`${block.id}-${slide.id}-code-${index}-end.png`)
+              await pre.screenshot({ path: codePath })
+              await testInfo.attach(`${slide.id}/code-${index}-end`, {
+                path: codePath,
+                contentType: "image/png",
+              })
+              await pre.evaluate((node) => {
+                node.scrollLeft = 0
+              })
+            }
+            await expect(pre).toHaveText(original ?? "")
+            codeScrolling.push({ index, overflow, endReachable: true })
+          }
+          evidence.push({ blockId: block.id, slideId: slide.id, ...metrics, codeScrolling })
         }
       }
       expect(errors).toEqual([])
@@ -171,7 +137,20 @@ for (const fixture of fixtures) {
       const path = testInfo.outputPath("article-review.json")
       await writeFile(
         path,
-        JSON.stringify({ fixture: fixture.name, width, chapters, outline, evidence }, null, 2),
+        JSON.stringify(
+          {
+            fixture: fixture.name,
+            width,
+            height,
+            touch: false,
+            chapters,
+            outline,
+            initial,
+            evidence,
+          },
+          null,
+          2,
+        ),
       )
       await testInfo.attach("article-review", { path, contentType: "application/json" })
     })

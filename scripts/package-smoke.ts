@@ -14,6 +14,7 @@ import {
 } from "@earendil-works/pi-coding-agent"
 import { chromium } from "@playwright/test"
 import { Check } from "typebox/value"
+import type { SketchbookDocument } from "../src/document.js"
 
 const execute = promisify(execFile)
 const root = resolve(import.meta.dirname, "..")
@@ -96,7 +97,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
       assert.ok(tool.outputSchema && Check(tool.outputSchema, result.structuredContent))
       return result.structuredContent as Record<string, unknown>
     }
-    const document = JSON.parse(
+    const document: SketchbookDocument = JSON.parse(
       await readFile(
         join(
           packagePath,
@@ -143,7 +144,20 @@ async function smoke(packagePath: string, label: string): Promise<void> {
       await page.locator(".diagram-svg svg").first().waitFor({ timeout: 30_000 })
       assert.equal(await page.title(), `${document.title} — Pi Sketchbook`)
       assert.equal(await page.locator(".brand").textContent(), "Pi Sketchbook")
-      assert.ok((await page.locator(".katex").count()) > 0)
+      // Math belongs to its explanatory slide, not necessarily the first view.
+      const mathDeck = document.blocks.find(
+        (block) =>
+          block.type === "diagram-deck" &&
+          block.slides.some((slide) => slide.explanationMarkdown.includes("$")),
+      )
+      assert.ok(mathDeck?.type === "diagram-deck", "Mixed-format fixture must include a math slide")
+      const mathSlide = mathDeck.slides.find((slide) => slide.explanationMarkdown.includes("$"))
+      assert.ok(mathSlide)
+      const deck = page.locator(`[data-block-id="${mathDeck.id}"]`)
+      if (mathDeck.slides.length > 1)
+        await deck.locator(`button[data-slide-id="${mathSlide.id}"]`).click()
+      await deck.locator(".katex").first().waitFor({ timeout: 30_000 })
+      assert.ok((await deck.locator(".katex").count()) > 0)
       assert.deepEqual(external, [], "Packed viewer must work without external requests")
       await page.screenshot({
         path: join(root, "test-results", `package-${label}.png`),

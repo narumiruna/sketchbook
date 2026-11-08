@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "title": "Package receipt decision",
+  "blocks": [
+    {
+      "id": "scope",
+      "type": "markdown",
+      "markdown": "## Supplied process facts\n\nThis is a teaching model, not a claim about an operating warehouse.\n\nThe operator has an expected package ID and scans the received package ID. Matching IDs permit one receipt record. Different IDs put the package on hold without creating a receipt. A held package needs an operator correction and a new scan before the comparison runs again.\n\n**Question:** which evidence permits a receipt, and what happens when the IDs differ? Both IDs are inputs; the receipt is an output, not proof of delivery by a carrier."
+    },
+    {
+      "id": "decision",
+      "type": "diagram-deck",
+      "title": "When may a receipt be recorded?",
+      "slides": [
+        {
+          "id": "compare-ids",
+          "title": "Compare two inputs before changing records",
+          "mermaid": "flowchart TD\n Expected[\"Expected ID\"] --> Match{\"Match?\"}\n Scanned[\"Scanned ID\"] --> Match\n Match -->|yes| Record[\"Record receipt\"]\n Match -->|no| Hold[\"Hold; no record\"]",
+          "explanationMarkdown": "Expected ID and Scanned ID refer to the same package under the supplied process rules. A match permits the receipt write. A mismatch leaves receipt records unchanged and holds the package.\n\nHold is not a retry instruction. The operator must correct the cause and rescan; changing only the expected value to force a match is outside these rules. Duplicate scans and concurrent operators are omitted and need separate rules before this model could be used operationally."
+        }
+      ]
+    },
+    {
+      "id": "conclusion",
+      "type": "markdown",
+      "markdown": "## Result and limits\n\nThe comparison has two distinct outcomes: record a receipt after a match, or hold the package without a receipt after a mismatch.\n\nThe diagram makes the two inputs and the write boundary visible. It does not establish carrier delivery, payment, duplicate-scan handling, or acceptance of a real warehouse process."
+    }
+  ]
+}

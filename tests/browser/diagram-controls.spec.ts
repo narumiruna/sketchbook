@@ -1,5 +1,12 @@
 import { expect, type Locator, type Page, test } from "@playwright/test"
-import { documentFixture, getDeck, rendered, save, selectSlide } from "./helpers.js"
+import {
+  documentFixture,
+  getDeck,
+  openDiagramControls,
+  rendered,
+  save,
+  selectSlide,
+} from "./helpers.js"
 
 function wideSource() {
   return `flowchart LR\n${Array.from(
@@ -35,6 +42,140 @@ async function rejectFullscreen(page: Page) {
   })
 }
 
+for (const width of [390, 1280]) {
+  test(`disclosure starts collapsed, skips hidden controls, and supports Enter and Space at ${width}px`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width, height: 960 })
+    const content = documentFixture()
+    getDeck(content, "first").slides[0].mermaid = "flowchart LR\n A[Input] --> B[Output]"
+    await page.goto((await save(request, content)).url)
+    const deck = page.locator('[data-block-id="first"]')
+    await rendered(deck)
+    const primary = deck.locator(".diagram-controls")
+    const secondary = deck.locator("fieldset.diagram-secondary-controls")
+    const disclosure = control(deck, "More controls")
+    const viewport = deck.locator(".diagram-viewport")
+    await expect(primary.getByRole("button")).toHaveCount(3)
+    for (const name of ["Fit to screen", "Fullscreen", "More controls"])
+      await expect(primary.getByRole("button", { name, exact: true })).toBeVisible()
+    await expect(secondary).toHaveCount(1)
+    await expect(secondary).toBeHidden()
+    await expect(disclosure).toHaveAttribute("aria-expanded", "false")
+    const target = await disclosure.getAttribute("aria-controls")
+    expect(target).toBeTruthy()
+    await expect(secondary).toHaveAttribute("id", target ?? "")
+    await expect(page.locator(`[id="${target}"]`)).toHaveCount(1)
+    const otherDisclosure = page
+      .locator('[data-block-id="second"]')
+      .getByRole("button", { name: "More controls" })
+    expect(await otherDisclosure.getAttribute("aria-controls")).not.toBe(target)
+    for (const name of ["Zoom out", "Zoom in", "Reset zoom", "Show source"])
+      await expect(control(deck, name)).toHaveCount(0)
+    await expect(secondary.locator('output[aria-label="Current zoom"]')).toBeHidden()
+    const buttons = await primary.locator("button").evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const box = node.getBoundingClientRect()
+        return { y: box.y, width: box.width, height: box.height }
+      }),
+    )
+    expect(
+      Math.max(...buttons.map((box) => box.y)) - Math.min(...buttons.map((box) => box.y)),
+    ).toBeLessThanOrEqual(1)
+    for (const box of buttons) {
+      expect(box.width).toBeGreaterThanOrEqual(44)
+      expect(box.height).toBeGreaterThanOrEqual(44)
+    }
+    await disclosure.focus()
+    await page.keyboard.press("Tab")
+    await expect(viewport).toBeFocused()
+    await page.keyboard.press("Shift+Tab")
+    await expect(disclosure).toBeFocused()
+    await page.keyboard.press("Enter")
+    await expect(disclosure).toHaveAttribute("aria-expanded", "true")
+    await expect(disclosure).toBeFocused()
+    await expect(secondary).toBeVisible()
+    for (const name of ["Zoom out", "Zoom in", "Reset zoom", "Show source"])
+      await expect(secondary.getByRole("button", { name, exact: true })).toBeVisible()
+    await expect(secondary.getByRole("status", { name: "Current zoom" })).toBeVisible()
+    const help = secondary.locator(".diagram-pan-hint")
+    await expect(help).toBeVisible()
+    await expect(help).toContainText(/mouse or pen.*pan.*Ctrl or Command.*wheel/i)
+    await expect(viewport).toHaveAccessibleName("Interactive diagram")
+    await expect(viewport).toHaveAccessibleDescription(/mouse or pen.*pan.*Ctrl or Command.*wheel/i)
+    await page.keyboard.press("Tab")
+    await expect(control(deck, "Zoom out")).toBeFocused()
+    await page.keyboard.press("Shift+Tab")
+    await page.keyboard.press("Space")
+    await expect(disclosure).toHaveAttribute("aria-expanded", "false")
+    await expect(secondary).toBeHidden()
+    await page.keyboard.press("Tab")
+    await expect(viewport).toBeFocused()
+    await page.keyboard.press("Shift+Tab")
+    await page.keyboard.press("Space")
+    await expect(secondary).toBeVisible()
+  })
+}
+
+test("source changes reset the disclosure and source view without carrying the old camera", async ({
+  page,
+  request,
+}) => {
+  await page.goto((await save(request, documentFixture())).url)
+  const deck = page.locator('[data-block-id="first"]')
+  await rendered(deck)
+  await openDiagramControls(deck)
+  await control(deck, "Reset zoom").click()
+  await control(deck, "Zoom in").click()
+  await control(deck, "Show source").click()
+  await expect(control(deck, "Show diagram")).toHaveAttribute("aria-pressed", "true")
+  await expect(control(deck, "More controls")).toHaveAttribute("aria-expanded", "true")
+  await selectSlide(deck, "detail")
+  await rendered(deck)
+  await expect(control(deck, "More controls")).toHaveAttribute("aria-expanded", "false")
+  await expect(deck.locator(".diagram-secondary-controls")).toBeHidden()
+  await expect(deck.locator(".diagram-source")).toHaveCount(0)
+  await openDiagramControls(deck)
+  await expect(control(deck, "Show source")).toHaveAttribute("aria-pressed", "false")
+  await expect(zoom(deck)).not.toHaveText("125%")
+})
+
+test("a live source replacement restores hidden-control focus but does not steal outside focus", async ({
+  page,
+  request,
+}) => {
+  const content = documentFixture()
+  const fixture = await save(request, content)
+  await page.goto(fixture.url)
+  const deck = page.locator('[data-block-id="first"]')
+  await rendered(deck)
+  await openDiagramControls(deck)
+  await control(deck, "Reset zoom").focus()
+  getDeck(content, "first").slides[0].mermaid = "flowchart LR\n New[Updated input] --> Saved"
+  const updated = await save(request, content, fixture.stored)
+  // SVG line wrapping can split words into tspans without separator whitespace.
+  await expect(
+    deck.locator(".diagram-svg > svg .rough-node").filter({ hasText: /Updated\s*input/ }),
+  ).toHaveCount(1)
+  await rendered(deck)
+  await expect(control(deck, "More controls")).toHaveAttribute("aria-expanded", "false")
+  await expect(deck.locator(".diagram-secondary-controls")).toBeHidden()
+  await expect(control(deck, "More controls")).toBeFocused()
+  await page.keyboard.press("Tab")
+  await expect(deck.locator(".diagram-viewport")).toBeFocused()
+  await openDiagramControls(deck)
+  const other = page.locator('[data-block-id="second"]')
+  await other.focus()
+  getDeck(content, "first").slides[0].mermaid = "flowchart LR\n New[Second update] --> Saved"
+  await save(request, content, updated.stored)
+  await expect(
+    deck.locator(".diagram-svg > svg .rough-node").filter({ hasText: /Second\s*update/ }),
+  ).toHaveCount(1)
+  await expect(control(deck, "More controls")).toHaveAttribute("aria-expanded", "false")
+  await expect(other).toBeFocused()
+})
+
 test("fit shows the whole graph; Reset restores native labels and zoom respects bounds", async ({
   page,
   request,
@@ -44,6 +185,7 @@ test("fit shows the whole graph; Reset restores native labels and zoom respects 
   await page.goto((await save(request, content)).url)
   const deck = page.locator('[data-block-id="first"]')
   await rendered(deck)
+  await openDiagramControls(deck)
   const fitted = await percentage(deck)
   expect(fitted).toBeLessThan(100)
   expect(fitted).toBeGreaterThan(0)
@@ -84,6 +226,7 @@ test("resize refits a complete graph and preserves manual zoom until Fit is sele
   await page.goto((await save(request, content)).url)
   const deck = page.locator('[data-block-id="first"]')
   await rendered(deck)
+  await openDiagramControls(deck)
   const initial = await percentage(deck)
   await page.setViewportSize({ width: 640, height: 700 })
   await expect.poll(() => percentage(deck)).toBeLessThan(initial)
@@ -131,6 +274,7 @@ for (const width of [390, 1280]) {
     const frame = await viewport.boundingBox()
     expect(frame?.y).toBe((controls?.y ?? 0) + (controls?.height ?? 0))
     await expectGraphInsideViewport(deck)
+    await openDiagramControls(deck)
     await control(deck, "Reset zoom").click()
     await control(deck, "Zoom in").click()
     await expect(zoom(deck)).toHaveText("125%")
@@ -181,6 +325,7 @@ test("drag and modified wheel control the camera; normal wheel scrolls and sourc
   await page.goto((await save(request, content)).url)
   const deck = page.locator('[data-block-id="first"]')
   await rendered(deck)
+  await openDiagramControls(deck)
   await control(deck, "Reset zoom").click()
   const viewport = deck.locator(".diagram-viewport")
   const stage = deck.locator(".diagram-svg")
@@ -249,6 +394,7 @@ test("source remains inert text when a compromised response fails the rendering 
   const deck = page.locator('[data-block-id="first"]')
   await expect(deck.getByRole("alert")).toContainText("Block first, slide overview")
   await expect(deck.locator("pre code")).toHaveText(source)
+  await openDiagramControls(deck)
   await control(deck, "Show source").click()
   await expect(deck.locator("pre code")).toHaveCount(1)
   await expect(deck.locator("pre code")).toHaveText(source)
@@ -268,6 +414,7 @@ test("native fullscreen uses the same SVG and restores focus after browser exit"
   test.skip(!(await page.evaluate(() => document.fullscreenEnabled)), "Native API unavailable")
   const graphic = await deck.locator(".diagram-svg > svg").elementHandle()
   const inlineHeight = await deck.locator(".diagram-viewport").evaluate((node) => node.clientHeight)
+  await openDiagramControls(deck)
   await control(deck, "Reset zoom").click()
   await control(deck, "Zoom in").click()
   const button = control(deck, "Fullscreen")
@@ -281,6 +428,17 @@ test("native fullscreen uses the same SVG and restores focus after browser exit"
     .toBeGreaterThan(inlineHeight)
   await expect(zoom(deck)).toHaveText("125%")
   expect(await graphic?.evaluate((node) => node.isConnected)).toBe(true)
+  const disclosure = control(deck, "More controls")
+  await expect(disclosure).toHaveAttribute("aria-expanded", "true")
+  await disclosure.focus()
+  await page.keyboard.press("Enter")
+  await expect(deck.locator(".diagram-secondary-controls")).toBeHidden()
+  await page.keyboard.press("Tab")
+  await expect(deck.locator(".diagram-viewport")).toBeFocused()
+  await page.keyboard.press("Shift+Tab")
+  await page.keyboard.press("Space")
+  await expect(disclosure).toHaveAttribute("aria-expanded", "true")
+  await expect(zoom(deck)).toHaveText("125%")
   await page.evaluate(() => document.exitFullscreen())
   await expect(control(deck, "Fullscreen")).toBeFocused()
   await expect
@@ -290,6 +448,49 @@ test("native fullscreen uses the same SVG and restores focus after browser exit"
   await expect(page.getByRole("dialog")).toHaveCount(0)
   expect(await page.evaluate(() => document.body.style.overflow)).toBe("")
 })
+
+for (const change of ["source replacement", "unmount"] as const) {
+  test(`active native fullscreen closes on ${change} without hiding another deck`, async ({
+    page,
+    request,
+  }) => {
+    const content = documentFixture()
+    const fixture = await save(request, content)
+    await page.goto(fixture.url)
+    const deck = page.locator('[data-block-id="first"]')
+    const other = page.locator('[data-block-id="second"]')
+    await rendered(deck)
+    await rendered(other)
+    test.skip(!(await page.evaluate(() => document.fullscreenEnabled)), "Native API unavailable")
+    await openDiagramControls(deck)
+    await control(deck, "Fullscreen").click()
+    await expect
+      .poll(() => page.evaluate(() => document.fullscreenElement?.className))
+      .toBe("diagram")
+    if (change === "unmount")
+      content.blocks = content.blocks.filter((block) => block.id !== "first")
+    else
+      getDeck(content, "first").slides[0].mermaid = "flowchart LR\n New[Native cleanup] --> Saved"
+    await save(request, content, fixture.stored)
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement)).toBeNull()
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+    if (change === "unmount") await expect(deck).toHaveCount(0)
+    else {
+      await expect(
+        deck.locator(".diagram-svg > svg .rough-node").filter({ hasText: /Native\s*cleanup/ }),
+      ).toHaveCount(1)
+      await expect(control(deck, "More controls")).toHaveAttribute("aria-expanded", "false")
+      await expect(deck.locator(".diagram-secondary-controls")).toBeHidden()
+      await expect(control(deck, "Fullscreen")).toBeFocused()
+    }
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe("")
+    expect(await other.evaluate((node) => (node as HTMLElement).inert)).toBe(false)
+    await other.focus()
+    await expect(other).toBeFocused()
+    await page.keyboard.press("ArrowRight")
+    await expect(other).toHaveAttribute("data-slide-id", "detail")
+  })
+}
 
 test("rejected fullscreen isolates the background, traps focus, and restores styles on Escape", async ({
   page,
@@ -315,11 +516,27 @@ test("rejected fullscreen isolates the background, traps focus, and restores sty
     await page.locator('[data-block-id="second"]').evaluate((node) => (node as HTMLElement).inert),
   ).toBe(true)
   expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden")
-  await control(deck, "Zoom out").focus()
+  const disclosure = control(deck, "More controls")
+  await expect(disclosure).toHaveAttribute("aria-expanded", "false")
+  await expect(deck.locator(".diagram-secondary-controls")).toBeHidden()
+  await control(deck, "Fit to screen").focus()
   await page.keyboard.press("Shift+Tab")
   await expect(deck.locator(".diagram-viewport")).toBeFocused()
   await page.keyboard.press("Tab")
+  await expect(control(deck, "Fit to screen")).toBeFocused()
+  await disclosure.focus()
+  await page.keyboard.press("Tab")
+  await expect(deck.locator(".diagram-viewport")).toBeFocused()
+  await page.keyboard.press("Shift+Tab")
+  await expect(disclosure).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(deck.locator(".diagram-secondary-controls")).toBeVisible()
+  await page.keyboard.press("Tab")
   await expect(control(deck, "Zoom out")).toBeFocused()
+  await page.keyboard.press("Shift+Tab")
+  await expect(disclosure).toBeFocused()
+  await page.keyboard.press("Space")
+  await expect(deck.locator(".diagram-secondary-controls")).toBeHidden()
   await page.keyboard.press("Escape")
   await expect(page.getByRole("dialog")).toHaveCount(0)
   await expect(control(deck, "Fullscreen")).toBeFocused()
@@ -350,6 +567,7 @@ test("unavailable fullscreen closes safely on source replacement and error recov
   const other = page.locator('[data-block-id="second"]')
   await rendered(deck)
   await rendered(other)
+  await openDiagramControls(deck)
   await control(deck, "Reset zoom").click()
   await control(deck, "Zoom in").click()
   await control(deck, "Fullscreen").click()
@@ -360,6 +578,9 @@ test("unavailable fullscreen closes safely on source replacement and error recov
   await expect(page.getByRole("dialog")).toHaveCount(0)
   await expect(deck.locator("pre code")).toHaveCount(1)
   await expect(deck.locator("pre code")).toHaveText(getDeck(content, "first").slides[0].mermaid)
+  await expect(control(deck, "More controls")).toHaveAttribute("aria-expanded", "false")
+  await expect(deck.locator(".diagram-secondary-controls")).toBeHidden()
+  await openDiagramControls(deck)
   await expect(control(deck, "Reset zoom")).toBeDisabled()
   await expect(control(deck, "Zoom in")).toBeDisabled()
   await control(deck, "Show source").click()
@@ -371,6 +592,8 @@ test("unavailable fullscreen closes safely on source replacement and error recov
   await save(request, content, broken.stored)
   await rendered(deck)
   await expect(deck.locator(".diagram-svg > svg")).toContainText("Fresh source")
+  await expect(control(deck, "More controls")).toHaveAttribute("aria-expanded", "false")
+  await openDiagramControls(deck)
   await expect(control(deck, "Show source")).toBeVisible()
   await expect(control(deck, "Zoom in")).toBeEnabled()
   await expect(deck.locator("pre code")).toHaveCount(0)
@@ -387,8 +610,10 @@ test("unmount closes the fallback without leaving scroll locks, inert siblings, 
   await page.goto(fixture.url)
   const deck = page.locator('[data-block-id="first"]')
   await rendered(deck)
+  await openDiagramControls(deck)
   await control(deck, "Fullscreen").click()
   await expect(page.getByRole("dialog")).toBeVisible()
+  await expect(deck.locator(".diagram-secondary-controls")).toBeVisible()
   content.blocks = content.blocks.filter((block) => block.id !== "first")
   await save(request, content, fixture.stored)
   await expect(deck).toHaveCount(0)
@@ -397,6 +622,8 @@ test("unmount closes the fallback without leaving scroll locks, inert siblings, 
   expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe("")
   const other = page.locator('[data-block-id="second"]')
   expect(await other.evaluate((node) => (node as HTMLElement).inert)).toBe(false)
+  await expect(control(other, "More controls")).toHaveAttribute("aria-expanded", "false")
+  await expect(other.locator(".diagram-secondary-controls")).toBeHidden()
   await other.focus()
   await expect(other).toBeFocused()
   await page.keyboard.press("ArrowRight")
@@ -434,6 +661,7 @@ for (const outcome of ["resolve", "reject"] as const) {
     await page.goto(fixture.url)
     const deck = page.locator('[data-block-id="first"]')
     await rendered(deck)
+    await openDiagramControls(deck)
     await control(deck, "Fullscreen").click()
     await expect(control(deck, "Fullscreen")).toBeDisabled()
     content.blocks = content.blocks.filter((block) => block.id !== "first")

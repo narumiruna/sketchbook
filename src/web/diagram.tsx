@@ -1,6 +1,6 @@
 import DOMPurify from "dompurify"
 import mermaid from "mermaid"
-import { type RefObject, useEffect, useId, useRef, useState } from "react"
+import { type RefObject, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
 import { assertMermaidPolicy } from "../mermaid-policy.js"
 import { DiagramControl } from "./diagram-controls"
 import { createDiagramView } from "./diagram-view"
@@ -253,6 +253,18 @@ function useDiagramFullscreen(
   return { mode, pending, status, toggle: () => void service.current?.toggle() }
 }
 
+function useCoarsePointer() {
+  const [coarse, setCoarse] = useState(() => window.matchMedia("(pointer: coarse)").matches)
+  useEffect(() => {
+    const query = window.matchMedia("(pointer: coarse)")
+    const update = () => setCoarse(query.matches)
+    update()
+    query.addEventListener("change", update)
+    return () => query.removeEventListener("change", update)
+  }, [])
+  return coarse
+}
+
 export function Diagram({ source, blockId, slideId }: Props) {
   const card = useRef<HTMLElement>(null)
   const viewport = useRef<HTMLElement>(null)
@@ -260,6 +272,12 @@ export function Diagram({ source, blockId, slideId }: Props) {
   const controller = useRef<ReturnType<typeof createDiagramView> | null>(null)
   const generation = useRef(0)
   const sourceId = useId()
+  const controlsId = useId()
+  const helpId = useId()
+  const disclosure = useRef<HTMLButtonElement>(null)
+  const secondary = useRef<HTMLFieldSetElement>(null)
+  const coarsePointer = useCoarsePointer()
+  const [moreControls, setMoreControls] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
   const [view, setView] = useState({ scale: 1, minScale: 0.25, ready: false, cropped: false })
   const [showSource, setShowSource] = useState(false)
@@ -275,8 +293,13 @@ export function Diagram({ source, blockId, slideId }: Props) {
     }
   }, [])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: A new source always starts in diagram mode.
-  useEffect(() => {
+  // Restore focus and hide stale controls before the browser paints a new source.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A new source starts with the primary controls and diagram visible.
+  useLayoutEffect(() => {
+    if (secondary.current?.contains(document.activeElement)) {
+      disclosure.current?.focus({ preventScroll: true })
+    }
+    setMoreControls(false)
     setShowSource(false)
   }, [source])
 
@@ -321,13 +344,18 @@ export function Diagram({ source, blockId, slideId }: Props) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: Refresh after visibility or fullscreen geometry changes.
   useEffect(() => {
     controller.current?.refresh()
-  }, [showSource, fullscreen.mode])
+  }, [showSource, moreControls, fullscreen.mode])
 
   const active = result?.source === source ? result : null
   const error = active && "error" in active ? active.error : null
   const ready = !!active && "svg" in active && view.ready
   const disabled = !ready || showSource
   const expanded = fullscreen.mode !== null
+  const help = coarsePointer
+    ? expanded
+      ? "Use the controls to zoom. Exit fullscreen to scroll the article."
+      : "Open More controls to zoom. Swipe to scroll the article."
+    : "Drag with a mouse or pen to pan. Use Ctrl or Command + wheel to zoom. With the diagram focused, use plus or minus to zoom and zero to fit."
   return (
     // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-modal is set only when the frame has the dialog role.
     <section
@@ -340,6 +368,35 @@ export function Diagram({ source, blockId, slideId }: Props) {
       tabIndex={fullscreen.mode === "fallback" ? -1 : undefined}
     >
       <fieldset className="diagram-controls" aria-label="Diagram controls">
+        <DiagramControl
+          label="Fit to screen"
+          icon="fit"
+          disabled={disabled}
+          onClick={() => controller.current?.fit()}
+        />
+        <DiagramControl
+          label={expanded ? "Exit fullscreen" : "Fullscreen"}
+          icon={expanded ? "collapse" : "expand"}
+          disabled={fullscreen.pending}
+          onClick={fullscreen.toggle}
+        />
+        <DiagramControl
+          ref={disclosure}
+          label="More controls"
+          icon="more"
+          text="More controls"
+          aria-expanded={moreControls}
+          aria-controls={controlsId}
+          onClick={() => setMoreControls((visible) => !visible)}
+        />
+      </fieldset>
+      <fieldset
+        ref={secondary}
+        id={controlsId}
+        className="diagram-secondary-controls"
+        aria-label="More diagram controls"
+        hidden={!moreControls}
+      >
         <DiagramControl
           label="Zoom out"
           icon="minus"
@@ -356,22 +413,10 @@ export function Diagram({ source, blockId, slideId }: Props) {
           onClick={() => controller.current?.zoomBy(1.25)}
         />
         <DiagramControl
-          label="Fit to screen"
-          icon="fit"
-          disabled={disabled}
-          onClick={() => controller.current?.fit()}
-        />
-        <DiagramControl
           label="Reset zoom"
           icon="reset"
           disabled={disabled}
           onClick={() => controller.current?.reset()}
-        />
-        <DiagramControl
-          label={expanded ? "Exit fullscreen" : "Fullscreen"}
-          icon={expanded ? "collapse" : "expand"}
-          disabled={fullscreen.pending}
-          onClick={fullscreen.toggle}
         />
         <DiagramControl
           label={showSource ? "Show diagram" : "Show source"}
@@ -380,12 +425,16 @@ export function Diagram({ source, blockId, slideId }: Props) {
           aria-pressed={showSource}
           onClick={() => setShowSource((visible) => !visible)}
         />
+        <p id={helpId} className="diagram-pan-hint">
+          {help}
+        </p>
       </fieldset>
       <section
         ref={viewport}
         className="diagram-viewport"
         hidden={showSource || error !== null}
-        aria-label="Interactive diagram. Drag to pan, plus or minus to zoom, zero to fit."
+        aria-label="Interactive diagram"
+        aria-describedby={helpId}
         // biome-ignore lint/a11y/noNoninteractiveTabindex: Focus enables diagram-local zoom controls.
         tabIndex={0}
       >
@@ -403,9 +452,6 @@ export function Diagram({ source, blockId, slideId }: Props) {
         <pre id={sourceId} className="diagram-source">
           <code>{source}</code>
         </pre>
-      )}
-      {!showSource && error === null && (
-        <p className="diagram-pan-hint">Drag to pan. Use Ctrl or Command + wheel to zoom.</p>
       )}
       {fullscreen.status && <p role="status">{fullscreen.status}</p>}
     </section>

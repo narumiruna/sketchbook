@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "title": "Viewer links and request boundaries",
+  "blocks": [
+    {
+      "id": "scope",
+      "type": "markdown",
+      "markdown": "## Question and scope\n\n**Question:** who receives a viewer link, and who later requests the document?\n\nThis source-backed example follows `src/tools.ts`, `src/server.ts`, and `src/web/main.tsx` at commit `348c400`. Caller means the Pi tool caller. Viewer is the session-scoped HTTP server; Browser runs the bundled web application.\n\nThe first diagram shows process order for the first successful open. The second shows the browser's later document request. Failed input and shutdown races are omitted; they must not be read as successful paths."
+    },
+    {
+      "id": "handoff",
+      "type": "diagram-deck",
+      "title": "Who receives the link?",
+      "slides": [
+        {
+          "id": "return-link",
+          "title": "The open operation returns to Caller",
+          "mermaid": "flowchart TD\n subgraph Open[\"Open operation\"]\n   Read[\"Read document\"] --> Listen[\"Start viewer\"]\n   Listen --> Return[\"Return URL\"]\n end\n Return --> Caller[\"Caller\"]",
+          "explanationMarkdown": "The open tool requires TUI or RPC mode. Viewer reads the saved document before starting its listener, then the tool returns the URL to Caller. It does not launch Browser.\n\nThis path shows the first open only. Later opens reuse the listener. Missing or invalid documents stop before a listener starts. The URL contains a document ID and a fragment token; keep the whole link private.\n\nSources: [tool](https://github.com/narumiruna/sketchbook/blob/348c400/src/tools.ts), [server](https://github.com/narumiruna/sketchbook/blob/348c400/src/server.ts)."
+        }
+      ]
+    },
+    {
+      "id": "request",
+      "type": "diagram-deck",
+      "title": "Who requests the document?",
+      "slides": [
+        {
+          "id": "browser-request",
+          "title": "Viewer checks Browser's request",
+          "mermaid": "flowchart TD\n Browser[\"Browser\"] -->|GET with token| Gate[\"Viewer checks\"]\n Gate -->|allowed| Read[\"Read document\"]\n Gate -->|denied| Denied[\"Reject\"]",
+          "explanationMarkdown": "After someone opens the link, Browser loads the bundled application. That application reads the fragment token and sends it as a bearer header to the document endpoint.\n\nViewer checks and Read document run in the Pi server process; Browser runs the web application. Viewer checks the exact allowed Host and port, matching Origin if present, allowed method, and bearer token before the document read. Rejection does not write a document. The returned link and this request are different actions with different recipients.\n\nSources: [request checks](https://github.com/narumiruna/sketchbook/blob/348c400/src/server.ts), [fragment input](https://github.com/narumiruna/sketchbook/blob/348c400/src/web/main.tsx), [fetch](https://github.com/narumiruna/sketchbook/blob/348c400/src/web/app.tsx)."
+        }
+      ]
+    },
+    {
+      "id": "conclusion",
+      "type": "markdown",
+      "markdown": "## Result and limits\n\nCaller receives the link; Browser later requests data from Viewer. A returned URL is not evidence that the browser opened or rendered the article.\n\nThe server is read-only and HTTP is unencrypted. Its token permits document reads in the workspace, not only the linked document. Trusted-network access, exact request checks, and renderer restrictions are separate boundaries."
+    }
+  ]
+}

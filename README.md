@@ -6,7 +6,8 @@ Review the complete article outline before reviewing its decks.
 Build each deck around one question: each slide must connect to the established context and add useful information.
 Define required terms before use, remove repeated prose, and conclude each main topic.
 Keep repeated component names and meanings consistent; put independent questions in separate decks.
-Use the bottom arrows or labelled position dots to change slides; focused decks also support Left/Right keyboard keys.
+Use the bottom Previous/Next buttons or labelled position dots to change slides; focused decks also support Left/Right keyboard keys.
+On wide screens, explanations appear beside their diagrams; narrower screens use one reading column.
 The document title is the page H1, each deck has a stable H2 chapter title, and its current slide uses H3.
 Matching deck and slide titles appear once visually.
 
@@ -100,9 +101,14 @@ Stop the Pi session to close the listener and invalidate its capability; no docu
   - Legacy Markdown blocks with H1 are shifted down one heading level when rendered; saved JSON is unchanged.
   - Explanation headings are placed below the slide H3, starting at H4.
 - Review the complete heading outline, concept order, first definitions, repeated text, and conclusion before checking slide transitions.
+  - Check every arrow's sender, receiver, action, direction, and required order against sources or explicit teaching facts.
+  - Make important decision inputs, outcomes, and write/no-write effects visible in the graph.
+  - Compare slide contributions across decks; a new title does not make a repeated explanation useful.
+  - Keep a compact source/contribution/issues review record outside the document payload.
 - Inspect the full page and every slide at desktop and 390-pixel widths before claiming visual review.
   - Check default Fit label size, unused frame space, text wrapping, emphasis, and diagram meaning.
-  - Report saving, rendering, readability checks, and human acceptance separately.
+  - Report saving, rendering, readability, content correctness, and human acceptance separately.
+  - Rendering and minimum label sizes are prerequisites, not proof of explanation quality or comfortable reading.
 - Use short labels and compact graphs that can be read without Reset or Zoom.
   - Long-label and large-graph stress tests do not define suitable teaching layouts.
 
@@ -127,15 +133,19 @@ Stop the Pi session to close the listener and invalidate its capability; no docu
 
 ## Diagram controls
 
-The icon toolbar provides Zoom out, Zoom in, Fit to screen, Reset zoom, Fullscreen, and Show source.
-Hover or focus a button to show its label.
+The primary toolbar provides Fit to screen, Fullscreen, and More controls.
+More controls opens an inline panel with Zoom out, current zoom, Zoom in, Reset zoom, Show source, and input-specific help.
+The panel starts closed for each new diagram source; camera changes, source view, and fullscreen retain its current state.
+Hover or focus an icon button to show its label.
 Show source displays inert text, not executable HTML.
+Secondary controls remain outside the keyboard tab order while closed.
 
 - Fit shows the complete graph; Reset restores 100% native size.
 - Zoom is limited to 400%; the lower limit is 25% or the fitted scale when smaller.
 - Drag with a mouse or pen to pan a large graph.
   - Ctrl/Command + wheel zooms at the pointer; an ordinary wheel continues document scrolling.
-  - Inline touch gestures remain available for document scrolling; pinch zoom is not implemented.
+  - Inline touch gestures remain available for document scrolling; touch panning and pinch zoom are not implemented.
+  - Coarse-pointer help describes control-based zoom and article scrolling, not mouse-wheel gestures.
 - Focus the diagram viewport to use `+`/`-` to zoom and `0` to fit.
   - Left/Right still switches slides in the focused deck.
 - Fullscreen uses the browser API or an in-page fallback.
@@ -161,12 +171,15 @@ Physical second-device LAN access, remote SSH, container forwarding, and WSLg/Wi
 ```sh
 npm run ci
 npx playwright install chromium
-npm run test:browser
+npm run test:browser -- --output=test-results/browser
 npm pack --dry-run
 npm run test:package
 ```
 
 On a fresh Linux system, use `npx playwright install --with-deps chromium` if browser system libraries are missing.
+The explicit browser output directory preserves separate review captures under `test-results/`.
+For controlled before/after layout captures, run `npx tsx scripts/capture-reading-layout.ts baseline` before UI edits and `npx tsx scripts/capture-reading-layout.ts after` after rebuilding.
+The capture script uses a temporary workspace, not saved user documents, and retains no capability URLs.
 
 See [compatibility evidence](docs/compatibility.md) for measured results and [acceptance](docs/acceptance.md) for human checks, future authorized model tests, and release-owner actions.
 Automated checks do not establish visual acceptance or reliable automatic skill loading.

@@ -5,7 +5,7 @@
     {
       "id": "process-intro",
       "type": "markdown",
-      "markdown": "## Inputs and revision\n\nThis example replaces a complete document without overwriting a newer update.\nRead retrieves the stored document and its revision, a version number.\nEdit prepares a complete replacement using that revision as expectedRevision.\nLet $r$ be the stored revision; an accepted replacement increments it:\n\n$$\nr_{next} = r + 1\n$$\n\n```typescript\nconst update = {\n  documentId: \"4e7efb70-6686-4f94-aa51-f97d40abb677\",\n  expectedRevision: 3,\n  document: completeDocument,\n};\n```"
+      "markdown": "## Inputs and revision\n\nThis teaching model replaces a complete document without overwriting a newer update.\nRead retrieves the stored document and its revision, a version number.\nEdit prepares a complete replacement using that revision as expectedRevision.\nThe diagrams follow valid input; schema and policy errors are rejected before this write path and leave storage unchanged.\nLet $r$ be the stored revision; an accepted replacement increments it:\n\n$$\nr_{next} = r + 1\n$$\n\n```typescript\nconst update = {\n  documentId: \"4e7efb70-6686-4f94-aa51-f97d40abb677\",\n  expectedRevision: 3,\n  document: completeDocument,\n};\n```"
     },
     {
       "id": "process-deck",
@@ -14,52 +14,40 @@
       "slides": [
         {
           "id": "process-overview",
-          "title": "Success and conflict",
-          "mermaid": "flowchart TD\n  Read[\"Read\"] --> Edit[\"Edit\"]\n  Edit --> Validate[\"Validate\"]\n  Validate --> Compare{\"Revision?\"}\n  Compare -->|Match| Commit[\"Commit\"]\n  Compare -->|Stale| Conflict[\"Conflict\"]\n  Conflict --> Read\n  Commit --> Result[\"Saved\"]",
-          "explanationMarkdown": "Validate checks structure and content policy.\nRevision? compares the supplied revision with the stored revision.\nA match permits Commit to persist the replacement and Saved to return its new revision.\nConflict makes no write and returns to Read so a newer update is not lost."
-        },
-        {
-          "id": "process-start",
-          "title": "Prepare the input",
-          "mermaid": "flowchart LR\n  Read[\"Read\"] --> Edit[\"Edit\"]",
-          "explanationMarkdown": "Read provides both the content and revision needed by Edit.\nKeep block and slide IDs stable where the content has the same role.\nSend the complete edited document, not a patch."
+          "title": "Replacement and retry",
+          "mermaid": "flowchart TD\n  Read[\"Read\"] --> Edit[\"Edit\"]\n  Edit --> Write[\"Write\"]\n  Write -->|saved| Result[\"Saved\"]\n  Write -->|stale| Conflict[\"No write\"]\n  Conflict -->|refresh| Read",
+          "explanationMarkdown": "Read supplies content and revision; Edit reapplies the intended change and sends a complete replacement to Write.\nWrite either persists the replacement and returns Saved, or returns a conflict with No write.\nThe conflict loop returns through both Read and Edit so unrelated updates are retained; it is not a blind retry."
         },
         {
           "id": "process-processing",
-          "title": "Check and commit",
-          "mermaid": "flowchart TD\n  Edit[\"Edit\"] --> Validate[\"Validate\"]\n  Validate --> Compare{\"Revision?\"}\n  Compare -->|Match| Commit[\"Commit\"]\n  Compare -->|Stale| Conflict[\"Conflict\"]\n  Conflict --> Read[\"Read\"]",
-          "explanationMarkdown": "Validate rejects an invalid replacement before persistence.\nThe revision comparison and Commit run in the serialized write operation so another write cannot enter between them.\nConflict requires Read and a new Edit against the current document, not a blind retry.\n\n```typescript\nif (expectedRevision !== currentRevision) {\n  return { error: \"Read again before retrying\" };\n}\n```"
-        },
-        {
-          "id": "process-end",
-          "title": "Saved result",
-          "mermaid": "flowchart LR\n  Commit[\"Commit\"] --> Result[\"Saved\"]",
-          "explanationMarkdown": "Commit completes persistence before Saved reports the new revision.\nThis result does not verify Mermaid, math, readability, or content correctness."
+          "title": "Serialized write",
+          "mermaid": "flowchart TD\n  Expected[\"Expected rev\"] --> Compare{\"Match?\"}\n  Current[\"Stored rev\"] --> Compare\n  Compare -->|Yes| Commit[\"Commit\"]\n  Compare -->|No| Conflict[\"No write\"]",
+          "explanationMarkdown": "Inside Write, Match? compares Expected rev from Edit with Stored rev read inside the serialized operation.\nYes permits Commit, then Saved reports the new revision.\nNo produces No write: no temporary file, rename, or revision increment.\nAnother write cannot enter between this comparison and Commit.\nThe overview's recovery loop must read current content and reapply the intended change, not merely replace the revision number.\n\n```typescript\nif (expectedRevision !== currentRevision) {\n  return { error: \"Read again before retrying\" };\n}\n```"
         }
       ]
     },
     {
       "id": "process-note",
       "type": "markdown",
-      "markdown": "## Failure boundary\n\nValidation errors and revision conflicts leave the stored document unchanged.\nThe recovery path below preserves another writer's changes instead of resubmitting stale content."
+      "markdown": "## An uncertain response\n\nA missing write response does not prove that Commit failed.\nFor this recovery example, assume no competing writer during the check.\nPlanned update means the complete replacement and its expected next revision.\nRead compares both stored content and revision with that plan before another write is attempted.\nA changed revision alone does not prove that the planned content was saved.\nIf another writer can intervene or the result remains ambiguous, stop and investigate."
     },
     {
-      "id": "process-conflict",
+      "id": "process-response",
       "type": "diagram-deck",
-      "title": "Conflict recovery",
+      "title": "Interrupted response",
       "slides": [
         {
-          "id": "process-conflict-slide",
-          "title": "Reapply the intended change",
-          "mermaid": "flowchart TD\n  Conflict[\"Conflict\"] --> Read[\"Read\"]\n  Read --> Edit[\"Edit\"]",
-          "explanationMarkdown": "Read obtains the new stored version.\nEdit reapplies the intended change while retaining unrelated updates and uses the new revision.\nDo not discard another writer's change without an explicit decision."
+          "id": "process-response-slide",
+          "title": "Check before another write",
+          "mermaid": "flowchart TD\n  Read[\"Read\"] -->|stored state| Found{\"Saved?\"}\n  Planned[\"Planned update\"] --> Found\n  Found -->|Yes| Stop[\"No retry\"]\n  Found -->|No| Edit[\"Edit\"]",
+          "explanationMarkdown": "Saved? compares the stored content and revision from Read with Planned update.\nYes means the planned replacement is present: No retry avoids a second write.\nNo returns to Edit with the current content and revision rather than resending the old request.\nThis read-only check does not verify Mermaid, math, readability, or content correctness."
         }
       ]
     },
     {
       "id": "process-conclusion",
       "type": "markdown",
-      "markdown": "## Conclusion\n\nA replacement succeeds only after validation, a matching revision, and commit.\nOn conflict, read again and reapply the intended change.\nAfter saving, open the viewer and check the full article and every slide at desktop and 390px, or report the missing coverage as unverified.\nKeep rendering, readability, source correctness, and human acceptance separate from storage success."
+      "markdown": "## Conclusion\n\nA replacement succeeds only after validation, a matching revision, and commit.\nOn conflict, read again and reapply the intended change.\nAfter an interrupted response, inspect stored content and revision before deciding whether to write again.\nAfter saving, open the viewer and check the full article and every slide at desktop and 390px, or report the missing coverage as unverified.\nKeep rendering, readability, source correctness, and human acceptance separate from storage success."
     }
   ]
 }

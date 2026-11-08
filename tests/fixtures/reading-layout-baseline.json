@@ -1,0 +1,211 @@
+{
+  "sourceRevision": "348c400",
+  "fixtureSha256": "355f9284136409b5afa6780044e8101c56e0761091a8579e843d7702e5d827cd",
+  "description": "Unchanged readingFixture compact slide before the reading-layout change. Offsets are relative to the card top; wide and tall slides are stress cases.",
+  "measurements": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "touch": false,
+      "slide": "compact",
+      "heading": {
+        "x": 1,
+        "y": 1,
+        "width": 1014,
+        "height": 87.5625
+      },
+      "toolbar": {
+        "x": 1,
+        "y": 88.5625,
+        "width": 1014,
+        "height": 64.1875
+      },
+      "frame": {
+        "x": 1,
+        "y": 152.75,
+        "width": 1014,
+        "height": 282.34375
+      },
+      "graph": {
+        "x": 408.9588623046875,
+        "y": 168.75,
+        "width": 198.07830810546875,
+        "height": 249.989013671875
+      },
+      "pagination": {
+        "x": 1,
+        "y": 465.796875,
+        "width": 1014,
+        "height": 60.78125
+      },
+      "explanation": {
+        "x": 21,
+        "y": 526.578125,
+        "width": 974,
+        "height": 122.578125
+      },
+      "firstParagraph": {
+        "x": 21,
+        "y": 540.375,
+        "width": 974,
+        "height": 25.59375
+      },
+      "lineHeight": 25.6,
+      "minFontPx": 15.976624265520957,
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "height": 960,
+      "touch": false,
+      "slide": "compact",
+      "heading": {
+        "x": 1,
+        "y": 1,
+        "width": 1014,
+        "height": 87.5625
+      },
+      "toolbar": {
+        "x": 1,
+        "y": 88.5625,
+        "width": 1014,
+        "height": 64.1875
+      },
+      "frame": {
+        "x": 1,
+        "y": 152.75,
+        "width": 1014,
+        "height": 282.34375
+      },
+      "graph": {
+        "x": 408.9588623046875,
+        "y": 168.75,
+        "width": 198.07830810546875,
+        "height": 249.989013671875
+      },
+      "pagination": {
+        "x": 1,
+        "y": 465.796875,
+        "width": 1014,
+        "height": 60.78125
+      },
+      "explanation": {
+        "x": 21,
+        "y": 526.578125,
+        "width": 974,
+        "height": 122.578125
+      },
+      "firstParagraph": {
+        "x": 21,
+        "y": 540.375,
+        "width": 974,
+        "height": 25.59375
+      },
+      "lineHeight": 25.6,
+      "minFontPx": 15.976624265520957,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "touch": false,
+      "slide": "compact",
+      "heading": {
+        "x": 1,
+        "y": 1,
+        "width": 364,
+        "height": 158.703125
+      },
+      "toolbar": {
+        "x": 1,
+        "y": 159.703125,
+        "width": 364,
+        "height": 64.1875
+      },
+      "frame": {
+        "x": 1,
+        "y": 223.890625,
+        "width": 364,
+        "height": 282.34375
+      },
+      "graph": {
+        "x": 83.9588623046875,
+        "y": 239.890625,
+        "width": 198.07830810546875,
+        "height": 249.989013671875
+      },
+      "pagination": {
+        "x": 1,
+        "y": 536.9375,
+        "width": 364,
+        "height": 60.78125
+      },
+      "explanation": {
+        "x": 14.59375,
+        "y": 597.71875,
+        "width": 336.8125,
+        "height": 224.953125
+      },
+      "firstParagraph": {
+        "x": 14.59375,
+        "y": 611.515625,
+        "width": 336.8125,
+        "height": 76.78125
+      },
+      "lineHeight": 25.6,
+      "minFontPx": 15.976624265520957,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "touch": true,
+      "slide": "compact",
+      "heading": {
+        "x": 1,
+        "y": 1,
+        "width": 364,
+        "height": 158.703125
+      },
+      "toolbar": {
+        "x": 1,
+        "y": 159.703125,
+        "width": 364,
+        "height": 64.1875
+      },
+      "frame": {
+        "x": 1,
+        "y": 223.890625,
+        "width": 364,
+        "height": 282.34375
+      },
+      "graph": {
+        "x": 83.9588623046875,
+        "y": 239.890625,
+        "width": 198.07830810546875,
+        "height": 249.989013671875
+      },
+      "pagination": {
+        "x": 1,
+        "y": 536.9375,
+        "width": 364,
+        "height": 60.78125
+      },
+      "explanation": {
+        "x": 14.59375,
+        "y": 597.71875,
+        "width": 336.8125,
+        "height": 224.953125
+      },
+      "firstParagraph": {
+        "x": 14.59375,
+        "y": 611.515625,
+        "width": 336.8125,
+        "height": 76.78125
+      },
+      "lineHeight": 25.6,
+      "minFontPx": 15.976624265520957,
+      "overflow": false
+    }
+  ]
+}

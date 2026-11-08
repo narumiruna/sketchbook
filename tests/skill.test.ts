@@ -16,6 +16,23 @@ async function loadFixture(name: (typeof assets)[number]) {
   return JSON.parse(await readFile(resolve(skillRoot, "assets", name), "utf8"))
 }
 
+type ReviewCase = {
+  asset: (typeof assets)[number]
+  source: { kind: string; facts: Array<{ id: string; statement: string }> }
+  review: {
+    question: string
+    claims: Array<{ claim: string; sources: string[] }>
+    contributions: Array<{ deckId: string; slideId: string; adds: string; sources: string[] }>
+    unresolved: string[]
+  }
+}
+
+async function loadReviewCases(): Promise<{ scope: string; cases: ReviewCase[] }> {
+  return JSON.parse(
+    await readFile(new URL("./fixtures/generation-cases.json", import.meta.url), "utf8"),
+  )
+}
+
 function localLinks(markdown: string) {
   return [...markdown.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)].map((match) => match[1])
 }
@@ -33,95 +50,208 @@ function diagramNodes(source: string) {
   )
 }
 
-function expectArchitectureDetails(deck: DiagramDeck) {
-  const [overview, api, storage] = deck.slides
+function deck(document: SketchbookDocument, id: string): DiagramDeck {
+  const block = document.blocks.find((block) => block.id === id)
+  if (block?.type !== "diagram-deck") throw new Error(`Missing teaching deck: ${id}`)
+  return block
+}
+
+function expectArchitectureDetails(document: SketchbookDocument) {
+  const save = deck(document, "architecture-deck")
+  expect(save.slides.map((slide) => slide.id)).toEqual([
+    "architecture-overview",
+    "architecture-api",
+    "architecture-storage",
+    "architecture-commit",
+  ])
+  const [overview, api, storage, commit] = save.slides
   const labels = new Map([
     ["Client", "Client"],
     ["Api", "API"],
     ["Store", "Store"],
-    ["Validator", "Validator"],
-    ["Handler", "Handler"],
+    ["Valid", "Valid?"],
+    ["Invalid", "No write"],
     ["Queue", "Queue"],
-    ["Revision", "Revision check"],
+    ["Current", "Read rev"],
+    ["Compare", "Match?"],
+    ["Conflict", "No write"],
     ["Temp", "Temp JSON"],
     ["Commit", "Rename"],
     ["Files", "Files"],
   ])
   const stages = [
-    { slide: overview, nodes: ["Client", "Api", "Store"] },
-    { slide: api, nodes: ["Client", "Api", "Validator", "Handler", "Store"] },
-    { slide: storage, nodes: ["Api", "Store", "Queue", "Revision", "Temp", "Commit", "Files"] },
+    { slide: overview, nodes: ["Client", "Api", "Store"], grouped: true },
+    { slide: api, nodes: ["Api", "Valid", "Invalid", "Store"], grouped: true },
+    {
+      slide: storage,
+      nodes: ["Queue", "Current", "Compare", "Conflict", "Temp"],
+      grouped: false,
+    },
+    { slide: commit, nodes: ["Temp", "Commit", "Files"], grouped: false },
   ]
-  for (const { slide, nodes } of stages) {
+  for (const { slide, nodes, grouped } of stages) {
     const actual = diagramNodes(slide.mermaid)
     expect([...actual.keys()].sort()).toEqual([...nodes].sort())
     for (const [id, label] of actual) expect(label).toBe(labels.get(id))
+    expect(slide.mermaid.includes("subgraph")).toBe(grouped)
   }
-  for (const edge of ["Api --> Validator[", "Validator --> Handler[", "Handler --> Store["]) {
+  expect(overview.mermaid).toContain('Client["Client"] -->|calls| Api["API"]')
+  expect(overview.mermaid).toContain('Api -->|delegates| Store["Store"]')
+  expect(overview.explanationMarkdown).toContain("component relationships, not execution order")
+  for (const edge of [
+    'subgraph ApiDetail["API checks"]',
+    'Api["API"] --> Valid{"Valid?"}',
+    '  end\n  Valid -->|Yes| Store["Store"]',
+    'Valid -->|No| Invalid["No write"]',
+  ]) {
     expect(api.mermaid).toContain(edge)
   }
   for (const edge of [
-    'Api["API"] --> Store[',
-    "Store --> Queue[",
-    "Queue --> Revision[",
-    "Revision --> Temp[",
-    "Temp --> Commit[",
-    "Commit --> Files[",
+    'Queue["Queue"] --> Current["Read rev"]',
+    'Queue -->|expected rev| Compare{"Match?"}',
+    "Current -->|current rev| Compare",
+    'Compare -->|Yes| Temp["Temp JSON"]',
+    'Compare -->|No| Conflict["No write"]',
   ]) {
     expect(storage.mermaid).toContain(edge)
   }
-  for (const name of ["API", "Validator", "Handler", "Store"]) {
-    expect(api.explanationMarkdown).toContain(name)
+  for (const edge of ['Temp["Temp JSON"] --> Commit["Rename"]', 'Commit --> Files["Files"]']) {
+    expect(commit.mermaid).toContain(edge)
   }
-  for (const name of ["Store", "Queue", "Revision check", "Temp JSON", "Rename", "Files"]) {
-    expect(storage.explanationMarkdown).toContain(name)
-  }
+  expect(api.explanationMarkdown).toContain("complete document from Client")
+  expect(api.explanationMarkdown).toContain("schema and content policy")
+  expect(api.explanationMarkdown).toContain("accepted replacement through Handler to Store")
   expect(api.explanationMarkdown).toContain("invalid input stops without a write")
-  expect(storage.explanationMarkdown).toContain("rejects a stale replacement")
-  expect(storage.explanationMarkdown).toContain("only after a match")
+  expect(api.explanationMarkdown).toContain("cannot reach Store")
+  expect(storage.explanationMarkdown).toContain("then Read rev reads the stored revision")
+  expect(storage.explanationMarkdown).toContain("inside that operation")
+  expect(storage.explanationMarkdown).toContain("No rejects a stale replacement")
+  expect(storage.explanationMarkdown).toContain("without creating Temp JSON, calling Rename")
+  expect(storage.title).toBe("Serialized revision check")
+  expect(storage.explanationMarkdown).toContain("Queue supplies the request's expected revision")
+  expect(storage.explanationMarkdown).toContain("Read rev supplies the current revision")
+  expect(storage.explanationMarkdown).toContain("Only after a match")
+  expect(storage.explanationMarkdown).toContain("cannot enter between Read rev, Match?, and Rename")
+  expect(commit.explanationMarkdown).toContain("accepted replacement from Match?")
+  expect(commit.explanationMarkdown).toContain("within the same serialized Store operation")
+  expect(commit.explanationMarkdown).toContain("Rename is the commit boundary")
+  expect(commit.explanationMarkdown).toContain("confirms persistence, not rendering")
+  expect(commit.explanationMarkdown).toContain("r_e = r_s,\\quad r_{next} = r_s + 1")
+
+  const handoff = deck(document, "architecture-boundary")
+  expect(handoff.slides.map((slide) => slide.id)).toEqual(["architecture-boundary-slide"])
+  const [link] = handoff.slides
+  expect(Object.fromEntries(diagramNodes(link.mermaid))).toEqual({
+    Client: "Client",
+    Link: "Link API",
+    Browser: "Browser",
+    Viewer: "Viewer",
+  })
+  for (const edge of [
+    'Client["Client"] -->|1 ask| Link["Link API"]',
+    "Link -->|2 URL| Client",
+    'Client -->|3 open URL| Browser["Browser"]',
+    'Browser -->|4 GET| Viewer["Viewer"]',
+  ]) {
+    expect(link.mermaid).toContain(edge)
+  }
+  expect(link.explanationMarkdown).toContain("returns the URL to Client, not Browser")
+  expect(link.explanationMarkdown).toContain("only Browser sends the page request to Viewer")
+  expect(link.explanationMarkdown).toContain("not evidence that a browser opened")
 }
 
-function expectProcessStages(deck: DiagramDeck) {
-  const [overview, start, processing, end] = deck.slides
-  const overviewNodes = diagramNodes(overview.mermaid)
-  expect(Object.fromEntries(overviewNodes)).toEqual({
+function expectProcessStages(document: SketchbookDocument) {
+  const replacement = deck(document, "process-deck")
+  expect(replacement.slides.map((slide) => slide.id)).toEqual([
+    "process-overview",
+    "process-processing",
+  ])
+  const [overview, processing] = replacement.slides
+  expect(Object.fromEntries(diagramNodes(overview.mermaid))).toEqual({
     Read: "Read",
     Edit: "Edit",
-    Validate: "Validate",
-    Compare: "Revision?",
-    Commit: "Commit",
-    Conflict: "Conflict",
+    Write: "Write",
     Result: "Saved",
+    Conflict: "No write",
   })
-  const stages = [
-    { slide: start, nodes: ["Read", "Edit"], explanation: ["Read", "Edit"] },
-    {
-      slide: processing,
-      nodes: ["Edit", "Validate", "Compare", "Commit", "Conflict", "Read"],
-      explanation: ["Edit", "Validate", "Read", "Commit", "Conflict"],
-    },
-    { slide: end, nodes: ["Commit", "Result"], explanation: ["Commit", "Result"] },
-  ]
-  for (const { slide, nodes, explanation } of stages) {
-    const actual = diagramNodes(slide.mermaid)
-    expect([...actual.keys()].sort()).toEqual([...nodes].sort())
-    for (const [id, label] of actual) expect(label).toBe(overviewNodes.get(id))
-    for (const id of explanation) {
-      expect(slide.explanationMarkdown).toContain(overviewNodes.get(id))
-    }
+  expect(Object.fromEntries(diagramNodes(processing.mermaid))).toEqual({
+    Expected: "Expected rev",
+    Compare: "Match?",
+    Current: "Stored rev",
+    Commit: "Commit",
+    Conflict: "No write",
+  })
+  expect(processing.title).toBe("Serialized write")
+  expect(processing.mermaid).not.toContain("subgraph")
+  for (const edge of [
+    'Read["Read"] --> Edit["Edit"]',
+    'Edit --> Write["Write"]',
+    'Write -->|saved| Result["Saved"]',
+    'Write -->|stale| Conflict["No write"]',
+    "Conflict -->|refresh| Read",
+  ]) {
+    expect(overview.mermaid).toContain(edge)
   }
-  expect(start.mermaid).toContain('Read["Read"] --> Edit[')
-  expect(processing.mermaid).toContain('Edit["Edit"] --> Validate[')
-  expect(processing.mermaid).toContain("Validate --> Compare{")
-  expect(processing.mermaid).toContain("Compare -->|Match| Commit[")
-  expect(processing.mermaid).toContain("Compare -->|Stale| Conflict[")
-  expect(processing.mermaid).toContain("Conflict --> Read[")
-  expect(end.mermaid).toContain('Commit["Commit"] --> Result[')
-  expect(overview.explanationMarkdown).toContain("Conflict makes no write and returns to Read")
-  expect(processing.explanationMarkdown).toContain("not a blind retry")
-  expect(end.explanationMarkdown).toContain(
+  for (const edge of [
+    'Expected["Expected rev"] --> Compare{"Match?"}',
+    'Current["Stored rev"] --> Compare',
+    'Compare -->|Yes| Commit["Commit"]',
+    'Compare -->|No| Conflict["No write"]',
+  ]) {
+    expect(processing.mermaid).toContain(edge)
+  }
+  expect(overview.explanationMarkdown).toContain("through both Read and Edit")
+  expect(overview.explanationMarkdown).toContain("unrelated updates are retained")
+  expect(overview.explanationMarkdown).toContain("not a blind retry")
+  expect(processing.explanationMarkdown).toContain("Expected rev from Edit with Stored rev")
+  expect(processing.explanationMarkdown).toContain(
+    "Yes permits Commit, then Saved reports the new revision",
+  )
+  expect(processing.explanationMarkdown).toContain("No produces No write")
+  expect(processing.explanationMarkdown).toContain(
+    "no temporary file, rename, or revision increment",
+  )
+  expect(processing.explanationMarkdown).toContain(
+    "cannot enter between this comparison and Commit",
+  )
+  expect(processing.explanationMarkdown).toContain("not merely replace the revision number")
+
+  const note = document.blocks.find((block) => block.id === "process-note")
+  if (note?.type !== "markdown") throw new Error("Missing recovery assumptions")
+  expect(note.markdown).toContain("assume no competing writer during the check")
+  expect(note.markdown).toContain("both stored content and revision")
+  expect(note.markdown).toContain("If another writer can intervene")
+  expect(note.markdown).toContain("stop and investigate")
+
+  const recovery = deck(document, "process-response")
+  expect(recovery.slides.map((slide) => slide.id)).toEqual(["process-response-slide"])
+  const [response] = recovery.slides
+  expect(Object.fromEntries(diagramNodes(response.mermaid))).toEqual({
+    Read: "Read",
+    Found: "Saved?",
+    Planned: "Planned update",
+    Stop: "No retry",
+    Edit: "Edit",
+  })
+  for (const edge of [
+    'Read["Read"] -->|stored state| Found{"Saved?"}',
+    'Planned["Planned update"] --> Found',
+    'Found -->|Yes| Stop["No retry"]',
+    'Found -->|No| Edit["Edit"]',
+  ]) {
+    expect(response.mermaid).toContain(edge)
+  }
+  expect(response.explanationMarkdown).toContain("stored content and revision")
+  expect(response.explanationMarkdown).toContain("No retry avoids a second write")
+  expect(response.explanationMarkdown).toContain("current content and revision")
+  expect(response.explanationMarkdown).toContain(
     "does not verify Mermaid, math, readability, or content correctness",
   )
+}
+
+function expectTeachingClaims(document: SketchbookDocument, name: (typeof assets)[number]) {
+  if (name === "architecture-walkthrough.json") expectArchitectureDetails(document)
+  else expectProcessStages(document)
 }
 
 const articleOutlines = {
@@ -135,9 +265,9 @@ const articleOutlines = {
     ],
     headings: [
       "Scope and terms",
-      "Request path",
-      "Latency model",
-      "Public interface",
+      "Save boundaries",
+      "Opening a saved document",
+      "Viewer handoff",
       "Conclusion",
     ],
     definitions: [
@@ -159,17 +289,23 @@ const articleOutlines = {
       "process-intro",
       "process-deck",
       "process-note",
-      "process-conflict",
+      "process-response",
       "process-conclusion",
     ],
     headings: [
       "Inputs and revision",
       "Replacement path",
-      "Failure boundary",
-      "Conflict recovery",
+      "An uncertain response",
+      "Interrupted response",
       "Conclusion",
     ],
-    definitions: ["revision, a version number", "complete replacement", "expectedRevision"],
+    definitions: [
+      "teaching model",
+      "revision, a version number",
+      "complete replacement",
+      "expectedRevision",
+      "valid input",
+    ],
     conclusion: [
       "validation",
       "matching revision",
@@ -293,6 +429,34 @@ describe("bundled Sketchbook skill", () => {
     expect(patterns).toContain("instead of repeating a template")
   })
 
+  test("requires source-checked arrows, visible decisions, cross-deck contributions, and a review record", async () => {
+    const skill = await readFile(skillFile, "utf8")
+    const patterns = await readFile(resolve(skillRoot, "references/diagram-patterns.md"), "utf8")
+    expect(skill).toContain("important execution or trust boundaries")
+    expect(skill).toContain("each diagram's visible claim")
+    expect(skill).toContain("source, decision, and cross-deck contribution checks")
+    expect(skill).toContain("compact review record before calling `sketchbook_write`")
+    for (const requirement of [
+      "sender, receiver, action or data, direction, and required order",
+      "component relationships from process order",
+      "returning a URL to a caller is not a browser request",
+      "decision's inputs, outcomes, and relevant side effects visible in the graph",
+      "rejection or no-write outcomes",
+      "rather than a full code expression in a node",
+      "Compare contributions across all decks",
+      "Merge repeated views that add no needed explanation",
+      "Allow deliberate graph reuse when the new explanation has a clear purpose",
+      "Graph equality alone is neither a duplicate ban nor proof of useful reuse",
+      "Claims: main claims and supporting source locations or supplied fact IDs",
+      "Contributions: each deck/slide ID and its needed information",
+      "Issues: unsupported claims, omitted paths, and remaining checks",
+      "not as extra document fields",
+      "not arbitrary diagram meaning or explanation quality",
+    ]) {
+      expect(patterns).toContain(requirement)
+    }
+  })
+
   test("documents viewer headings and separate evidence states", async () => {
     const format = await readFile(resolve(skillRoot, "references/document-format.md"), "utf8")
     expect(format).toContain("`document.title` owns the page H1")
@@ -306,6 +470,9 @@ describe("bundled Sketchbook skill", () => {
     }
     expect(format).toContain("agent checks do not establish this state")
     expect(format).toContain("mark missing evidence as unverified")
+    expect(format).toContain("Do not infer one state from another")
+    expect(format).toContain("compact review record defined in the diagram patterns")
+    expect(format).toContain("arrow recipients, actions, order, decision inputs and outcomes")
   })
 
   test("requires complete desktop and mobile visual coverage at the initial fitted size", async () => {
@@ -321,6 +488,8 @@ describe("bundled Sketchbook skill", () => {
     expect(patterns).toContain("every visible node, edge, and subgraph label")
     expect(patterns).toContain("initial fitted view before any camera action")
     expect(patterns).toContain("not a promise for arbitrary graphs")
+    expect(patterns).toContain("Minimum label sizes and successful rendering are prerequisites")
+    expect(patterns).toContain("do not establish a good explanation")
     expect(patterns).toContain("rather than depending on Reset or Zoom")
     expect(patterns).toContain("only the initial slide is not a complete visual review")
   })
@@ -455,111 +624,248 @@ describe("bundled Sketchbook skill", () => {
     expect(() => expectCompactLabels(document)).toThrow()
   })
 
-  test("architecture progresses from overview to API to storage with stable nodes", async () => {
-    const fixture = await loadFixture("architecture-walkthrough.json")
-    const deck = fixture.blocks.find((block: { id: string }) => block.id === "architecture-deck")
-    expect(deck.slides.map((slide: { id: string }) => slide.id)).toEqual([
-      "architecture-overview",
-      "architecture-api",
-      "architecture-storage",
-    ])
-    expectArchitectureDetails(deck)
-    for (const slide of deck.slides) expect(slide.mermaid).toContain("subgraph")
-    for (const slide of deck.slides) expect(slide.mermaid).toMatch(/^flowchart TD\b/)
+  test("teaching facts and compact review records cover every slide across both decks", async () => {
+    const cases = await loadReviewCases()
+    expect(cases.scope).toContain("not a universal semantic linter")
+    expect(cases.cases.map((item) => item.asset)).toEqual(assets)
+    for (const item of cases.cases) {
+      const document = validateDocument(await loadFixture(item.asset))
+      expect(item.source.kind).toBe("supplied teaching facts")
+      const factIds = item.source.facts.map((fact) => fact.id)
+      expect(new Set(factIds).size).toBe(factIds.length)
+      for (const fact of item.source.facts) expect(fact.statement.trim()).not.toBe("")
+      expect(item.review.question.trim()).not.toBe("")
+      expect(item.review.claims.length).toBeGreaterThan(0)
+      expect(item.review.unresolved.length).toBeGreaterThan(0)
+      for (const claim of item.review.claims) expect(claim.claim.trim()).not.toBe("")
+      for (const issue of item.review.unresolved) expect(issue.trim()).not.toBe("")
+      for (const entry of [...item.review.claims, ...item.review.contributions]) {
+        expect(entry.sources.length).toBeGreaterThan(0)
+        for (const source of entry.sources) expect(factIds).toContain(source)
+      }
+      const slides = document.blocks.flatMap((block) =>
+        block.type === "diagram-deck" ? block.slides.map((slide) => `${block.id}/${slide.id}`) : [],
+      )
+      expect(item.review.contributions.map((entry) => `${entry.deckId}/${entry.slideId}`)).toEqual(
+        slides,
+      )
+      for (const contribution of item.review.contributions) {
+        expect(contribution.adds.trim()).not.toBe("")
+      }
+      // Record completeness is not evidence that arbitrary claims are true.
+      expectTeachingClaims(document, item.asset)
+    }
   })
 
-  test("process progresses from overview to start, processing, and end with stable steps", async () => {
-    const fixture = await loadFixture("process-walkthrough.json")
-    const deck = fixture.blocks.find((block: { id: string }) => block.id === "process-deck")
-    expect(deck.slides.map((slide: { id: string }) => slide.id)).toEqual([
-      "process-overview",
-      "process-start",
-      "process-processing",
-      "process-end",
-    ])
-    expectProcessStages(deck)
+  test.each(assets)("%s has its reviewed source-supported contributions", async (name) => {
+    expectTeachingClaims(validateDocument(await loadFixture(name)), name)
   })
 
   test.each([
-    { asset: "architecture-walkthrough.json", index: 1 },
-    { asset: "architecture-walkthrough.json", index: 2 },
-    { asset: "process-walkthrough.json", index: 1 },
-    { asset: "process-walkthrough.json", index: 2 },
-    { asset: "process-walkthrough.json", index: 3 },
+    {
+      asset: "architecture-walkthrough.json",
+      deckId: "architecture-boundary",
+      index: 0,
+      failure: "wrong URL recipient",
+      from: "Link -->|2 URL| Client",
+      to: "Link -->|2 URL| Browser",
+    },
+    {
+      asset: "architecture-walkthrough.json",
+      deckId: "architecture-boundary",
+      index: 0,
+      failure: "returned link treated as a page request",
+      from: 'Browser -->|4 GET| Viewer["Viewer"]',
+      to: 'Link -->|4 GET| Viewer["Viewer"]',
+    },
+    {
+      asset: "architecture-walkthrough.json",
+      deckId: "architecture-deck",
+      index: 1,
+      failure: "wrong storage handoff recipient",
+      from: 'Valid -->|Yes| Store["Store"]',
+      to: 'Valid -->|Yes| Client["Client"]',
+    },
+    {
+      asset: "architecture-walkthrough.json",
+      deckId: "architecture-deck",
+      index: 1,
+      failure: "lost validation rejection outcome",
+      from: '  Valid -->|No| Invalid["No write"]',
+      to: "",
+    },
+    {
+      asset: "architecture-walkthrough.json",
+      deckId: "architecture-deck",
+      index: 2,
+      failure: "lost revision no-write outcome",
+      from: '  Compare -->|No| Conflict["No write"]',
+      to: "",
+    },
+    {
+      asset: "architecture-walkthrough.json",
+      deckId: "architecture-deck",
+      index: 2,
+      failure: "lost queued expected revision input",
+      from: '  Queue -->|expected rev| Compare{"Match?"}\n',
+      to: "",
+    },
+    {
+      asset: "architecture-walkthrough.json",
+      deckId: "architecture-deck",
+      index: 2,
+      failure: "lost current revision input",
+      from: "  Current -->|current rev| Compare\n",
+      to: "",
+    },
+    {
+      asset: "architecture-walkthrough.json",
+      deckId: "architecture-deck",
+      index: 3,
+      failure: "rename before temporary write",
+      from: '  Temp["Temp JSON"] --> Commit["Rename"]',
+      to: '  Commit["Rename"] --> Temp["Temp JSON"]',
+    },
+    {
+      asset: "architecture-walkthrough.json",
+      deckId: "architecture-deck",
+      index: 2,
+      failure: "current revision read before serialization",
+      from: '  Queue["Queue"] --> Current["Read rev"]',
+      to: '  Current["Read rev"] --> Queue["Queue"]',
+    },
+    {
+      asset: "process-walkthrough.json",
+      deckId: "process-deck",
+      index: 0,
+      failure: "blind retry bypassing Read and Edit",
+      from: "Conflict -->|refresh| Read",
+      to: "Conflict -->|refresh| Write",
+    },
+    {
+      asset: "process-walkthrough.json",
+      deckId: "process-deck",
+      index: 1,
+      failure: "lost stored revision input",
+      from: '  Current["Stored rev"] --> Compare\n',
+      to: "",
+    },
+    {
+      asset: "process-walkthrough.json",
+      deckId: "process-deck",
+      index: 1,
+      failure: "lost mismatch outcome",
+      from: '  Compare -->|No| Conflict["No write"]',
+      to: "",
+    },
+    {
+      asset: "process-walkthrough.json",
+      deckId: "process-deck",
+      index: 1,
+      failure: "lost expected revision input",
+      from: '  Expected["Expected rev"] --> Compare{"Match?"}\n',
+      to: "",
+    },
+    {
+      asset: "process-walkthrough.json",
+      deckId: "process-response",
+      index: 0,
+      failure: "lost no-retry outcome",
+      from: '  Found -->|Yes| Stop["No retry"]\n',
+      to: "",
+    },
+  ] as const)("finite case check catches $failure", async ({ asset, deckId, index, from, to }) => {
+    const document = validateDocument(await loadFixture(asset))
+    const slide = deck(document, deckId).slides[index]
+    expect(slide.mermaid).toContain(from)
+    slide.mermaid = slide.mermaid.replace(from, to)
+    // All mutations remain schema-valid; only these reviewed case claims reject them.
+    expect(() => validateDocument(document)).not.toThrow()
+    expect(() => expectTeachingClaims(document, asset)).toThrow()
+  })
+
+  test.each([
+    { asset: "architecture-walkthrough.json", deckId: "architecture-deck", index: 1 },
+    { asset: "architecture-walkthrough.json", deckId: "architecture-deck", index: 2 },
+    { asset: "architecture-walkthrough.json", deckId: "architecture-deck", index: 3 },
+    { asset: "architecture-walkthrough.json", deckId: "architecture-boundary", index: 0 },
+    { asset: "process-walkthrough.json", deckId: "process-deck", index: 1 },
+    { asset: "process-walkthrough.json", deckId: "process-response", index: 0 },
   ] as const)(
-    "fixture checks catch a duplicate overview in $asset slide $index",
-    async ({ asset, index }) => {
-      const fixture = await loadFixture(asset)
-      const deck = fixture.blocks.find((block: { type: string }) => block.type === "diagram-deck")
-      deck.slides[index].mermaid = deck.slides[0].mermaid
-      expect(() => validateDocument(fixture)).not.toThrow()
-      expect(() =>
-        asset === "architecture-walkthrough.json"
-          ? expectArchitectureDetails(deck)
-          : expectProcessStages(deck),
-      ).toThrow()
+    "finite contribution check catches redundant detail in $asset $deckId/$index",
+    async ({ asset, deckId, index }) => {
+      const document = validateDocument(await loadFixture(asset))
+      const first = document.blocks.find(
+        (block): block is DiagramDeck => block.type === "diagram-deck",
+      )
+      if (!first) throw new Error("Missing overview")
+      const detail = deck(document, deckId).slides[index]
+      const originalGraph = detail.mermaid
+      // A different graph with a copied overview explanation also loses its needed contribution.
+      detail.explanationMarkdown = first.slides[0].explanationMarkdown
+      expect(() => validateDocument(document)).not.toThrow()
+      expect(() => expectTeachingClaims(document, asset)).toThrow()
+      detail.mermaid = first.slides[0].mermaid
+      expect(detail.mermaid).not.toBe(originalGraph)
+      expect(() => validateDocument(document)).not.toThrow()
+      expect(() => expectTeachingClaims(document, asset)).toThrow()
+      // This is not a graph-equality rule: the checks require the case's named inputs and outcomes.
     },
   )
 
   test.each([
     {
       asset: "architecture-walkthrough.json",
+      deckId: "architecture-deck",
+      index: 2,
+      caveat: "Only after a match",
+    },
+    {
+      asset: "process-walkthrough.json",
+      deckId: "process-deck",
+      index: 0,
+      caveat: "not a blind retry",
+    },
+    {
+      asset: "process-walkthrough.json",
+      deckId: "process-deck",
       index: 1,
-      from: "Handler --> Store",
-      to: "Handler --> Elsewhere",
-    },
-    { asset: "architecture-walkthrough.json", index: 2, from: "Api[", to: "OtherApi[" },
-    { asset: "process-walkthrough.json", index: 2, from: "Edit[", to: "OtherEdit[" },
-    { asset: "process-walkthrough.json", index: 3, from: "Commit[", to: "OtherCommit[" },
-    {
-      asset: "process-walkthrough.json",
-      index: 2,
-      from: "Conflict --> Read[",
-      to: "Conflict --> Commit[",
-    },
-    {
-      asset: "process-walkthrough.json",
-      index: 2,
-      from: 'Edit["Edit"]',
-      to: 'Edit["Unrelated operation"]',
+      caveat: "no temporary file, rename, or revision increment",
     },
   ] as const)(
-    "fixture checks catch broken $from continuity in $asset",
-    async ({ asset, index, from, to }) => {
-      const fixture = await loadFixture(asset)
-      const deck = fixture.blocks.find((block: { type: string }) => block.type === "diagram-deck")
-      expect(deck.slides[index].mermaid).toContain(from)
-      deck.slides[index].mermaid = deck.slides[index].mermaid.replace(from, to)
-      expect(() => validateDocument(fixture)).not.toThrow()
-      expect(() =>
-        asset === "architecture-walkthrough.json"
-          ? expectArchitectureDetails(deck)
-          : expectProcessStages(deck),
-      ).toThrow()
+    "finite case check catches lost $caveat in $asset",
+    async ({ asset, deckId, index, caveat }) => {
+      const document = validateDocument(await loadFixture(asset))
+      const slide = deck(document, deckId).slides[index]
+      expect(slide.explanationMarkdown).toContain(caveat)
+      slide.explanationMarkdown = slide.explanationMarkdown.replace(caveat, "without safeguards")
+      expect(() => validateDocument(document)).not.toThrow()
+      expect(() => expectTeachingClaims(document, asset)).toThrow()
     },
   )
 
-  test.each([
-    { asset: "architecture-walkthrough.json", index: 2, caveat: "only after a match" },
-    { asset: "process-walkthrough.json", index: 2, caveat: "not a blind retry" },
-  ] as const)(
-    "fixture checks catch a lost failure caveat in $asset",
-    async ({ asset, index, caveat }) => {
-      const fixture = await loadFixture(asset)
-      const deck = fixture.blocks.find((block: { type: string }) => block.type === "diagram-deck")
-      expect(deck.slides[index].explanationMarkdown).toContain(caveat)
-      deck.slides[index].explanationMarkdown = deck.slides[index].explanationMarkdown.replace(
-        caveat,
-        "without safeguards",
-      )
-      expect(() => validateDocument(fixture)).not.toThrow()
-      expect(() =>
-        asset === "architecture-walkthrough.json"
-          ? expectArchitectureDetails(deck)
-          : expectProcessStages(deck),
-      ).toThrow()
-    },
-  )
+  test("finite case check catches a saved response before commit", async () => {
+    const document = validateDocument(await loadFixture("process-walkthrough.json"))
+    const processing = deck(document, "process-deck").slides[1]
+    processing.explanationMarkdown = processing.explanationMarkdown.replace(
+      "Yes permits Commit, then Saved reports the new revision",
+      "Saved reports the new revision before Commit",
+    )
+    expect(() => validateDocument(document)).not.toThrow()
+    expect(() => expectProcessStages(document)).toThrow()
+  })
+
+  test("interrupted-response recovery retains its no-competing-writer assumption", async () => {
+    const document = validateDocument(await loadFixture("process-walkthrough.json"))
+    const note = document.blocks.find((block) => block.id === "process-note")
+    if (note?.type !== "markdown") throw new Error("Missing recovery assumptions")
+    note.markdown = note.markdown.replace(
+      "assume no competing writer during the check",
+      "always retry",
+    )
+    expect(() => validateDocument(document)).not.toThrow()
+    expect(() => expectProcessStages(document)).toThrow()
+  })
 
   test.each([
     "sequenceDiagram\nAlice->>Bob: unsupported",

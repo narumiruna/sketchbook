@@ -1,6 +1,15 @@
 import { readdir, readFile, writeFile } from "node:fs/promises"
 import { expect, test } from "@playwright/test"
-import { asset, documentFixture, getDeck, rendered, save, selectSlide } from "./helpers.js"
+import { paginationFixture } from "../fixtures/reading-layout.js"
+import {
+  asset,
+  documentFixture,
+  getDeck,
+  openDiagramControls,
+  rendered,
+  save,
+  selectSlide,
+} from "./helpers.js"
 
 test("bundled Markdown, math, code, Chinese subgraphs, sanitized styles and native Rough.js paths coexist", async ({
   page,
@@ -181,6 +190,7 @@ test("decks switch independently with focused keyboard controls and preserve scr
   await page.keyboard.press("ArrowRight")
   await expect(second).toHaveAttribute("data-slide-id", "detail")
   await expect(first).toHaveAttribute("data-slide-id", "end")
+  await openDiagramControls(second)
   await second.getByRole("button", { name: "Zoom in", exact: true }).focus()
   await page.keyboard.press("ArrowLeft")
   await expect(second).toHaveAttribute("data-slide-id", "overview")
@@ -188,7 +198,7 @@ test("decks switch independently with focused keyboard controls and preserve scr
 })
 
 for (const width of [390, 1280]) {
-  test(`compact footer arrows and dots navigate independently at ${width}px`, async ({
+  test(`visible footer arrows and dots navigate independently at ${width}px`, async ({
     page,
     request,
   }) => {
@@ -203,6 +213,9 @@ for (const width of [390, 1280]) {
     const dots = first.locator(".slide-pagination")
     await expect(previous).toBeDisabled()
     await expect(next).toBeEnabled()
+    await expect(previous).toHaveText("Previous")
+    await expect(next).toHaveText("Next")
+    await expect(first.locator(".slide-count")).toHaveText("1 / 3")
     await expect(first.locator(".deck-arrow-icon")).toHaveCount(2)
     await expect(dots.locator(".slide-dot")).toHaveCount(3)
     await expect(first.getByRole("combobox")).toHaveCount(0)
@@ -219,12 +232,14 @@ for (const width of [390, 1280]) {
     expect(previousBox.width).toBeGreaterThanOrEqual(44)
     expect(previousBox.height).toBeGreaterThanOrEqual(44)
     expect(nextBox.width).toBeGreaterThanOrEqual(44)
+    expect(nextBox.height).toBeGreaterThanOrEqual(44)
     expect(previousBox.y).toBeGreaterThanOrEqual(viewportBox.y + viewportBox.height)
     expect(nextBox.y).toBeGreaterThanOrEqual(viewportBox.y + viewportBox.height)
     expect(previousBox.x).toBeLessThan(nextBox.x)
     await next.click()
     await rendered(first)
     await expect(first).toHaveAttribute("data-slide-id", "detail")
+    await expect(first.locator(".slide-count")).toHaveText("2 / 3")
     await expect(previous).toBeEnabled()
     await expect(dots.getByRole("button", { name: "Slide 2: Detail" })).toHaveAttribute(
       "aria-current",
@@ -241,6 +256,82 @@ for (const width of [390, 1280]) {
     await dots.getByRole("button", { name: "Slide 1: Overview" }).click()
     await expect(previous).toBeDisabled()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+}
+
+for (const width of [390, 1440]) {
+  test(`20-slide pagination keeps visible navigation and all positions contained at ${width}px`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 })
+    const content = paginationFixture()
+    await page.goto((await save(request, content)).url)
+    const deck = page.locator('[data-block-id="reading"]')
+    await rendered(deck)
+    const pagination = deck.locator(".slide-pagination")
+    const previous = pagination.getByRole("button", { name: "Previous slide" })
+    const next = pagination.getByRole("button", { name: "Next slide" })
+    await expect(pagination.locator(".slide-dot")).toHaveCount(20)
+    await expect(previous).toHaveText("Previous")
+    await expect(next).toHaveText("Next")
+    await expect(previous).toBeDisabled()
+    await expect(pagination.locator(".slide-count")).toHaveText("1 / 20")
+    await next.click()
+    await rendered(deck)
+    await expect(deck).toHaveAttribute("data-slide-id", "part-2")
+    await expect(pagination.locator(".slide-count")).toHaveText("2 / 20")
+    const last = pagination.getByRole("button", {
+      name: "Slide 20: Part 20: a complete, untruncated teaching title",
+      exact: true,
+    })
+    await last.focus()
+    await page.keyboard.press("Enter")
+    await rendered(deck)
+    await expect(deck).toHaveAttribute("data-slide-id", "part-20")
+    await expect(last).toHaveAttribute("aria-current", "step")
+    await expect(pagination.locator('[aria-current="step"]')).toHaveCount(1)
+    await expect(pagination.locator(".slide-count")).toHaveText("20 / 20")
+    await expect(next).toBeDisabled()
+    await expect(previous).toBeEnabled()
+    await expect(deck.locator(".deck-heading h3")).toHaveText(
+      "Part 20: a complete, untruncated teaching title",
+    )
+    const bounds = await deck.boundingBox()
+    if (!bounds) throw new Error("Missing pagination card")
+    for (const button of [previous, next]) {
+      const box = await button.boundingBox()
+      if (!box) throw new Error("Missing navigation button")
+      expect(box.width).toBeGreaterThanOrEqual(44)
+      expect(box.height).toBeGreaterThanOrEqual(44)
+    }
+    const positions = await pagination.locator("button, .slide-count").evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const box = node.getBoundingClientRect()
+        return { left: box.left, right: box.right }
+      }),
+    )
+    for (const position of positions) {
+      expect(position.left).toBeGreaterThanOrEqual(bounds.x)
+      expect(position.right).toBeLessThanOrEqual(bounds.x + bounds.width)
+    }
+    await previous.click()
+    await expect(deck).toHaveAttribute("data-slide-id", "part-19")
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+}
+
+for (const width of [600, 601]) {
+  test(`heading badge uses no narrow title space at ${width}px`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 960 })
+    await page.goto((await save(request, documentFixture())).url)
+    const deck = page.locator('[data-block-id="first"]')
+    await rendered(deck)
+    const badge = deck.locator(".deck-kind")
+    if (width <= 600) {
+      await expect(badge).toBeHidden()
+      expect(await badge.boundingBox()).toBeNull()
+    } else await expect(badge).toBeVisible()
   })
 }
 
@@ -528,6 +619,7 @@ for (const name of ["architecture-walkthrough", "process-walkthrough"]) {
         expect(await deck.locator("svg .rough-node path").count()).toBeGreaterThan(0)
         const viewport = await deck.locator(".diagram-viewport").boundingBox()
         expect(viewport?.height).toBeLessThanOrEqual(576)
+        await openDiagramControls(deck)
         await deck.getByRole("button", { name: "Reset zoom", exact: true }).click()
         const textScale = await deck
           .locator(".diagram-svg svg text")

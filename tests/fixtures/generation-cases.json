@@ -1,0 +1,159 @@
+{
+  "scope": "Finite reviewed teaching cases, not a universal semantic linter or evidence about a deployed service.",
+  "cases": [
+    {
+      "asset": "architecture-walkthrough.json",
+      "source": {
+        "kind": "supplied teaching facts",
+        "facts": [
+          {
+            "id": "service-boundary",
+            "statement": "Client is outside Service. API and Store are inside Service. Client calls API, and API delegates persistence to Store. These component relationships do not specify execution order."
+          },
+          {
+            "id": "validation",
+            "statement": "API checks the complete document against schema and content policy. Valid input passes through Handler to Store. Invalid input returns an error to Client without reaching Store or writing a file."
+          },
+          {
+            "id": "serialized-revision",
+            "statement": "Store serializes replacements in Queue. Inside that operation it reads the current stored revision and compares it with the request's expected revision. A mismatch makes no temporary file, rename, or revision increment. The revision read, comparison, temporary writing, and rename remain in one serialized operation; another replacement cannot enter between them."
+          },
+          {
+            "id": "atomic-commit",
+            "statement": "Only after a matching revision does Store write Temp JSON, then Rename atomically replaces the file in Files. Writing Temp JSON alone does not replace the stored file; Rename is the commit boundary. Success increments the revision and confirms persistence, not rendering."
+          },
+          {
+            "id": "revision-invariant",
+            "statement": "For a successful replacement, the expected revision r_e equals the current stored revision r_s, and the next revision is r_s + 1."
+          },
+          {
+            "id": "caller-handoff",
+            "statement": "Client first asks Link API for a viewer URL. Link API returns the URL to Client, not Browser. Client later supplies the URL to Browser. Only then does Browser send a GET request to Viewer. Link API neither launches Browser nor fetches the page."
+          }
+        ]
+      },
+      "review": {
+        "question": "Which boundaries reject a replacement, and who acts on a viewer URL after saving?",
+        "claims": [
+          {
+            "claim": "Component relationships do not imply a timed request trace.",
+            "sources": ["service-boundary"]
+          },
+          {
+            "claim": "Validation and revision mismatch stop before a file changes; serialized comparison precedes temporary writing and atomic rename. Success increments the matched stored revision.",
+            "sources": ["validation", "serialized-revision", "atomic-commit", "revision-invariant"]
+          },
+          {
+            "claim": "The URL recipient is Client; Browser performs the later request to Viewer.",
+            "sources": ["caller-handoff"]
+          }
+        ],
+        "contributions": [
+          {
+            "deckId": "architecture-deck",
+            "slideId": "architecture-overview",
+            "adds": "Establish component responsibilities and the service boundary, without claiming execution order.",
+            "sources": ["service-boundary"]
+          },
+          {
+            "deckId": "architecture-deck",
+            "slideId": "architecture-api",
+            "adds": "Expose validation input, accepted handoff, and rejected no-write outcome.",
+            "sources": ["validation"]
+          },
+          {
+            "deckId": "architecture-deck",
+            "slideId": "architecture-storage",
+            "adds": "Expose both revision inputs, serialized read/compare order, and match/Temp JSON versus mismatch/no-write effects. Temp JSON connects the revision gate to the commit boundary.",
+            "sources": ["serialized-revision", "atomic-commit"]
+          },
+          {
+            "deckId": "architecture-deck",
+            "slideId": "architecture-commit",
+            "adds": "Expand Temp JSON into ordered Rename and Files steps. Distinguish temporary writing from atomic stored-file replacement and state the successful revision invariant.",
+            "sources": ["serialized-revision", "atomic-commit", "revision-invariant"]
+          },
+          {
+            "deckId": "architecture-boundary",
+            "slideId": "architecture-boundary-slide",
+            "adds": "Answer the independent caller handoff question: a returned URL and a browser request have different recipients and actions.",
+            "sources": ["caller-handoff"]
+          }
+        ],
+        "unresolved": [
+          "This is a defined teaching model, not an inspected implementation.",
+          "Rendered, readable, and human acceptance states need separate evidence."
+        ]
+      }
+    },
+    {
+      "asset": "process-walkthrough.json",
+      "source": {
+        "kind": "supplied teaching facts",
+        "facts": [
+          {
+            "id": "replacement-input",
+            "statement": "Read returns complete content and a revision, a version number. Edit prepares the complete replacement and uses that revision as expectedRevision. Invalid input is rejected before the illustrated write path without changing storage."
+          },
+          {
+            "id": "revision-decision",
+            "statement": "Write compares expected and stored revisions inside one serialized operation. A match permits Commit and then Saved reports revision r + 1. A mismatch returns conflict with no temporary file, rename, or revision increment. Another write cannot enter between comparison and Commit."
+          },
+          {
+            "id": "conflict-recovery",
+            "statement": "Conflict recovery returns through Read and Edit, preserving unrelated updates while reapplying the intended change. Replacing only the revision number or blindly resending old content is not safe recovery."
+          },
+          {
+            "id": "interrupted-response",
+            "statement": "A missing response does not prove that Commit failed. In this recovery case no competing writer intervenes during the check. Read compares stored complete content and revision with the planned replacement and its expected next revision. If both match, no retry or second write is needed. If they do not, return to Edit with current content and revision. If concurrent writes or ambiguity prevent this conclusion, stop and investigate."
+          },
+          {
+            "id": "evidence-boundary",
+            "statement": "A save or read confirms only persisted state. It does not establish rendered Mermaid or math, readable composition, content correctness, or human acceptance."
+          }
+        ]
+      },
+      "review": {
+        "question": "How can a complete replacement avoid a lost update or a duplicate retry?",
+        "claims": [
+          {
+            "claim": "The conflict loop reads and edits current content before a new request.",
+            "sources": ["replacement-input", "conflict-recovery"]
+          },
+          {
+            "claim": "Expected and stored revision inputs have distinct match/commit and mismatch/no-write outcomes inside one serialized operation.",
+            "sources": ["revision-decision"]
+          },
+          {
+            "claim": "An interrupted response needs a read-only content-and-revision check before another write, under the stated no-competing-writer assumption.",
+            "sources": ["interrupted-response", "evidence-boundary"]
+          }
+        ],
+        "contributions": [
+          {
+            "deckId": "process-deck",
+            "slideId": "process-overview",
+            "adds": "Establish the complete replacement path and the Read/Edit conflict recovery loop.",
+            "sources": ["replacement-input", "conflict-recovery"]
+          },
+          {
+            "deckId": "process-deck",
+            "slideId": "process-processing",
+            "adds": "Expose both comparison inputs and match/Commit versus mismatch/no-write effects. The slide title scopes comparison and commit as one serialized write; Saved remains in the overview.",
+            "sources": ["revision-decision"]
+          },
+          {
+            "deckId": "process-response",
+            "slideId": "process-response-slide",
+            "adds": "Resolve a different uncertainty: check stored content and revision after a missing response before deciding to retry.",
+            "sources": ["interrupted-response", "evidence-boundary"]
+          }
+        ],
+        "unresolved": [
+          "This recovery example assumes no competing writer during the check; ambiguous results need investigation.",
+          "Rendered, readable, content-correct, and human acceptance results are not implied by storage success."
+        ]
+      }
+    }
+  ]
+}

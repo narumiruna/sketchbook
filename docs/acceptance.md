@@ -39,12 +39,15 @@ Expected assertions:
 - [ ] Assumptions are marked as a teaching model instead of source-verified implementation facts.
 - [ ] Creation omits `documentId` and `expectedRevision`, and the result reports the generated ID and revision.
 - [ ] Opening uses a supported TUI or RPC session and automatically returns a detected private IPv4 URL, or a loopback URL fallback, without an OS-browser launch or host configuration.
-- [ ] The final response separates storage success from rendering evidence.
+- [ ] A compact review record traces arrow recipients, actions, required order, and decision outcomes to sources or explicit teaching facts.
+- [ ] Each slide adds needed information across the whole article, not only within its deck.
+- [ ] The final response separates saved, rendered, readable, content-correct, and human acceptance results.
 
 ### Process prompt
 
 > Create a Pi Sketchbook guide to replacing a saved document.
-> Show the complete flow, then the input and start, then validation and revision checking, then output and end.
+> Show the complete flow, then expose the revision inputs, outcomes, and no-write conflict boundary.
+> Add detail views only when they add needed information; do not add start or end slides that repeat the overview.
 > Show how a revision conflict returns to a read instead of overwriting a newer change.
 > Include prose, inline and display LaTeX for the next revision, and a fenced TypeScript example.
 > Save the guide and return its viewer link.
@@ -54,7 +57,7 @@ Expected assertions:
 Expected assertions:
 
 - [ ] The document passes the strict version-1 schema and uses only flowcharts.
-- [ ] A main deck has overview → start → processing → end slides with corresponding explanations.
+- [ ] The main deck establishes the replacement flow and exposes the comparison inputs and match/no-write outcomes without redundant stage slides.
 - [ ] Each stage explains its inputs or outputs and keeps the handoff to the next stage visible.
 - [ ] Repeated steps keep the same node IDs, labels, and meanings, and the conflict exit is visible.
 - [ ] Prose, inline/display LaTeX, and fenced TypeScript are present.
@@ -72,10 +75,12 @@ Check its heading outline, prerequisite concepts, first definitions, repeated te
 The document title owns H1, deck titles remain H2 during navigation, and current slide titles use H3.
 Markdown explanations must not introduce competing chapter headings.
 
-`tests/browser/article-review.spec.ts` covers both bundled examples and the source-linked Agent Substrate regression fixture in `tests/fixtures/agent-substrate.json`.
+`tests/browser/article-review.spec.ts` covers both bundled examples, the source-linked Agent Substrate regression, and the two active-agent authoring cases in `tests/fixtures/viewer-handoff.json` and `tests/fixtures/receipt-check.json`.
 It captures the complete initial and final article and every slide at 1440px and 390px.
 Each teaching slide must have initial fitted SVG labels of at least 12 CSS px, body explanations of at least 16px, no exposed emphasis delimiters, no page overflow, and at most 64px of unused frame height.
-These are finite regression checks, not a claim that arbitrary diagrams meet the same target.
+These are finite regression checks, not a claim that arbitrary diagrams meet the same target or that passing a size floor establishes explanation quality.
+Review diagram meaning, composition, graph/prose proximity, and contribution independently of rendering results.
+Reports also record heading, toolbar, pagination, and explanation boxes relative to each card.
 Large-graph and long-label stress tests remain separate from the teaching examples.
 
 The original Agent Substrate review found two H1 headings, changing H2 chapter names, default fitted labels of about 7–11px on desktop and 2–4px at 390px, exposed CJK emphasis markers, and a broken-word glossary table.
@@ -85,7 +90,8 @@ No stored document schema or tool contract changes are required.
 
 ### Reviewer handoff
 
-The documentation reviewer can use the CI `browser-evidence-node-*` artifacts or the local `test-results/article-review-*/` captures after the checks pass.
+The documentation reviewer can use the CI `browser-evidence-node-*` artifacts or local `test-results/browser/article-review-*/` captures after the checks pass.
+Run browser checks with `--output=test-results/browser` to preserve separate before/after captures in `test-results/reading-layout/`.
 Inspect complete pages and every slide, not only SVG presence or the initial position.
 Assess text comfort, hierarchy, diagram meaning, and comprehension at both recorded widths.
 The expected result is a readable article with stable sections and source-supported claims.
@@ -102,19 +108,22 @@ The expected result is a connected explanation with no unrelated or redundant sl
 The bundled examples define API and Store as short labels for Document API and Document Store, and Read/Edit as process steps.
 They provide these review references:
 
-| Slide                 | Connection                                                      | Contribution                                                                                  |
-| --------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Architecture overview | Establishes Client → Document API → Document Store.             | Defines the save path and backend boundary.                                                   |
-| API detail            | Expands the overview's Document API and retains Document Store. | Explains validation before the handler passes the request to storage.                         |
-| Storage detail        | Continues the preceding slide's Document Store handoff.         | Explains ordered writes, revision rejection, and atomic persistence; completes the save path. |
-| Process overview      | Establishes the replacement path and conflict loop.             | Defines successful completion without overwriting a newer revision.                           |
-| Input and start       | Focuses on the overview's Read and Edit steps.                  | Explains the document/revision inputs and hands the prepared replacement to validation.       |
-| Core processing       | Continues at Edit and hands success to Commit.                  | Explains validation, revision comparison, and recovery through Read.                          |
-| Output and end        | Continues at Commit.                                            | Explains the saved revision and separates persistence from rendering evidence.                |
+| View                  | Connection                                            | Contribution                                                                   |
+| --------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Architecture overview | Establishes Client, API, and Store responsibilities.  | Separates component relationships from process order.                          |
+| API detail            | Expands API's accepted/rejected handoff.              | Makes validation and the no-write outcome visible.                             |
+| Revision gate         | Expands Store's serialized operation.                 | Shows revision inputs, read-after-queue ordering, and match/no-write outcomes. |
+| Atomic commit         | Continues from Temp JSON.                             | Identifies Rename as the persistence boundary.                                 |
+| Caller handoff        | Asks an independent question after saving.            | Separates a URL returned to Client from Browser's later request.               |
+| Process overview      | Establishes complete replacement and recovery.        | Shows that a conflict returns through Read and Edit.                           |
+| Serialized write      | Expands the known Write stage.                        | Exposes expected/stored inputs and Commit/no-write outcomes.                   |
+| Interrupted response  | Applies the save boundary to a different uncertainty. | Requires a content-and-revision read before deciding to retry.                 |
 
 Check that names and meanings remain consistent when components reappear.
 A detail slide may omit earlier internals when its explanation identifies the change of focus.
-The independent one-slide reminders answer separate questions and do not extend the main sequences.
+The independent one-slide decks answer separate questions and do not repeat the main sequences.
+Explicit teaching facts, source claim checks, and contribution records are retained in `tests/fixtures/generation-cases.json`.
+Known-failure mutations protect those cases; they are not a semantic evaluator for arbitrary articles.
 Merge or remove redundant slides; move unrelated questions to separate decks.
 
 Static fixture checks protect these specific connections and responsibilities, not the meaning of arbitrary generated decks.
@@ -122,6 +131,30 @@ Browser checks and their ignored `test-results/` captures provide rendering evid
 Reader comprehension and real-model behavior remain unverified; this review is not required to complete the agent's implementation tasks.
 Do not claim comprehension acceptance or reliable model output from automated checks, or release readiness from this change.
 Paid model evaluations and release operations still require the authorizations stated above.
+
+## Generation and reading-quality handoff
+
+The active agent authored two separate cases using the revised skill, without a new paid evaluation endpoint.
+These bounded trials do not establish automatic skill loading, repeatability across models, or reader comprehension.
+
+| Case                                | Saved ID / revision                        | Source and main claims                                                                                                                                                             |
+| ----------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Viewer links and request boundaries | `6f5d3454-80f3-489c-be86-90182758577d` / 2 | `src/tools.ts`, `src/server.ts`, `src/web/main.tsx`, and `src/web/app.tsx` at `348c400`: read before first listen, URL returned to Caller, then a separate Browser bearer request. |
+| Package receipt decision            | `925f910d-75d0-46e2-980e-51df5b63042e` / 1 | Supplied teaching facts: expected/scanned inputs, a match permits receipt, mismatch holds without a record, and correction plus rescan is required before another comparison.      |
+
+The trial payloads and their source/scope statements remain in `tests/fixtures/`.
+The repository case separates two useful questions; the process case uses one diagram because it answers the bounded question without filler.
+The first Viewer trial's request diagram failed the 390px label floor at 11.01px.
+The author removed repeated caller context and subgraph padding while retaining the request initiator, access check, and both outcomes, then saved revision 2 through a revision-checked replacement.
+The original repository walkthrough was not rewritten.
+Keep saved, rendered, readable, content-correct, and human acceptance evidence separate for these trials.
+
+The user or documentation reviewer owns subjective visual and comprehension acceptance after agent checks pass.
+Inspect the complete articles and every slide at both captured widths, then record acceptance or remaining problems with meaning, reading comfort, and control discovery.
+The physical-device owner checks scrolling, disclosure access, and fullscreen on a real device after browser touch emulation passes.
+Expected behavior is contained content and supported control-based zoom, not touch panning or pinch zoom.
+Native-device behavior, user acceptance, automatic skill discovery, and broader model reliability remain unverified until their owners check them.
+Do not claim release readiness from the agent evidence or perform release operations without separate authorization.
 
 ## Human browser review
 
@@ -133,10 +166,12 @@ Use `sketchbook_write` to save each bundled asset, then `sketchbook_open` to obt
 - [ ] Confirm the teaching diagrams have readable default labels, arrows, Chinese text, and a hand-drawn style.
 - [ ] Check long-label stress cases separately; they are not examples of suitable teaching layouts.
 - [ ] Confirm prose, inline/display math, code, and technical names remain readable at 390px and desktop widths.
+  - [ ] Scroll long fenced code to its right edge; default captures do not show every column. Confirm the complete code remains reachable on the target input device.
 - [ ] Confirm Markdown emphasis renders without exposing literal delimiters.
-- [ ] Change slides by the bottom arrows, labelled position dots, and Left/Right keys while a deck has focus.
+- [ ] Change slides by visible bottom Previous/Next buttons, labelled position dots, and Left/Right keys while a deck has focus.
 - [ ] Confirm the stable chapter title, current slide title, compact toolbar, content-sized bounded graph, and nearby explanation are comfortable to read.
-- [ ] Compare initial Fit with Reset zoom; confirm large graphs remain accessible through zoom and dragging.
+- [ ] Confirm More controls starts closed, opens by keyboard, and exposes zoom, Reset, source view, and accurate input help without hiding the primary Fit/Fullscreen controls.
+- [ ] Compare initial Fit with Reset zoom; confirm large graphs remain accessible through zoom and mouse/pen dragging.
 - [ ] Check native browser fullscreen, in-page fallback, Escape, and focus restoration on the target browser.
 - [ ] Check document scrolling and pointer behavior on any required physical touch devices; pinch zoom is not implemented.
 - [ ] Confirm two decks retain independent positions and the single-slide deck has no unnecessary navigation.

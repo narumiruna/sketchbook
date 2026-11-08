@@ -5,6 +5,7 @@
 - **Declared** identifies the support contract or a pinned dependency, not a passed test.
 - **Source** identifies an inspected implementation or dependency path.
 - **Automated** identifies a completed check and its observed result.
+- **Authoring trial** identifies a bounded active-agent generation and review, not automatic skill discovery or general model reliability.
 - **Unverified** identifies a check that has not been completed.
 
 Source inspection and automated tests do not establish human visual acceptance or model behavior.
@@ -23,7 +24,7 @@ Source inspection and automated tests do not establish human visual acceptance o
 | Human visual acceptance         | Unverified         | Text size, hand-drawn style, responsive layout, and explanation clarity require user review.                                                        |
 | Trusted LAN IPv4                | Source + Automated | Tests and same-host private-interface Chromium smoke pass on macOS; physical second-device access remains unverified.                               |
 | Remote access                   | Unverified         | SSH forwarding, containers, and WSLg/Windows browser routing need environment-specific checks.                                                      |
-| Real-model tool use             | Unverified         | No API calls or model-cost tests were performed; automatic skill selection is not established.                                                      |
+| Active-agent authoring          | Authoring trial    | Two fresh cases use the revised skill and separate document IDs; automatic skill selection and broader model reliability remain unverified.         |
 
 ## Completed checks
 
@@ -130,15 +131,81 @@ See the [LAN device handoff](acceptance.md#lan-device-handoff).
 No firewall settings, router settings, publication, tags, or releases were changed.
 The existing Vite chunk-size warning remains; this change does not alter the renderer bundle.
 
+### Generation and reading-layout update
+
+Verification on macOS with Node.js `26.11.1` and Pi `1.5.0` on 2026-11-08 produced these results:
+
+- `npm run ci` passed formatting, TypeScript, all 193 unit tests across eight files, and production builds.
+- `npm run test:browser -- --output=test-results/browser` passed all 61 Chromium tests.
+  - Complete-article coverage includes 16 slides at each width, for 32 initial-fit slide/viewport checks.
+  - Disclosure keyboard/tab order, native/fallback fullscreen, live source replacement and outside focus, 20-slide navigation, coarse-pointer help, touch scrolling, and enlarged-root-text wrapping passed.
+- `npm pack --dry-run` and `npm run test:package` passed local and extracted-tarball loading, actual tool execution, bundled assets, math rendering, and shutdown.
+  - The package smoke now opens the fixture's actual math slide instead of assuming that math appears in the first view.
+- `npm audit --audit-level=low` reported zero vulnerabilities.
+- The original saved walkthrough's SHA-256 stayed unchanged; no user document was rewritten.
+
+| Article                    | Minimum label at 390px | Minimum label at 1440px |
+| -------------------------- | ---------------------- | ----------------------- |
+| Architecture example       | 12.61px                | 14.93px                 |
+| Process example            | 12.63px                | 15.98px                 |
+| Agent Substrate regression | 12.34px                | 12.88px                 |
+| Viewer handoff trial       | 12.61px                | 15.98px                 |
+| Receipt decision trial     | 12.63px                | 15.98px                 |
+
+Every explanation uses at least 16px body text; the measured maximum unused graph-frame height is below the existing 64px bound.
+Long fenced code remains in bounded horizontal scroll containers, not wrapped or truncated.
+The article checks reach the right edge of each overflowing code block, preserve its text, and retain end-of-code captures; a default screenshot alone does not show every code column.
+The complete article captures and every slide were inspected by agents at both widths, separately from the automated checks.
+Node.js `22.19.0`, other browser engines, physical touch devices, and human acceptance were not rerun or established by this local update.
+The existing CI matrix provides the separate Node.js compatibility check.
+
+The skill now requires source-supported arrow recipients, actions, direction, required order, decision inputs/outcomes, and useful contributions across decks.
+`tests/fixtures/generation-cases.json` records explicit teaching facts and compact claim/contribution/issues reviews.
+Known-failure tests cover wrong recipients, lost no-write outcomes, unsafe ordering, and redundant detail views without claiming a universal semantic evaluator.
+
+The Viewer places graph and prose side by side when their 34rem/20rem flex bases fit the available card width.
+They wrap into one reading column when space is insufficient, including enlarged root text.
+At the default 16px root size, the combined bases are 864px; they scale with the font instead of relying on a fixed viewport breakpoint.
+Fit still does not enlarge native SVGs, and inline height still follows SVG geometry within its bounds.
+The default toolbar contains Fit, Fullscreen, and More controls; zoom, Reset, source view, and input help are in the inline disclosure.
+Footer Previous/Next labels, count, and position dots remain available, including a 20-slide case.
+
+Controlled before/after checks use identical `readingFixture()` content against baseline `348c400`:
+
+| Viewport                         | First paragraph offset before | After    | Fitted minimum before / after |
+| -------------------------------- | ----------------------------- | -------- | ----------------------------- |
+| 1440x1000 and 1280x960           | 540.38px                      | 109.56px | 15.98px / 15.98px             |
+| 390x844, fine and coarse pointer | 611.52px                      | 577.02px | 15.98px / 15.98px             |
+
+Offsets above are macOS measurements relative to the card top.
+CI preserves the one-body-line improvement and unchanged-label requirements with frozen historical heading styles and the historical SVG inset/clamp formula.
+Only system-font glyph measurements and intrinsic SVG dimensions are browser-specific; an isolated historical heading fixture prevents current header or descendant styles from changing the reference.
+The frame reference uses the historical geometry formula, not the live frame height.
+A pinned fixture SHA-256 requires identical text/source, and negative checks confirm that 16px of added header padding, title padding/borders, or frame whitespace fails the comparison.
+The historical toolbar/hint/pagination spacing remains fixed; raw and same-font offsets are both recorded.
+This avoids comparing Linux font geometry against an absolute macOS pixel coordinate.
+SVG label checks also tolerate inter-tspan whitespace differences without changing label text or rendering policy.
+Final review caught the initial fixed-pixel layout overflowing at 1024px with 20px root text; font-scaled wrapping and four width/root-font regression cases resolve it.
+The mobile improvement is 34.5px, more than one 25.6px body-text line, without reducing graph labels or removing authored content.
+Capture commands and raw geometry are reproducible with `scripts/capture-reading-layout.ts` and the committed baseline metrics.
+Use a separate browser output directory so tests do not remove the retained before/after captures.
+
+The first revised examples exposed genuine fitted-label failures: API validation measured 10.70px and the process decision measured 11.02px at 390px.
+The examples were simplified into useful focused views, including separate revision and atomic-commit views; the label floor was not lowered.
+The fresh Viewer authoring trial also needed a narrower request view after its first 390px result measured 11.01px.
+These corrections are evidence that render success alone is insufficient, not evidence that future model outputs cannot fail.
+The source-backed Viewer and unrelated package-receipt trials, their saved IDs/revisions, limits, and human handoff are recorded in [acceptance](acceptance.md#generation-and-reading-quality-handoff).
+The existing user walkthrough was not rewritten.
+
 ## Fixture coverage
 
-[Architecture walkthrough](../skills/sketchbook-explain-diagrams/assets/architecture-walkthrough.json) provides overview, API, and storage slides with stable component IDs and short labels.
+[Architecture walkthrough](../skills/sketchbook-explain-diagrams/assets/architecture-walkthrough.json) provides four connected save-boundary views and a separate caller URL/browser-request handoff.
 It includes subgraphs, Chinese text, and an independent one-slide deck.
-[Process walkthrough](../skills/sketchbook-explain-diagrams/assets/process-walkthrough.json) provides overview, input, processing, and result slides plus an independent conflict deck.
-Both include Markdown prose, inline/display LaTeX, fenced TypeScript, an opening H2, and a final conclusion.
-All nine bundled slides are covered at narrow and desktop widths, alongside the source-linked Agent Substrate regression fixture.
-Long-label and large-graph stress cases remain in separate browser fixtures.
-The skill test protects known outline and continuity regressions, not arbitrary narrative quality.
+[Process walkthrough](../skills/sketchbook-explain-diagrams/assets/process-walkthrough.json) provides a replacement overview, a serialized revision decision, and an independent interrupted-response check.
+Both include Markdown prose, inline/display LaTeX, fenced TypeScript, an opening H2, and a final conclusion without redundant start/end reminders.
+All eight bundled slides, five Agent Substrate slides, and three fresh authoring slides have complete-article browser coverage at narrow and desktop widths.
+Controlled compact/wide/tall layout and 20-slide navigation cases are separate from the teaching articles; the large cases do not inherit the compact label-size target.
+The skill test protects known outline and meaning regressions, not arbitrary narrative quality.
 
 ## Rendering source trace
 
@@ -169,7 +236,7 @@ node --version
 npm ci
 npm run ci
 npx playwright install chromium
-npm run test:browser
+npm run test:browser -- --output=test-results/browser
 npm pack --dry-run
 npm run test:package
 npm audit

@@ -7,17 +7,18 @@ description: Explain architecture and processes with layered Mermaid diagram dec
 
 Create an article whose decks answer distinct questions in a clear reading order.
 
-1. Identify the audience, main question, and facts supported by the supplied sources.
+1. Identify the audience, main question, important execution or trust boundaries, and source-supported facts.
    - Mark assumptions instead of presenting invented components or behavior as verified facts.
 2. Read [document format](references/document-format.md) before building a payload.
-   - Read [diagram patterns](references/diagram-patterns.md) to plan the article and compact diagrams.
+   - Use [diagram patterns](references/diagram-patterns.md) to plan each diagram's visible claim and check its meaning, contribution, and composition.
    - Adapt the complete [architecture example](assets/architecture-walkthrough.json) or [process example](assets/process-walkthrough.json) when it fits the request.
 3. Outline the article, then write its context, decks, and conclusion.
    - Keep node IDs, short labels, and meanings stable across slides.
    - Put detailed explanations, formulas, and code in Markdown rather than node labels.
 4. Before saving, review the whole article's outline, concept order, first definitions, repetition, and conclusion.
    - Complete this review before checking each slide's contribution and continuity with adjacent slides.
-   - Correct gaps, redundant sections, and disconnected slides before calling `sketchbook_write`.
+   - Apply the source, decision, and cross-deck contribution checks in the diagram patterns.
+   - Correct gaps, redundant sections, and disconnected slides, then keep the compact review record before calling `sketchbook_write`.
 5. Use `sketchbook_write` to create the document, then `sketchbook_open` to obtain its viewer URL.
    - For an update, use `sketchbook_read`, change the complete document, and write with its ID and returned revision.
    - Correct validation errors before retrying.

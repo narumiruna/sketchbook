@@ -76,11 +76,13 @@ Keep these evidence states separate in the handoff:
 
 - **Saved**: the write returned an ID and revision.
 - **Rendered**: browser evidence shows that the inspected Markdown, Mermaid, and math rendered without errors.
-- **Readable**: the visual checks cover the full article and every slide at desktop and 390px, including initial fitted labels.
-- **Content-correct**: source checks and article review support the claims, concept order, and caveats.
+- **Readable**: complete visual review supports the article's composition and reading order at desktop and 390px, including every slide's initial fitted labels and explanation.
+- **Content-correct**: source checks and article review support arrow recipients, actions, order, decision inputs and outcomes, slide contributions, concept order, and caveats.
 - **Human acceptance**: a person explicitly accepted the result; agent checks do not establish this state.
 
 Name the checked revision, viewport widths, and slide coverage, and mark missing evidence as unverified.
+Include the compact review record defined in the diagram patterns with the available evidence.
+Do not infer one state from another; saving, rendering, and minimum label sizes do not establish readability or content correctness.
 
 ### Read and replace
 

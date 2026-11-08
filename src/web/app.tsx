@@ -152,55 +152,59 @@ function Deck({ deck }: { deck: DiagramDeck }) {
         <span className="deck-kind">Mermaid</span>
       </header>
       <div className="slide-content">
-        <div className="deck-viewport" id={viewportId}>
-          <Diagram source={active.mermaid} blockId={deck.id} slideId={active.id} />
+        <div className="slide-figure">
+          <div className="deck-viewport" id={viewportId}>
+            <Diagram source={active.mermaid} blockId={deck.id} slideId={active.id} />
+          </div>
+          {multiple && (
+            <fieldset className="slide-pagination" aria-label={`${deck.title} slide positions`}>
+              <button
+                type="button"
+                className="deck-arrow deck-arrow-previous"
+                aria-label="Previous slide"
+                aria-controls={viewportId}
+                title="Previous slide (←)"
+                disabled={index === 0}
+                onClick={() => move(-1)}
+              >
+                <span className="deck-arrow-icon" aria-hidden="true" />
+                <span>Previous</span>
+              </button>
+              <div className="slide-dots">
+                {deck.slides.map((slide, position) => (
+                  <button
+                    key={slide.id}
+                    type="button"
+                    className="slide-dot"
+                    data-slide-id={slide.id}
+                    aria-label={`Slide ${position + 1}: ${slide.title}`}
+                    aria-controls={viewportId}
+                    aria-current={slide.id === active.id ? "step" : undefined}
+                    title={`Slide ${position + 1}: ${slide.title}`}
+                    onClick={() => select(slide.id)}
+                  >
+                    <span aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="deck-arrow deck-arrow-next"
+                aria-label="Next slide"
+                aria-controls={viewportId}
+                title="Next slide (→)"
+                disabled={index === deck.slides.length - 1}
+                onClick={() => move(1)}
+              >
+                <span>Next</span>
+                <span className="deck-arrow-icon" aria-hidden="true" />
+              </button>
+              <span className="slide-count" aria-live="polite">
+                {index + 1} / {deck.slides.length}
+              </span>
+            </fieldset>
+          )}
         </div>
-        {multiple && (
-          <fieldset className="slide-pagination" aria-label={`${deck.title} slide positions`}>
-            <button
-              type="button"
-              className="deck-arrow deck-arrow-previous"
-              aria-label="Previous slide"
-              aria-controls={viewportId}
-              title="Previous slide (←)"
-              disabled={index === 0}
-              onClick={() => move(-1)}
-            >
-              <span className="deck-arrow-icon" aria-hidden="true" />
-            </button>
-            <div className="slide-dots">
-              {deck.slides.map((slide, position) => (
-                <button
-                  key={slide.id}
-                  type="button"
-                  className="slide-dot"
-                  data-slide-id={slide.id}
-                  aria-label={`Slide ${position + 1}: ${slide.title}`}
-                  aria-controls={viewportId}
-                  aria-current={slide.id === active.id ? "step" : undefined}
-                  title={`Slide ${position + 1}: ${slide.title}`}
-                  onClick={() => select(slide.id)}
-                >
-                  <span aria-hidden="true" />
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="deck-arrow deck-arrow-next"
-              aria-label="Next slide"
-              aria-controls={viewportId}
-              title="Next slide (→)"
-              disabled={index === deck.slides.length - 1}
-              onClick={() => move(1)}
-            >
-              <span className="deck-arrow-icon" aria-hidden="true" />
-            </button>
-            <span className="slide-count" aria-live="polite">
-              {index + 1} / {deck.slides.length}
-            </span>
-          </fieldset>
-        )}
         <div className="slide-explanation">
           <Markdown
             markdown={active.explanationMarkdown}
