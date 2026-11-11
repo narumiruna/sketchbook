@@ -249,11 +249,11 @@ The existing CI matrix retains the exact minimum Node.js check; external accepta
 
 Verification on Node.js `22.19.0` and `26.11.1` on 2026-11-12 produced these results:
 
-- `npm run ci` passed formatting/lint, TypeScript checks, all 239 Vitest tests across 12 files, and production builds.
+- `npm run ci` passed formatting/lint, TypeScript checks, all 246 Vitest tests across 12 files, and production builds.
 - MCP protocol tests cover the three shared schemas, JSON text and structured output, revisions, conflicts, invalid input, Mermaid policy, complete large reads, authentication, cancellation, and disconnect cleanup.
   - The adapter handles numeric-zero and empty-string request IDs explicitly because SDK `1.32.2` ignores those cancellation IDs.
   - Cancelled requests cannot bypass storage cancellation checks before the atomic commit point.
-- Real stdio subprocess tests cover explicit workspace selection, argument failures, protocol-only stdout, and viewer cleanup on EOF, SIGINT, and SIGTERM.
+- Real stdio subprocess tests cover the process working-directory default, absolute and relative `--cwd` overrides, argument failures, protocol-only stdout, and viewer cleanup on EOF, SIGINT, and SIGTERM.
 - `npm run test:package` passed Pi local/tarball loading and an isolated npm installation of the MCP executable without Pi.
   - The installed MCP tools create, read, replace, reject a conflict, and open a document in the selected workspace.
   - Chromium renders the installed viewer assets, and client shutdown closes the listener.

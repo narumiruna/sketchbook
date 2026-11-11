@@ -45,12 +45,12 @@ describe("MCP stdio executable", () => {
     const { stdout, stderr } = await execute(process.execPath, [...args, "--help"], {
       cwd: temporary,
     })
-    expect(stdout).toBe("Usage: sketchbook-mcp --cwd <workspace-directory>\n")
+    expect(stdout).toBe("Usage: sketchbook-mcp [--cwd <workspace-directory>]\n")
     expect(stderr).toBe("")
     await expect(access(join(temporary, ".pi"))).rejects.toThrow()
   })
 
-  it.each([[], ["--cwd", ""], ["--unknown"], ["extra"]])(
+  it.each([["--cwd"], ["--cwd", ""], ["--cwd", "   "], ["--unknown"], ["extra"]])(
     "rejects invalid arguments %j without stdout output",
     async (...input) => {
       await expect(
@@ -72,11 +72,19 @@ describe("MCP stdio executable", () => {
     expect(await readFile(file, "utf8")).toBe("Not a directory")
   })
 
-  it.each(["EOF", "SIGINT", "SIGTERM"] as const)(
-    "keeps stdout protocol-only, uses --cwd, and closes the viewer on %s",
-    async (stop) => {
-      const child = spawn(process.execPath, [...args, "--cwd", workspace], {
-        cwd: temporary,
+  it.each(
+    (["EOF", "SIGINT", "SIGTERM"] as const).flatMap((stop) =>
+      (["default", "absolute", "relative"] as const).map((selection) => ({ stop, selection })),
+    ),
+  )(
+    "keeps stdout protocol-only, uses the $selection workspace, and closes the viewer on $stop",
+    async ({ stop, selection }) => {
+      const workspaceArgs =
+        selection === "default"
+          ? []
+          : ["--cwd", selection === "relative" ? "workspace with spaces" : workspace]
+      const child = spawn(process.execPath, [...args, ...workspaceArgs], {
+        cwd: selection === "default" ? workspace : temporary,
         stdio: "pipe",
       })
       children.push(child)

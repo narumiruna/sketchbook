@@ -199,8 +199,8 @@ async function smokeMcp(tarball: string): Promise<void> {
   await assert.rejects(stat(join(install, "node_modules/@earendil-works/pi-coding-agent")))
   const transport = new StdioClientTransport({
     command: join(install, "node_modules/.bin/sketchbook-mcp"),
-    args: ["--cwd", workspace],
-    cwd: install,
+    args: [],
+    cwd: workspace,
     stderr: "pipe",
   })
   let stderr = ""

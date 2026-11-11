@@ -37,18 +37,21 @@ The stdio MCP server exposes `sketchbook_write`, `sketchbook_read`, and `sketchb
 It does not require Pi. Use Node.js 22.19 or later, then run `npm ci` and `npm run build` in this checkout.
 The `pi install` step above is only for Pi integration.
 
-Add this server to your client's MCP configuration and replace all three absolute paths:
+The server uses its process working directory by default. To run this checkout from a workspace:
+
+```sh
+cd /absolute/path/to/workspace
+node /absolute/path/to/sketchbook/dist/mcp-cli.js
+```
+
+Add this server to your client's MCP configuration and replace the two absolute paths:
 
 ```json
 {
   "mcpServers": {
     "sketchbook": {
       "command": "/absolute/path/to/node",
-      "args": [
-        "/absolute/path/to/sketchbook/dist/mcp-cli.js",
-        "--cwd",
-        "/absolute/path/to/workspace"
-      ]
+      "args": ["/absolute/path/to/sketchbook/dist/mcp-cli.js"]
     }
   }
 }
@@ -56,10 +59,13 @@ Add this server to your client's MCP configuration and replace all three absolut
 
 Use the client's MCP settings file, such as Claude Desktop's `claude_desktop_config.json` or Cursor's `.cursor/mcp.json`.
 Restart the client after changing its configuration or rebuilding Sketchbook.
-If the package is installed through npm from a locally built tarball, its executable is `sketchbook-mcp --cwd /absolute/path/to/workspace`.
+If the package is installed through npm from a locally built tarball, run `sketchbook-mcp` from the workspace.
 This project is not published to npmjs; do not use a registry-based `npx` command.
 
-- `--cwd` is required and must name an existing directory.
+- `--cwd` is optional and overrides the process working directory; its path must name an existing directory.
+  - Relative paths are resolved from the process working directory.
+  - In a terminal, the default is the shell's current directory. An MCP client chooses the directory when it starts the server; this is not necessarily the project open in the client.
+  - For a fixed workspace, add `"--cwd", "/absolute/path/to/workspace"` after the script path in `args`.
   - Documents stay in that workspace's `.pi/sketchbook/` directory, using the same format as Pi.
   - Tool inputs cannot change the workspace. Use a separate server configuration for another workspace.
   - Do not write the same document from different Pi or MCP processes at the same time.

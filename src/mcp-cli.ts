@@ -5,7 +5,7 @@ import { parseArgs } from "node:util"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createSketchbookMcpServer } from "./mcp.js"
 
-const usage = "Usage: sketchbook-mcp --cwd <workspace-directory>\n"
+const usage = "Usage: sketchbook-mcp [--cwd <workspace-directory>]\n"
 
 async function main(): Promise<void> {
   const { values } = parseArgs({
@@ -17,8 +17,8 @@ async function main(): Promise<void> {
     process.stdout.write(usage)
     return
   }
-  if (!values.cwd?.trim()) throw new Error(usage.trim())
-  const cwd = await realpath(resolve(values.cwd))
+  if (values.cwd !== undefined && !values.cwd.trim()) throw new Error(usage.trim())
+  const cwd = await realpath(resolve(values.cwd ?? process.cwd()))
   if (!(await stat(cwd)).isDirectory()) throw new Error("Workspace must be an existing directory.")
 
   const { server, close } = createSketchbookMcpServer(cwd)

@@ -214,7 +214,8 @@ Existing model-cost and release-authorization restrictions remain in force.
 ## MCP client handoff
 
 The user owns configuration and UI verification in Claude Desktop, Cursor, or another stdio MCP client.
-Build this checkout and configure its absolute Node.js and `dist/mcp-cli.js` paths with the required `--cwd` workspace, as shown in the README.
+Build this checkout and configure its absolute Node.js and `dist/mcp-cli.js` paths, as shown in the README.
+The server defaults to the client-selected process working directory. Add `--cwd` when a fixed workspace is required.
 Restart the client, confirm the three Sketchbook tools are available, then create, read, replace, and open a document.
 The expected result is a revision-checked saved document and a private viewer URL that works while the MCP process runs.
 Stop the client and confirm that the viewer can no longer fetch data; previously loaded content can remain visible.
