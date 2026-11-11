@@ -1,5 +1,5 @@
 {
-  "name": "pi-sketchbook",
+  "name": "sketchbook",
   "version": "0.2.2",
   "description": "Local, hand-drawn Mermaid walkthroughs for Pi agents.",
   "type": "module",
