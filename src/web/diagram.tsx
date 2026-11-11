@@ -351,11 +351,12 @@ export function Diagram({ source, blockId, slideId }: Props) {
   const ready = !!active && "svg" in active && view.ready
   const disabled = !ready || showSource
   const expanded = fullscreen.mode !== null
-  const help = coarsePointer
+  const pointerHelp = coarsePointer
     ? expanded
       ? "Use the controls to zoom. Exit fullscreen to scroll the article."
       : "Use the controls to zoom. Swipe to scroll the article."
-    : "Drag with a mouse or pen to pan. Use Ctrl or Command + wheel to zoom. With the diagram focused, use plus or minus to zoom and zero to fit."
+    : "Drag with a mouse or pen to pan. Use Ctrl or Command + wheel to zoom."
+  const help = `${pointerHelp} With the diagram focused, use plus or minus to zoom, zero to fit, and Shift + arrow keys to pan.`
   return (
     // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-modal is set only when the frame has the dialog role.
     <section
@@ -419,7 +420,7 @@ export function Diagram({ source, blockId, slideId }: Props) {
         hidden={showSource || error !== null}
         aria-label="Interactive diagram"
         aria-describedby={helpId}
-        // biome-ignore lint/a11y/noNoninteractiveTabindex: Focus enables diagram-local zoom controls.
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: Focus enables diagram-local camera controls.
         tabIndex={0}
       >
         <div ref={host} className="diagram-svg" />
@@ -433,7 +434,33 @@ export function Diagram({ source, blockId, slideId }: Props) {
         </div>
       )}
       {(showSource || error !== null) && (
-        <pre id={sourceId} className="diagram-source">
+        // biome-ignore lint/a11y/useSemanticElements: Preserve preformatted source while naming its scroll region.
+        <pre
+          id={sourceId}
+          className="diagram-source"
+          role="region"
+          aria-label="Diagram source"
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: Focus enables native keyboard scrolling of the source.
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (
+              [
+                "ArrowLeft",
+                "ArrowRight",
+                "ArrowUp",
+                "ArrowDown",
+                "Home",
+                "End",
+                "PageUp",
+                "PageDown",
+                " ",
+              ].includes(event.key)
+            ) {
+              // Keep native source scrolling without changing the parent deck's slide.
+              event.stopPropagation()
+            }
+          }}
+        >
           <code>{source}</code>
         </pre>
       )}

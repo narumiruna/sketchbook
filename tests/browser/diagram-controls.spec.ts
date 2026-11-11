@@ -106,6 +106,7 @@ for (const width of [390, 1280]) {
     expect(await help.evaluate((node) => node === node.parentElement?.lastElementChild)).toBe(true)
     await expect(viewport).toHaveAccessibleName("Interactive diagram")
     await expect(viewport).toHaveAccessibleDescription(/mouse or pen.*pan.*Ctrl or Command.*wheel/i)
+    await expect(viewport).toHaveAccessibleDescription(/Shift \+ arrow keys to pan/)
     await control(deck, names[0]).focus()
     for (const name of names.slice(1)) {
       await page.keyboard.press("Tab")
@@ -422,6 +423,139 @@ test("drag and modified wheel control the camera; normal wheel scrolls and sourc
   await expect(deck).toHaveAttribute("data-slide-id", "detail")
 })
 
+test("Shift+arrows pan only the focused camera without changing deck slides", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 640, height: 700 })
+  const content = documentFixture()
+  getDeck(content, "first").slides[0].mermaid = `flowchart TD\n${Array.from(
+    { length: 12 },
+    (_, index) =>
+      `N${index}["Node ${index} with a deliberately wide native label"] --> N${index + 1}`,
+  ).join("\n")}`
+  await page.goto((await save(request, content)).url)
+  const deck = page.locator('[data-block-id="first"]')
+  const other = page.locator('[data-block-id="second"]')
+  await rendered(deck)
+  await rendered(other)
+  const otherCamera = await other.locator(".diagram-svg").getAttribute("style")
+  await control(deck, "Reset zoom").click()
+  const viewport = deck.locator(".diagram-viewport")
+  const stage = deck.locator(".diagram-svg")
+  await viewport.focus()
+  for (let count = 0; count < 7; count++) await page.keyboard.press("+")
+  await expect(zoom(deck)).toHaveText("400%")
+  const position = () =>
+    stage.evaluate((node) => {
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(node).transform)
+      return { x: matrix.m41, y: matrix.m42 }
+    })
+  const before = await position()
+  await page.keyboard.press("Shift+ArrowRight")
+  expect((await position()).x).toBeCloseTo(before.x - 40)
+  await page.keyboard.press("Shift+ArrowDown")
+  expect((await position()).y).toBeCloseTo(before.y - 40)
+  await page.keyboard.press("Shift+ArrowLeft")
+  await page.keyboard.press("Shift+ArrowUp")
+  const returned = await position()
+  expect(returned.x).toBeCloseTo(before.x)
+  expect(returned.y).toBeCloseTo(before.y)
+  await expect(deck).toHaveAttribute("data-slide-id", "overview")
+  await expect(viewport).toBeFocused()
+  await expect(other.locator(".diagram-svg")).toHaveAttribute("style", otherCamera ?? "")
+  await page.keyboard.press("0")
+  await expectGraphInsideViewport(deck)
+  // Ordinary arrows still change slides after the local camera command.
+  await page.keyboard.press("ArrowRight")
+  await expect(deck).toHaveAttribute("data-slide-id", "detail")
+})
+
+test.describe("keyboard with a coarse pointer", () => {
+  test.use({ hasTouch: true })
+
+  test("help includes keyboard pan and the camera remains keyboard operable", async ({
+    page,
+    request,
+  }) => {
+    const content = documentFixture()
+    getDeck(content, "first").slides[0].mermaid = wideSource()
+    await page.goto((await save(request, content)).url)
+    const deck = page.locator('[data-block-id="first"]')
+    await rendered(deck)
+    expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true)
+    const viewport = deck.locator(".diagram-viewport")
+    await expect(viewport).toHaveAccessibleDescription(/Swipe.*Shift \+ arrow keys to pan/)
+    await control(deck, "Reset zoom").click()
+    await viewport.focus()
+    const before = await deck.locator(".diagram-svg").getAttribute("style")
+    await page.keyboard.press("Shift+ArrowRight")
+    await expect(deck.locator(".diagram-svg")).not.toHaveAttribute("style", before ?? "")
+    await expect(deck).toHaveAttribute("data-slide-id", "overview")
+    await expect(viewport).toBeFocused()
+  })
+})
+
+for (const mode of ["inline", "fallback"] as const) {
+  test(`long source supports native keyboard scrolling on both axes in ${mode} mode`, async ({
+    page,
+    request,
+  }) => {
+    if (mode === "fallback") await rejectFullscreen(page)
+    const content = documentFixture()
+    const source = `flowchart LR\n A[Input] --> B[Output]\n${Array.from(
+      { length: 90 },
+      (_, index) => `%% Line ${index}: ${"source text ".repeat(24)}`,
+    ).join("\n")}`
+    getDeck(content, "first").slides[0].mermaid = source
+    await page.goto((await save(request, content)).url)
+    const deck = page.locator('[data-block-id="first"]')
+    await rendered(deck)
+    if (mode === "fallback") {
+      await control(deck, "Fullscreen").click()
+      await expect(page.getByRole("dialog")).toBeVisible()
+    }
+    await control(deck, "Show source").focus()
+    await page.keyboard.press("Enter")
+    await page.keyboard.press("Tab")
+    const region = deck.getByRole("region", { name: "Diagram source", exact: true })
+    await expect(region).toBeFocused()
+    await expect(region.locator("code")).toHaveText(source)
+    const size = await region.evaluate((node) => ({
+      width: node.clientWidth,
+      height: node.clientHeight,
+      scrollWidth: node.scrollWidth,
+      scrollHeight: node.scrollHeight,
+    }))
+    expect(size.scrollWidth).toBeGreaterThan(size.width)
+    expect(size.scrollHeight).toBeGreaterThan(size.height)
+    const camera = await deck.locator(".diagram-svg").getAttribute("style")
+    await page.keyboard.press("ArrowRight")
+    await expect.poll(() => region.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0)
+    await page.keyboard.press("ArrowDown")
+    await expect.poll(() => region.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
+    for (const key of ["PageDown", "Space", "End", "Home", "PageUp", "Shift+ArrowRight"]) {
+      await page.keyboard.press(key)
+      await expect(deck).toHaveAttribute("data-slide-id", "overview")
+      await expect(region).toBeFocused()
+    }
+    await expect(deck.locator(".diagram-svg")).toHaveAttribute("style", camera ?? "")
+    await page.keyboard.press("Shift+Tab")
+    await expect(control(deck, "Show diagram")).toBeFocused()
+    if (mode === "fallback") {
+      await page.keyboard.press("Tab")
+      await expect(region).toBeFocused()
+      await page.keyboard.press("Tab")
+      await expect(control(deck, "Exit fullscreen")).toBeFocused()
+      await page.keyboard.press("Shift+Tab")
+      await expect(region).toBeFocused()
+      await page.keyboard.press("Escape")
+      await expect(page.getByRole("dialog")).toHaveCount(0)
+      await expect(control(deck, "Fullscreen")).toBeFocused()
+    }
+  })
+}
+
 test("source remains inert text when a compromised response fails the rendering policy", async ({
   page,
   request,
@@ -583,7 +717,11 @@ test("rejected fullscreen isolates the background, traps focus, and restores sty
   await page.keyboard.press("Enter")
   await expect(control(deck, "Show diagram")).toBeFocused()
   await page.keyboard.press("Tab")
+  await expect(deck.getByRole("region", { name: "Diagram source", exact: true })).toBeFocused()
+  await page.keyboard.press("Tab")
   await expect(control(deck, "Exit fullscreen")).toBeFocused()
+  await page.keyboard.press("Shift+Tab")
+  await expect(deck.getByRole("region", { name: "Diagram source", exact: true })).toBeFocused()
   await page.keyboard.press("Shift+Tab")
   await expect(control(deck, "Show diagram")).toBeFocused()
   await page.keyboard.press("Space")

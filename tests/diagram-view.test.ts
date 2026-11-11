@@ -370,6 +370,57 @@ describe("diagram controller", () => {
     controller.destroy()
   })
 
+  it("pans the focused camera with Shift+arrows in bounded 40px steps", () => {
+    const { viewport, stage, controller, observer } = fixture()
+    controller.reset()
+    viewport.focus()
+    const pan = (key: string) => dispatch(viewport, "keydown", { key, shiftKey: true })
+    expect(pan("ArrowRight").defaultPrevented).toBe(true)
+    expect(camera(stage)).toEqual({ x: -274, y: -84, scale: 1 })
+    expect(pan("ArrowDown").defaultPrevented).toBe(true)
+    expect(camera(stage)).toEqual({ x: -274, y: -124, scale: 1 })
+    pan("ArrowLeft")
+    pan("ArrowUp")
+    expect(camera(stage)).toEqual({ x: -234, y: -84, scale: 1 })
+    for (let count = 0; count < 30; count++) {
+      pan("ArrowRight")
+      pan("ArrowDown")
+    }
+    expect(camera(stage)).toEqual({ x: -484, y: -184, scale: 1 })
+    for (let count = 0; count < 30; count++) {
+      pan("ArrowLeft")
+      pan("ArrowUp")
+    }
+    expect(camera(stage)).toEqual({ x: 16, y: 16, scale: 1 })
+    observer().notify()
+    expect(camera(stage)).toEqual({ x: 16, y: 16, scale: 1 })
+    controller.fit()
+    for (const key of ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) pan(key)
+    expect(camera(stage)).toEqual({ x: 16, y: 41, scale: 0.5 })
+    controller.destroy()
+  })
+
+  it("keeps keyboard pan local to an interactive, focused viewport", () => {
+    const { viewport, stage, controller } = fixture()
+    controller.reset()
+    const before = stage.style.transform
+    const pan = (properties: Record<string, unknown> = {}) =>
+      dispatch(viewport, "keydown", { key: "ArrowRight", shiftKey: true, ...properties })
+    expect(pan().defaultPrevented).toBe(false)
+    viewport.focus()
+    for (const modifier of ["altKey", "ctrlKey", "metaKey"]) {
+      expect(pan({ [modifier]: true }).defaultPrevented).toBe(false)
+    }
+    viewport.hidden = true
+    expect(pan().defaultPrevented).toBe(false)
+    viewport.hidden = false
+    stage.svg = svg()
+    expect(pan().defaultPrevented).toBe(false)
+    expect(stage.style.transform).toBe(before)
+    controller.destroy()
+    expect(pan().defaultPrevented).toBe(false)
+  })
+
   it.each(["mouse", "pen"])("pans primary %s with pointer capture and bounds", (pointerType) => {
     const { viewport, stage, controller } = fixture()
     controller.reset()
@@ -455,6 +506,9 @@ describe("diagram controller", () => {
     controller.zoomBy(2)
     viewport.focus()
     dispatch(viewport, "keydown", { key: "+" })
+    expect(
+      dispatch(viewport, "keydown", { key: "ArrowRight", shiftKey: true }).defaultPrevented,
+    ).toBe(false)
     expect(dispatch(viewport, "wheel", { ctrlKey: true, deltaY: -1 }).defaultPrevented).toBe(false)
     pointer(viewport, "pointerdown")
     pointer(viewport, "pointermove", { clientX: 0 })

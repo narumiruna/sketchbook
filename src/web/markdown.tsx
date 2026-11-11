@@ -1,5 +1,5 @@
 import type { Element, Root } from "hast"
-import { Component, type ReactNode } from "react"
+import { Component, type MouseEvent, type ReactNode, useId } from "react"
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown"
 import rehypeKatex from "rehype-katex"
 import remarkGfm from "remark-gfm"
@@ -80,6 +80,49 @@ function rehypeSafeKatex({ context }: { context: string }) {
   }
 }
 
+function rehypeFootnoteLabel({ id }: { id: string }) {
+  return (tree: Root) => {
+    const visit = (parent: Root | Element) => {
+      for (const child of parent.children) {
+        if (child.type !== "element") continue
+        if (child.properties.id === "footnote-label") child.properties.id = id
+        if (child.properties.dataFootnoteRef) child.properties.ariaDescribedBy = [id]
+        visit(child)
+      }
+    }
+    visit(tree)
+  }
+}
+
+function followFragment(event: MouseEvent<HTMLAnchorElement>, href: string | undefined) {
+  if (
+    !href?.startsWith("#") ||
+    event.button !== 0 ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey
+  )
+    return
+  // In-page navigation must not replace the viewer's fragment capability.
+  event.preventDefault()
+  const fragment = href.slice(1)
+  let id = fragment
+  // Generated footnote IDs contain their encoded identifiers literally.
+  if (!event.currentTarget.matches("[data-footnote-ref], [data-footnote-backref]")) {
+    try {
+      id = decodeURIComponent(fragment)
+    } catch {
+      // A literal target can still exist when the fragment is not valid URI text.
+    }
+  }
+  const target = document.getElementById(id) ?? document.getElementById(fragment)
+  if (!target) return
+  target.scrollIntoView({ block: "start" })
+  if (target.tabIndex < 0) target.tabIndex = -1
+  target.focus({ preventScroll: true })
+}
+
 function safeUrl(value: string) {
   const safe = defaultUrlTransform(value)
   if (/^(?:https?:|mailto:|#|\/|\.\.?\/)/i.test(safe)) return safe
@@ -114,21 +157,30 @@ class MarkdownBoundary extends Component<
 }
 
 export function Markdown({ markdown, context, scope = "article" }: Props) {
+  const prefix = `user-content-${useId()}-`
   return (
     <MarkdownBoundary key={markdown} markdown={markdown} context={context}>
       <div className="markdown">
         <ReactMarkdown
           skipHtml
           remarkPlugins={[remarkGfm, remarkMath]}
+          remarkRehypeOptions={{ clobberPrefix: prefix }}
           rehypePlugins={[
+            [rehypeFootnoteLabel, { id: `${prefix}footnote-label` }],
             [rehypeHeadings, { scope }],
             [rehypeSafeKatex, { context }],
           ]}
           urlTransform={safeUrl}
           components={{
             img: ({ alt }) => <span className="image-omitted">[Image omitted: {alt ?? ""}]</span>,
-            a: ({ href, children }) => (
-              <a href={href} rel="noopener noreferrer" referrerPolicy="no-referrer">
+            a: ({ node: _node, href, children, ...props }) => (
+              <a
+                {...props}
+                href={href}
+                rel="noopener noreferrer"
+                referrerPolicy="no-referrer"
+                onClick={(event) => followFragment(event, href)}
+              >
                 {children}
               </a>
             ),

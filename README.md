@@ -119,7 +119,9 @@ Stop the Pi session to close the listener and invalidate its capability; no docu
   - Frontmatter, directives, node metadata (`@{...}`), click actions, HTML, images, and icons are not supported.
   - Diagrams start fitted without upscaling; inline frame height follows the SVG aspect ratio and available width, within a bounded height.
   - Fit can still make large graphs small. Rework a teaching graph that is unreadable at its default scale; Reset, Zoom, and panning remain available for inspecting large graphs.
-- Markdown supports inline/display LaTeX and fenced code, but not raw HTML or images.
+- Markdown supports inline/display LaTeX, fenced code, and footnotes, but not raw HTML or images.
+  - Footnote targets are local to each Markdown block or slide explanation.
+  - In-page links move focus without replacing the viewer token, so the current URL remains valid after navigation.
   - Mermaid uses strict security and disables HTML labels; generated SVG is sanitized.
   - KaTeX uses `trust: false`, `maxExpand: 1000`, and `maxSize: 20`.
 - Viewer scripts, styles, fonts, and renderers are bundled; no CDN is required.
@@ -137,7 +139,8 @@ The toolbar directly shows Fit to screen, Fullscreen, Zoom out, current zoom, Zo
 Input-specific help remains visible below the buttons; no More controls panel is used.
 Enabled controls are available in the keyboard tab order.
 Hover or focus an icon button to show its label.
-Show source displays inert text, not executable HTML. A new diagram source restores the diagram view.
+Show source displays inert text, not executable HTML. Tab to the source region and use the arrow or Page Up/Page Down keys to scroll it, including in fullscreen.
+A new diagram source restores the diagram view.
 
 - Fit shows the complete graph; Reset restores 100% native size.
 - Zoom is limited to 400%; the lower limit is 25% or the fitted scale when smaller.
@@ -146,7 +149,8 @@ Show source displays inert text, not executable HTML. A new diagram source resto
   - Inline touch gestures remain available for document scrolling; touch panning and pinch zoom are not implemented.
   - Coarse-pointer help describes control-based zoom and article scrolling, not mouse-wheel gestures.
 - Focus the diagram viewport to use `+`/`-` to zoom and `0` to fit.
-  - Left/Right still switches slides in the focused deck.
+  - Shift + arrow keys pan the diagram at the current zoom.
+  - Unmodified Left/Right keys still switch slides in the focused deck.
 - Fullscreen uses the browser API or an in-page fallback.
   - Exit restores focus; Escape closes the fallback.
   - Changing the diagram source or removing its block closes fullscreen and releases background locks.
@@ -174,6 +178,9 @@ npm run test:browser -- --output=test-results/browser
 npm pack --dry-run
 npm run test:package
 ```
+
+The pre-commit hook checks a temporary copy of the staged content with its staged Biome configuration and ignore rules.
+It does not change the working tree or index. Correct reported issues and stage only the intended changes before retrying.
 
 On a fresh Linux system, use `npx playwright install --with-deps chromium` if browser system libraries are missing.
 The explicit browser output directory preserves separate review captures under `test-results/`.
