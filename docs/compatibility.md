@@ -249,13 +249,14 @@ The existing CI matrix retains the exact minimum Node.js check; external accepta
 
 Verification on Node.js `22.19.0` and `26.11.1` on 2026-11-12 produced these results:
 
-- `npm run ci` passed formatting/lint, TypeScript checks, all 246 Vitest tests across 12 files, and production builds.
+- `npm run ci` passed formatting/lint, TypeScript checks, all 257 Vitest tests across 13 files, and production builds.
 - MCP protocol tests cover the three shared schemas, JSON text and structured output, revisions, conflicts, invalid input, Mermaid policy, complete large reads, authentication, cancellation, and disconnect cleanup.
   - The adapter handles numeric-zero and empty-string request IDs explicitly because SDK `1.32.2` ignores those cancellation IDs.
+  - Calls and cancellation notifications in one stdio chunk are checked before storage entry. Tests cover creates, replacements, numeric and string IDs, unknown IDs, and independent requests in one batch.
   - Cancelled requests cannot bypass storage cancellation checks before the atomic commit point.
 - Real stdio subprocess tests cover the process working-directory default, absolute and relative `--cwd` overrides, argument failures, protocol-only stdout, and viewer cleanup on EOF, SIGINT, and SIGTERM.
 - `npm run test:package` passed Pi local/tarball loading and an isolated npm installation of the MCP executable without Pi.
-  - The installed MCP tools create, read, replace, reject a conflict, and open a document in the selected workspace.
+  - `npx` resolves the installed package executable. The installed MCP tools create, read, replace, reject a conflict, and open a document in the selected workspace.
   - Chromium renders the installed viewer assets, and client shutdown closes the listener.
 - The full Chromium regression suite passed all 70 tests on Node.js `26.11.1`.
 - `npm pack --dry-run --ignore-scripts` includes the MCP executable and viewer assets without source tests or host implementations.

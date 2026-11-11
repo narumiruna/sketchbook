@@ -40,17 +40,28 @@ export function createSketchbookMcpServer(cwd: string) {
 
   // SDK 1.32.2 ignores cancellation for falsy IDs. Track all valid tool request IDs.
   const activeCalls = new Map<RequestId, AbortController>()
+  const earlyCancellations = new Map<RequestId, AbortController>()
   server.setNotificationHandler(CancelledNotificationSchema, (notification) => {
     const { requestId } = notification.params
-    if (requestId !== undefined) {
-      activeCalls.get(requestId)?.abort(new Error("Sketchbook tool request was cancelled."))
+    if (requestId === undefined) return
+    const active = activeCalls.get(requestId)
+    const controller = active ?? new AbortController()
+    controller.abort(new Error("Sketchbook tool request was cancelled."))
+    if (!active) {
+      earlyCancellations.set(requestId, controller)
+      // A same-chunk notification can run before the queued tool handler.
+      // Keep its signal for that handler, then discard unknown request IDs.
+      queueMicrotask(() => {
+        if (earlyCancellations.get(requestId) === controller) earlyCancellations.delete(requestId)
+      })
     }
   })
   server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: catalog }))
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const tool = definitions.find((item) => item.name === request.params.name)
     if (!tool) throw new McpError(ErrorCode.InvalidParams, "Unknown Sketchbook tool.")
-    const controller = new AbortController()
+    const controller = earlyCancellations.get(extra.requestId) ?? new AbortController()
+    earlyCancellations.delete(extra.requestId)
     activeCalls.set(extra.requestId, controller)
     try {
       const signal = AbortSignal.any([extra.signal, controller.signal])

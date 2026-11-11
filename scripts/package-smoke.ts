@@ -187,7 +187,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
 
 async function smokeMcp(tarball: string): Promise<void> {
   const install = join(temporary, "mcp-install")
-  const workspace = join(temporary, "mcp-workspace")
+  const workspace = join(install, "workspace")
   await mkdir(install)
   await mkdir(workspace)
   await writeFile(join(install, "package.json"), JSON.stringify({ private: true }))
@@ -197,9 +197,16 @@ async function smokeMcp(tarball: string): Promise<void> {
     { cwd: install, timeout: 120_000 },
   )
   await assert.rejects(stat(join(install, "node_modules/@earendil-works/pi-coding-agent")))
+  const help = await execute(
+    "npx",
+    ["--no", "--package=@narumitw/sketchbook", "--", "sketchbook-mcp", "--help"],
+    { cwd: install, timeout: 10_000 },
+  )
+  assert.equal(help.stdout, "Usage: sketchbook-mcp [--cwd <workspace-directory>]\n")
+  assert.equal(help.stderr, "")
   const transport = new StdioClientTransport({
-    command: join(install, "node_modules/.bin/sketchbook-mcp"),
-    args: [],
+    command: "npx",
+    args: ["-y", "@narumitw/sketchbook"],
     cwd: workspace,
     stderr: "pipe",
   })
@@ -279,7 +286,7 @@ async function smokeMcp(tarball: string): Promise<void> {
     await assert.rejects(fetch(endpoint, { headers, signal: AbortSignal.timeout(2000) }))
     assert.equal(stderr, "")
     console.log(
-      "Passed standalone MCP: installed executable without Pi, tools, browser assets, EOF shutdown",
+      "Passed standalone MCP: npx executable without Pi, tools, browser assets, EOF shutdown",
     )
   } finally {
     await client.close()
