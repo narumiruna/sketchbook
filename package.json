@@ -1,7 +1,10 @@
 {
   "name": "@narumitw/sketchbook",
   "version": "0.2.2",
-  "description": "Local, hand-drawn Mermaid walkthroughs for Pi agents.",
+  "description": "Local, hand-drawn Mermaid walkthroughs for Pi and MCP agents.",
+  "bin": {
+    "sketchbook-mcp": "./dist/mcp-cli.js"
+  },
   "type": "module",
   "license": "AGPL-3.0-only",
   "repository": {
@@ -13,6 +16,7 @@
   },
   "keywords": [
     "pi-package",
+    "mcp",
     "mermaid",
     "diagrams"
   ],
@@ -50,6 +54,11 @@
     "@earendil-works/pi-coding-agent": "*",
     "typebox": "*"
   },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.6.6",
     "@changesets/cli": "^3.0.3",
@@ -74,5 +83,8 @@
     "katex": "^0.19.1",
     "mermaid": "12.3.0",
     "dompurify": "^3.3.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2"
   }
 }

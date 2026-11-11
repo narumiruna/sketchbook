@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { execFile } from "node:child_process"
-import { mkdir, mkdtemp, readFile, rm, stat } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises"
 import { networkInterfaces, tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { promisify } from "node:util"
@@ -12,13 +12,16 @@ import {
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent"
+import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
+import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js"
 import { chromium } from "@playwright/test"
 import { Check } from "typebox/value"
 import type { SketchbookDocument } from "../src/document.js"
 
 const execute = promisify(execFile)
 const root = resolve(import.meta.dirname, "..")
-const temporary = await mkdtemp(join(tmpdir(), "pi-sketchbook-package-"))
+const temporary = await realpath(await mkdtemp(join(tmpdir(), "pi-sketchbook-package-")))
 
 async function smoke(packagePath: string, label: string): Promise<void> {
   const manifest = JSON.parse(await readFile(join(packagePath, "package.json"), "utf8"))
@@ -182,6 +185,107 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   }
 }
 
+async function smokeMcp(tarball: string): Promise<void> {
+  const install = join(temporary, "mcp-install")
+  const workspace = join(temporary, "mcp-workspace")
+  await mkdir(install)
+  await mkdir(workspace)
+  await writeFile(join(install, "package.json"), JSON.stringify({ private: true }))
+  await execute(
+    "npm",
+    ["install", "--ignore-scripts", "--omit=dev", "--no-audit", "--no-fund", tarball],
+    { cwd: install, timeout: 120_000 },
+  )
+  await assert.rejects(stat(join(install, "node_modules/@earendil-works/pi-coding-agent")))
+  const transport = new StdioClientTransport({
+    command: join(install, "node_modules/.bin/sketchbook-mcp"),
+    args: ["--cwd", workspace],
+    cwd: install,
+    stderr: "pipe",
+  })
+  let stderr = ""
+  transport.stderr?.on("data", (chunk) => {
+    stderr += chunk
+  })
+  const client = new Client({ name: "package-smoke", version: "1.0.0" })
+  try {
+    await client.connect(transport)
+    const listed = await client.listTools()
+    assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), [
+      "sketchbook_open",
+      "sketchbook_read",
+      "sketchbook_write",
+    ])
+    const document: SketchbookDocument = {
+      schemaVersion: 1,
+      title: "Standalone MCP",
+      blocks: [
+        {
+          id: "deck",
+          type: "diagram-deck",
+          title: "Overview",
+          slides: [
+            {
+              id: "overview",
+              title: "MCP tool flow",
+              mermaid: "flowchart LR\nClient --> Server --> Store",
+              explanationMarkdown: "The MCP server saves the document in the selected workspace.",
+            },
+          ],
+        },
+      ],
+    }
+    async function call(name: string, input: Record<string, unknown>) {
+      const result = CallToolResultSchema.parse(await client.callTool({ name, arguments: input }))
+      assert.ok(!result.isError, "MCP tool must succeed")
+      assert.ok(result.structuredContent)
+      return result.structuredContent
+    }
+    const created = await call("sketchbook_write", { document })
+    assert.equal(created.path, join(workspace, ".pi/sketchbook", `${created.documentId}.json`))
+    assert.equal(created.revision, 1)
+    const read = await call("sketchbook_read", { documentId: created.documentId })
+    assert.deepEqual((read.stored as { document: unknown }).document, document)
+    const updated = await call("sketchbook_write", {
+      document,
+      documentId: created.documentId,
+      expectedRevision: 1,
+    })
+    assert.equal(updated.revision, 2)
+    const conflict = await client.callTool({
+      name: "sketchbook_write",
+      arguments: { document, documentId: created.documentId, expectedRevision: 1 },
+    })
+    assert.equal(conflict.isError, true)
+    const opened = await call("sketchbook_open", { documentId: created.documentId })
+    assert.equal(opened.renderingVerified, false)
+    const url = new URL(String(opened.url))
+    const endpoint = new URL(`/api/documents/${created.documentId}`, url)
+    assert.equal((await fetch(endpoint)).status, 401)
+    const headers = {
+      Authorization: `Bearer ${new URLSearchParams(url.hash.slice(1)).get("token")}`,
+    }
+    assert.equal((await fetch(endpoint, { headers })).status, 200)
+    const browser = await chromium.launch({ headless: true })
+    try {
+      const page = await browser.newPage()
+      await page.goto(url.href)
+      await page.locator(".diagram-svg svg").waitFor({ timeout: 30_000 })
+      assert.equal(await page.title(), "Standalone MCP — Pi Sketchbook")
+    } finally {
+      await browser.close()
+    }
+    await client.close()
+    await assert.rejects(fetch(endpoint, { headers, signal: AbortSignal.timeout(2000) }))
+    assert.equal(stderr, "")
+    console.log(
+      "Passed standalone MCP: installed executable without Pi, tools, browser assets, EOF shutdown",
+    )
+  } finally {
+    await client.close()
+  }
+}
+
 try {
   await mkdir(join(root, "test-results"), { recursive: true })
   const { stdout } = await execute(
@@ -197,6 +301,7 @@ try {
   assert.equal(packed.name, "@narumitw/sketchbook")
   const files = packed.files.map((file) => file.path)
   assert.ok(files.includes("dist/extension.js"))
+  assert.ok(files.includes("dist/mcp-cli.js") && files.includes("dist/mcp.js"))
   assert.ok(files.includes("dist/web/index.html"))
   assert.ok(files.includes("dist/web/THIRD_PARTY_LICENSES.md"))
   assert.ok(files.includes("skills/sketchbook-explain-diagrams/SKILL.md"))
@@ -209,6 +314,7 @@ try {
   await assert.rejects(stat(join(extracted, "node_modules")))
   await smoke(extracted, "tarball")
   await smoke(root, "local")
+  await smokeMcp(join(temporary, packed.filename))
 } finally {
   await rm(temporary, { recursive: true, force: true })
 }
