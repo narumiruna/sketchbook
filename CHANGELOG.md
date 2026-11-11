@@ -1,4 +1,4 @@
-# sketchbook
+# @narumitw/sketchbook
 
 ## 0.2.2
 

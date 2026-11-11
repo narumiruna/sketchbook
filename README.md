@@ -33,7 +33,7 @@ Review package code before installation and project declarations before granting
 
 ## Upgrade from Pi Canvas
 
-The package is now `sketchbook`.
+The package is now `@narumitw/sketchbook`.
 Replace `canvas_*` tool calls with `sketchbook_*` and `/skill:canvas-explain-diagrams` with `/skill:sketchbook-explain-diagrams`.
 The old names are not aliases.
 
