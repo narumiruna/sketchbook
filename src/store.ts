@@ -57,9 +57,23 @@ export class DocumentStore {
         0o600,
       )
       try {
-        await file.writeFile("*\n", "utf8")
-      } finally {
-        await file.close()
+        try {
+          await file.writeFile("*\n", "utf8")
+        } finally {
+          await file.close()
+        }
+      } catch (error) {
+        try {
+          await unlink(path)
+        } catch (cleanupError) {
+          if (!hasCode(cleanupError, "ENOENT")) {
+            throw new AggregateError(
+              [error, cleanupError],
+              "Sketchbook ignore creation and cleanup failed",
+            )
+          }
+        }
+        throw error
       }
     } catch (error) {
       if (!hasCode(error, "EEXIST")) throw error

@@ -226,6 +226,24 @@ Validation passed on Node.js 26.11.1 with local Chromium:
 - The browser suite retains complete-article and per-slide evidence under `test-results/browser/`.
 - The 11 focused reading-layout tests also passed on macOS and in a Linux arm64 container with Node.js 26.11.1. A mutation that restores the incorrect toolbar normalization fails the new regression assertion by exactly 8px.
 
+## Repository review fixes
+
+Verification on macOS with Node.js `26.11.1` on 2026-11-12 produced these results:
+
+- `npm run ci` passed formatting, TypeScript checks, all 205 unit tests across nine files, and production builds.
+- `npm run test:browser -- --output=test-results/browser` passed all 70 Chromium tests.
+- `npm pack --dry-run` and `npm run test:package` passed package checks, local and extracted-tarball discovery, viewer assets, and shutdown.
+- `npm run check` and `npm test` also passed on Node.js `22.23.4`, including all 205 unit tests.
+
+The new regressions cover capability-preserving fragment navigation, footnote references and return links, unique targets across Markdown instances, and literal percent-containing footnote identifiers.
+Keyboard checks cover bounded Shift + arrow camera movement, source scrolling on both axes, fullscreen focus order, and unchanged ordinary slide navigation and touch scrolling.
+Disposable Git fixtures verify that pre-commit checks use staged blobs, configuration, and ignore rules without changing the working tree or index.
+Storage checks verify recovery from a failed first ignore-file write and preservation of pre-existing ignore files.
+
+The existing Vite chunk-size warning remains.
+Node.js `22.19.0`, other browser engines, screen-reader announcements, physical devices, and human acceptance were not verified locally for this update.
+The existing CI matrix retains the exact minimum Node.js check; external acceptance requirements in [acceptance](acceptance.md) remain unchanged.
+
 ## Fixture coverage
 
 [Architecture walkthrough](../skills/sketchbook-explain-diagrams/assets/architecture-walkthrough.json) provides four connected save-boundary views and a separate caller URL/browser-request handoff.

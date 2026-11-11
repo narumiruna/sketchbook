@@ -294,6 +294,17 @@ export function createDiagramView(
       case "0":
         fitToViewport()
         break
+      case "ArrowLeft":
+      case "ArrowRight":
+      case "ArrowUp":
+      case "ArrowDown":
+        if (!event.shiftKey) return
+        stopPan()
+        x += event.key === "ArrowLeft" ? 40 : event.key === "ArrowRight" ? -40 : 0
+        y += event.key === "ArrowUp" ? 40 : event.key === "ArrowDown" ? -40 : 0
+        mode = "manual"
+        apply()
+        break
       default:
         return
     }

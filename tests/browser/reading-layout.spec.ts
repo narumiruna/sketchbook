@@ -362,7 +362,7 @@ for (const viewport of [
     })
 
     if (viewport.touch) {
-      test("touch help describes controls and article scrolling, not unsupported camera gestures", async ({
+      test("touch help separates keyboard controls from unsupported touch camera gestures", async ({
         page,
         request,
         context,
@@ -377,13 +377,15 @@ for (const viewport of [
         const toolbar = deck.locator("fieldset.diagram-controls")
         const frame = deck.locator(".diagram-viewport")
         const help = toolbar.locator(".diagram-pan-hint")
-        const inlineHelp = "Use the controls to zoom. Swipe to scroll the article."
+        const keyboardHelp =
+          "With the diagram focused, use plus or minus to zoom, zero to fit, and Shift + arrow keys to pan."
+        const inlineHelp = `Use the controls to zoom. Swipe to scroll the article. ${keyboardHelp}`
         expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true)
         await expect(help).toBeVisible()
         await expect(help).toHaveText(inlineHelp)
         await expect(frame).toHaveAccessibleName("Interactive diagram")
         await expect(frame).toHaveAccessibleDescription(inlineHelp)
-        await expect(frame).not.toHaveAccessibleDescription(/pan|pinch|wheel|drag/i)
+        await expect(frame).not.toHaveAccessibleDescription(/pinch|wheel|drag|swipe to pan/i)
         for (const name of [
           "Fit to screen",
           "Fullscreen",
@@ -433,7 +435,8 @@ for (const viewport of [
         await expect(help).toBeVisible()
         await expect(help).toContainText(/controls.*zoom.*exit fullscreen.*scroll/i)
         await expect(frame).toHaveAccessibleDescription(/controls.*zoom.*exit fullscreen.*scroll/i)
-        await expect(frame).not.toHaveAccessibleDescription(/pan|pinch|wheel|drag/i)
+        await expect(frame).toHaveAccessibleDescription(/Shift \+ arrow keys to pan/)
+        await expect(frame).not.toHaveAccessibleDescription(/pinch|wheel|drag|swipe to pan/i)
         await deck.getByRole("button", { name: "Exit fullscreen", exact: true }).tap()
         await expect(page.getByRole("dialog")).toHaveCount(0)
         await expect(help).toBeVisible()

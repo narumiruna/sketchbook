@@ -9,7 +9,7 @@ import { DocumentStore } from "../src/store.js"
 
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>()
-  return { ...actual, rename: vi.fn(actual.rename) }
+  return { ...actual, open: vi.fn(actual.open), rename: vi.fn(actual.rename) }
 })
 
 const document: SketchbookDocument = {
@@ -149,6 +149,33 @@ describe("DocumentStore", () => {
       expect(await fs.readdir(outside)).toEqual([])
     },
   )
+
+  test("removes a failed new artifact ignore and restores exclusions on retry", async () => {
+    const failure = Object.assign(new Error("Simulated full disk"), { code: "ENOSPC" })
+    const { open } = await vi.importActual<typeof fs>("node:fs/promises")
+    vi.mocked(fs.open).mockImplementationOnce(async (...args) => {
+      const file = await open(...args)
+      vi.spyOn(file, "writeFile").mockRejectedValueOnce(failure)
+      return file
+    })
+    await expect(store.write({ document })).rejects.toBe(failure)
+    const ignore = join(cwd, ".pi", "sketchbook", ".gitignore")
+    await expect(fs.lstat(ignore)).rejects.toMatchObject({ code: "ENOENT" })
+    expect(await fs.readdir(join(cwd, ".pi", "sketchbook"))).toEqual([])
+
+    const { stored } = await store.write({ document })
+    expect(await fs.readFile(ignore, "utf8")).toBe("*\n")
+    expect(await store.read(stored.documentId)).toEqual(stored)
+  })
+
+  test("preserves a pre-existing artifact ignore", async () => {
+    const directory = join(cwd, ".pi", "sketchbook")
+    await fs.mkdir(directory, { recursive: true })
+    const ignore = join(directory, ".gitignore")
+    await fs.writeFile(ignore, "# User exclusions\n*.json\n")
+    await store.write({ document })
+    expect(await fs.readFile(ignore, "utf8")).toBe("# User exclusions\n*.json\n")
+  })
 
   test("refuses a symlinked artifact ignore without changing its target", async () => {
     await fs.mkdir(join(cwd, ".pi", "sketchbook"), { recursive: true })
