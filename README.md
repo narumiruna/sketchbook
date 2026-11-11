@@ -1,6 +1,6 @@
 # Pi Sketchbook
 
-Pi Sketchbook is a Pi package for local technical documents with Markdown, LaTeX, code, and hand-drawn Mermaid diagram decks.
+Pi Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and hand-drawn Mermaid diagram decks.
 Each deck shows one diagram and its explanation at a time.
 Review the complete article outline before reviewing its decks.
 Build each deck around one question: each slide must connect to the established context and add useful information.
@@ -27,9 +27,61 @@ pi install ./
 Local installation requires the built `dist` assets and installed dependencies.
 Git-source installation is not supported in this release.
 
-The release workflow creates version tags and GitHub Releases without publishing packages to npmjs.
-Use the local installation steps above.
+The release workflow creates version tags and GitHub Releases. It does not publish npm packages.
+Use the published npm package for MCP, or build this checkout for local Pi installation.
 Review package code before installation and project declarations before granting Pi project trust.
+
+## MCP server
+
+The stdio MCP server exposes `sketchbook_write`, `sketchbook_read`, and `sketchbook_open` to clients such as Claude Desktop and Cursor.
+It does not require Pi. Use Node.js 22.19 or later.
+Run the published package from your workspace:
+
+```sh
+npx -y @narumitw/sketchbook
+```
+
+The current code uses its process working directory by default.
+Published version `0.2.2` predates this change and requires `npx -y @narumitw/sketchbook --cwd .`.
+Until a newer package release includes the default, add `"--cwd", "."` after the package name in the MCP config below.
+
+Add this server to your client's MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "sketchbook": {
+      "command": "npx",
+      "args": ["-y", "@narumitw/sketchbook"]
+    }
+  }
+}
+```
+
+Use the client's MCP settings file, such as Claude Desktop's `claude_desktop_config.json` or Cursor's `.cursor/mcp.json`.
+Restart the client after changing its configuration.
+To use a fixed package version, replace `@narumitw/sketchbook` with `@narumitw/sketchbook@<version>`.
+For local development, run `npm ci` and `npm run build` in this checkout, then use `node /absolute/path/to/sketchbook/dist/mcp-cli.js` instead of `npx`.
+
+- `--cwd` is optional and overrides the process working directory; its path must name an existing directory.
+  - Relative paths are resolved from the process working directory.
+  - In a terminal, the default is the shell's current directory. An MCP client chooses the directory when it starts the server; this is not necessarily the project open in the client.
+  - For a fixed workspace, add `"--cwd", "/absolute/path/to/workspace"` after the package name in `args`.
+  - Documents stay in that workspace's `.pi/sketchbook/` directory, using the same format as Pi.
+  - Tool inputs cannot change the workspace. Use a separate server configuration for another workspace.
+  - Do not write the same document from different Pi or MCP processes at the same time.
+- The server uses stdio only; stdout is reserved for MCP messages and diagnostics use stderr.
+  - Each tool returns JSON text and `structuredContent`; failures also set `isError: true`.
+  - Unlike Pi's bounded read text, MCP read results include the complete stored document in both result channels.
+  - Create without `documentId` and `expectedRevision`. For updates, read first and submit both fields with the complete document.
+- `sketchbook_open` starts the existing read-only HTTP viewer, not an HTTP MCP endpoint.
+  - It returns a URL without opening a browser. Saving and opening do not verify browser rendering.
+  - The viewer binds to all IPv4 interfaces and requires a trusted network; the [LAN rules](#lan-access) also apply to MCP.
+  - Keep the complete capability URL private. It permits reads within the viewer workspace.
+  - Client disconnect, stdin EOF, SIGINT, or SIGTERM closes the viewer. Restarting requires a new URL; saved files remain.
+- MCP exposes tools, not Pi slash commands or automatic skill loading.
+  - The bundled [authoring skill](skills/sketchbook-explain-diagrams/SKILL.md) and [document format](skills/sketchbook-explain-diagrams/references/document-format.md) remain available as guidance.
+  - Client-specific UI behavior still requires the [MCP client handoff](docs/acceptance.md#mcp-client-handoff).
 
 ## Upgrade from Pi Canvas
 
@@ -160,10 +212,11 @@ A new diagram source restores the diagram view.
 Documents are stored in the Pi working directory at `.pi/sketchbook/<documentId>.json`.
 Only `.pi/sketchbook/.gitignore` is created for local artifact exclusions; the root `.gitignore` is not changed.
 Writes use complete replacement, revision checks, a same-process mutation queue, and atomic rename.
-Do not write the same document from multiple Pi processes.
+Do not write the same document from multiple Pi or MCP processes.
 
 Only `sketchbook_open` starts the viewer server.
-TUI and RPC sessions can open it; print and JSON modes support write/read only.
+Pi TUI and RPC sessions can open it; Pi print and JSON modes support write/read only.
+The MCP server can keep the viewer running until the client disconnects or the process stops.
 Shutdown closes the server but does not remove documents.
 After reload, new, resume, or fork, open again for a current URL.
 Tree navigation and session branching do not restore disk documents; read and create a new ID for a separate document branch.
@@ -192,5 +245,5 @@ Automated checks do not establish visual acceptance or reliable automatic skill 
 
 ## Scope and license
 
-This release does not provide cloud sharing, accounts, collaboration, browser editing, autoplay, export, partial updates, a standalone persistent server, or arbitrary Mermaid types and external assets.
+This release does not provide cloud sharing, accounts, collaboration, browser editing, autoplay, export, partial updates, HTTP MCP transport, or arbitrary Mermaid types and external assets.
 See [LICENSE](LICENSE) for the GNU Affero General Public License, version 3.

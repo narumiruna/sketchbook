@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto"
 import { constants } from "node:fs"
 import { lstat, mkdir, open, realpath, rename, unlink } from "node:fs/promises"
 import { join, resolve } from "node:path"
-import { withFileMutationQueue } from "@earendil-works/pi-coding-agent"
 import {
   MAX_DOCUMENT_BYTES,
   type StoredDocument,
@@ -11,6 +10,7 @@ import {
   validateWriteInput,
   type WriteInput,
 } from "./document.js"
+import { type FileMutationQueue, withFileMutationQueue } from "./mutation-queue.js"
 
 const MAX_STORED_BYTES = MAX_DOCUMENT_BYTES + 4096
 
@@ -21,7 +21,10 @@ function hasCode(error: unknown, code: string): boolean {
 export class DocumentStore {
   private readonly cwd: string
 
-  constructor(cwd: string) {
+  constructor(
+    cwd: string,
+    private readonly mutationQueue?: FileMutationQueue,
+  ) {
     this.cwd = resolve(cwd)
   }
 
@@ -126,10 +129,11 @@ export class DocumentStore {
     // Snapshot before the first await so callers cannot change a pending transaction.
     const snapshot: WriteInput = JSON.parse(JSON.stringify(input))
     const directory = await this.directory(true)
-    await withFileMutationQueue(join(directory, ".gitignore"), () => this.ensureIgnore(directory))
+    const mutate = this.mutationQueue ?? withFileMutationQueue
+    await mutate(join(directory, ".gitignore"), () => this.ensureIgnore(directory))
     const documentId = snapshot.documentId ?? randomUUID()
     const path = join(directory, `${documentId}.json`)
-    return withFileMutationQueue(path, async () => {
+    return mutate(path, async () => {
       signal?.throwIfAborted()
       await this.directory(false)
       let revision = 1

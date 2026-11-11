@@ -1,5 +1,5 @@
 import { once } from "node:events"
-import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises"
+import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import { Server } from "node:http"
 import { connect } from "node:net"
 import { networkInterfaces, tmpdir } from "node:os"
@@ -9,11 +9,17 @@ import type {
   ExtensionToolContext,
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent"
+import * as Pi from "@earendil-works/pi-coding-agent"
 import { Check } from "typebox/value"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { SketchbookDocument, StoredDocument } from "../src/document.js"
 import extension from "../src/extension.js"
 import { DocumentStore } from "../src/store.js"
+
+vi.mock("@earendil-works/pi-coding-agent", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@earendil-works/pi-coding-agent")>()
+  return { ...original, withFileMutationQueue: vi.fn(original.withFileMutationQueue) }
+})
 
 vi.mock("node:os", async (importOriginal) => ({
   ...(await importOriginal<typeof import("node:os")>()),
@@ -116,7 +122,7 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
 
   beforeEach(async () => {
     vi.mocked(networkInterfaces).mockReset().mockReturnValue({})
-    cwd = await mkdtemp(join(tmpdir(), "sketchbook-tools-"))
+    cwd = await realpath(await mkdtemp(join(tmpdir(), "sketchbook-tools-")))
     host = fakeHost()
     hosts.push(host)
   })
@@ -220,6 +226,49 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
       cwd,
     )
     expect(invalidUpdate.isError).toBe(true)
+  })
+
+  it("coordinates revision-checked updates with the Pi host mutation queue", async () => {
+    const written = await write()
+    const held = Promise.withResolvers<void>()
+    const entered = Promise.withResolvers<void>()
+    const { withFileMutationQueue: enqueue } = await vi.importActual<
+      typeof import("@earendil-works/pi-coding-agent")
+    >("@earendil-works/pi-coding-agent")
+    const holding = enqueue(written.path, async () => {
+      entered.resolve()
+      await held.promise
+      const changed = { ...document, title: "Changed by the host" }
+      const current = JSON.parse(await readFile(written.path, "utf8"))
+      await writeFile(written.path, JSON.stringify({ ...current, revision: 2, document: changed }))
+    })
+    await entered.promise
+    let queued = false
+    vi.mocked(Pi.withFileMutationQueue).mockImplementation((path, operation) => {
+      const pending = enqueue(path, operation)
+      if (path === written.path) queued = true
+      return pending
+    })
+    const reading = vi.spyOn(DocumentStore.prototype, "read")
+    const fresh = fakeHost()
+    hosts.push(fresh)
+    const pending = fresh.call(
+      "sketchbook_write",
+      { document, documentId: written.documentId, expectedRevision: 1 },
+      cwd,
+    )
+    try {
+      await vi.waitFor(() => expect(queued).toBe(true))
+      expect(reading).not.toHaveBeenCalled()
+    } finally {
+      vi.mocked(Pi.withFileMutationQueue).mockImplementation(enqueue)
+      held.resolve()
+      await holding
+    }
+    const conflict = await pending
+    expect(conflict.isError).toBe(true)
+    expect(text(conflict)).toContain("Revision conflict")
+    expect((await new DocumentStore(cwd).read(written.documentId)).revision).toBe(2)
   })
 
   it.each(["tui", "rpc"])(

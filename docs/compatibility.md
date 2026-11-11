@@ -16,6 +16,7 @@ Source inspection and automated tests do not establish human visual acceptance o
 | ------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Node.js                         | Automated          | Minimum `>=22.19.0` in `package.json`; CI, build, and local/tarball smoke tests pass on `22.19.0` and `26.8.2`.                                     |
 | Pi host                         | Automated          | Pi `1.5.0` and TypeBox `1.3.27`; actual `DefaultResourceLoader` discovery, skill-command expansion, and tool execution pass the package smoke test. |
+| MCP stdio                       | Automated          | Official SDK client and subprocess tests cover all three tools, cancellation, viewer cleanup, and an installed tarball without Pi.                  |
 | Mermaid                         | Automated          | Version `12.3.0`; flowcharts, subgraphs, Chinese text, long labels, and every bundled example slide pass the Chromium suite.                        |
 | Hand-drawn output               | Source + Automated | Rough.js `4.6.6`; source trace below plus real rough paths, fixed-seed redraws, markers, styles, and isolated SVG IDs checked in Chromium.          |
 | KaTeX                           | Automated          | Version `0.19.1` with nested copies overridden; browser math/security checks pass and `npm audit` reports zero vulnerabilities.                     |
@@ -243,6 +244,26 @@ Storage checks verify recovery from a failed first ignore-file write and preserv
 The existing Vite chunk-size warning remains.
 Node.js `22.19.0`, other browser engines, screen-reader announcements, physical devices, and human acceptance were not verified locally for this update.
 The existing CI matrix retains the exact minimum Node.js check; external acceptance requirements in [acceptance](acceptance.md) remain unchanged.
+
+## Standalone MCP server
+
+Verification on Node.js `22.19.0` and `26.11.1` on 2026-11-12 produced these results:
+
+- `npm run ci` passed formatting/lint, TypeScript checks, all 257 Vitest tests across 13 files, and production builds.
+- MCP protocol tests cover the three shared schemas, JSON text and structured output, revisions, conflicts, invalid input, Mermaid policy, complete large reads, authentication, cancellation, and disconnect cleanup.
+  - The adapter handles numeric-zero and empty-string request IDs explicitly because SDK `1.32.2` ignores those cancellation IDs.
+  - Calls and cancellation notifications in one stdio chunk are checked before storage entry. Tests cover creates, replacements, numeric and string IDs, unknown IDs, and independent requests in one batch.
+  - Cancelled requests cannot bypass storage cancellation checks before the atomic commit point.
+- Real stdio subprocess tests cover the process working-directory default, absolute and relative `--cwd` overrides, argument failures, protocol-only stdout, and viewer cleanup on EOF, SIGINT, and SIGTERM.
+- `npm run test:package` passed Pi local/tarball loading and an isolated npm installation of the MCP executable without Pi.
+  - `npx` resolves the installed package executable. The installed MCP tools create, read, replace, reject a conflict, and open a document in the selected workspace.
+  - Chromium renders the installed viewer assets, and client shutdown closes the listener.
+- The full Chromium regression suite passed all 70 tests on Node.js `26.11.1`.
+- `npm pack --dry-run --ignore-scripts` includes the MCP executable and viewer assets without source tests or host implementations.
+- `npm audit` reported zero vulnerabilities.
+
+The viewer and document format are unchanged. Pi still injects its host mutation queue; MCP uses a local process-wide queue.
+Claude Desktop and Cursor UI behavior, physical LAN access, and human acceptance remain unverified; see the [MCP client handoff](acceptance.md#mcp-client-handoff).
 
 ## Fixture coverage
 

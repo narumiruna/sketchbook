@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto"
 import * as fs from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { withFileMutationQueue } from "@earendil-works/pi-coding-agent"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import { MAX_DOCUMENT_BYTES, type SketchbookDocument } from "../src/document.js"
+import * as mutationQueue from "../src/mutation-queue.js"
 import { DocumentStore } from "../src/store.js"
 
 vi.mock("node:fs/promises", async (importOriginal) => {
@@ -22,8 +22,8 @@ let outside: string
 let store: DocumentStore
 
 beforeEach(async () => {
-  cwd = await fs.mkdtemp(join(tmpdir(), "pi-sketchbook-store-"))
-  outside = await fs.mkdtemp(join(tmpdir(), "pi-sketchbook-outside-"))
+  cwd = await fs.realpath(await fs.mkdtemp(join(tmpdir(), "pi-sketchbook-store-")))
+  outside = await fs.realpath(await fs.mkdtemp(join(tmpdir(), "pi-sketchbook-outside-")))
   store = new DocumentStore(cwd)
 })
 
@@ -60,15 +60,54 @@ describe("DocumentStore", () => {
     expect(await new DocumentStore(cwd).read(stored.documentId)).toEqual(result.stored)
   })
 
-  test("rejects stale and concurrent updates without losing a committed revision", async () => {
-    const { stored } = await store.write({ document })
-    const input = { document, documentId: stored.documentId, expectedRevision: 1 }
-    const results = await Promise.allSettled([store.write(input), store.write(input)])
-    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1)
-    const failure = results.find((r) => r.status === "rejected")
-    expect(failure?.status === "rejected" && String(failure.reason)).toContain("Revision conflict")
-    expect((await store.read(stored.documentId)).revision).toBe(2)
-    await expect(store.write(input)).rejects.toThrow("Revision conflict")
+  test.each([false, true])(
+    "rejects concurrent updates across stores without losing a revision (workspace alias: %s)",
+    async (useAlias) => {
+      const { stored } = await store.write({ document })
+      const alias = join(outside, "workspace")
+      if (useAlias) await fs.symlink(cwd, alias, "dir")
+      const otherStore = new DocumentStore(useAlias ? alias : cwd)
+      const input = { document, documentId: stored.documentId, expectedRevision: 1 }
+      const results = await Promise.allSettled([store.write(input), otherStore.write(input)])
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1)
+      const failure = results.find((r) => r.status === "rejected")
+      expect(failure?.status === "rejected" && String(failure.reason)).toContain(
+        "Revision conflict",
+      )
+      expect((await store.read(stored.documentId)).revision).toBe(2)
+      await expect(otherStore.write(input)).rejects.toThrow("Revision conflict")
+    },
+  )
+
+  test("keeps the input snapshot while another transaction holds the document queue", async () => {
+    const { stored, path } = await store.write({ document })
+    const release = Promise.withResolvers<void>()
+    const holding = mutationQueue.withFileMutationQueue(path, () => release.promise)
+    const queued = Promise.withResolvers<void>()
+    const enqueue = mutationQueue.withFileMutationQueue
+    vi.spyOn(mutationQueue, "withFileMutationQueue").mockImplementation((key, operation) => {
+      const pending = enqueue(key, operation)
+      if (key === path) queued.resolve()
+      return pending
+    })
+    const input = {
+      document: structuredClone(document),
+      documentId: stored.documentId,
+      expectedRevision: 1,
+    }
+    const pending = new DocumentStore(cwd).write(input)
+    await queued.promise
+    input.document.title = "Changed while queued"
+    input.document.blocks = []
+    input.documentId = randomUUID()
+    input.expectedRevision = 99
+    release.resolve()
+    await holding
+    const result = await pending
+    expect(result.stored.documentId).toBe(stored.documentId)
+    expect(result.stored.revision).toBe(2)
+    expect(result.stored.document).toEqual(document)
+    expect(await store.read(stored.documentId)).toEqual(result.stored)
   })
 
   test("preserves the previous file and removes temporary files if rename fails", async () => {
@@ -86,33 +125,74 @@ describe("DocumentStore", () => {
     expect(
       (await fs.readdir(join(cwd, ".pi", "sketchbook"))).filter((name) => name.endsWith(".tmp")),
     ).toEqual([])
+    const retried = await new DocumentStore(cwd).write({
+      document,
+      documentId: stored.documentId,
+      expectedRevision: 1,
+    })
+    expect(retried.stored.revision).toBe(2)
+    expect(await store.read(stored.documentId)).toEqual(retried.stored)
   })
 
-  test("checks cancellation before commit, including after waiting for the host file queue", async () => {
+  test("checks cancellation after waiting for the document mutation queue", async () => {
     const { stored, path } = await store.write({ document })
     const controller = new AbortController()
-    let release: (() => void) | undefined
-    let entered: (() => void) | undefined
-    const started = new Promise<void>((resolve) => {
-      entered = resolve
+    const release = Promise.withResolvers<void>()
+    const holding = mutationQueue.withFileMutationQueue(path, () => release.promise)
+    const queued = Promise.withResolvers<void>()
+    const enqueue = mutationQueue.withFileMutationQueue
+    vi.spyOn(mutationQueue, "withFileMutationQueue").mockImplementation((key, operation) => {
+      const pending = enqueue(key, operation)
+      if (key === path) queued.resolve()
+      return pending
     })
-    const holding = withFileMutationQueue(path, async () => {
-      entered?.()
-      await new Promise<void>((resolve) => {
-        release = resolve
-      })
-    })
-    await started
     const pending = store.write(
       { document, documentId: stored.documentId, expectedRevision: 1 },
       controller.signal,
     )
+    await queued.promise
     controller.abort()
-    release?.()
+    release.resolve()
     await holding
     await expect(pending).rejects.toThrow()
     expect((await store.read(stored.documentId)).revision).toBe(1)
     await expect(store.read(stored.documentId, controller.signal)).rejects.toThrow()
+    await expect(store.write({ document }, controller.signal)).rejects.toThrow()
+    const retried = await store.write({
+      document,
+      documentId: stored.documentId,
+      expectedRevision: 1,
+    })
+    expect(retried.stored.revision).toBe(2)
+  })
+
+  test("removes temporary files when cancelled before the rename commit point", async () => {
+    const { stored, path } = await store.write({ document })
+    const before = await fs.readFile(path, "utf8")
+    const controller = new AbortController()
+    const { open } = await vi.importActual<typeof fs>("node:fs/promises")
+    vi.mocked(fs.open)
+      .mockImplementationOnce(open)
+      .mockImplementationOnce(open)
+      .mockImplementationOnce(async (...args) => {
+        const file = await open(...args)
+        const sync = file.sync.bind(file)
+        vi.spyOn(file, "sync").mockImplementationOnce(async () => {
+          await sync()
+          controller.abort()
+        })
+        return file
+      })
+    await expect(
+      store.write(
+        { document, documentId: stored.documentId, expectedRevision: 1 },
+        controller.signal,
+      ),
+    ).rejects.toThrow()
+    expect(await fs.readFile(path, "utf8")).toBe(before)
+    expect(
+      (await fs.readdir(join(cwd, ".pi", "sketchbook"))).filter((name) => name.endsWith(".tmp")),
+    ).toEqual([])
   })
 
   test("does not report cancellation after the rename commit point", async () => {

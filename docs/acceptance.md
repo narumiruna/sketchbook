@@ -211,6 +211,23 @@ They cannot establish second-device compatibility or release readiness.
 Do not claim support on a specific physical device until its owner completes this check.
 Existing model-cost and release-authorization restrictions remain in force.
 
+## MCP client handoff
+
+The user owns configuration and UI verification in Claude Desktop, Cursor, or another stdio MCP client.
+Configure `npx -y @narumitw/sketchbook` as shown in the README. For local development, build this checkout and use its `dist/mcp-cli.js` entry point.
+The current code defaults to the client-selected process working directory. Add `--cwd` when a fixed workspace is required.
+Published version `0.2.2` is from `188aef2` and still requires `--cwd`. Use `--cwd .` with that version.
+The package owner must publish a newer version to distribute the current-directory default and the early-cancellation fix.
+Restart the client, confirm the three Sketchbook tools are available, then create, read, replace, and open a document.
+The expected result is a revision-checked saved document and a private viewer URL that works while the MCP process runs.
+Stop the client and confirm that the viewer can no longer fetch data; previously loaded content can remain visible.
+The same trusted-network and single-writer restrictions apply to Pi and MCP.
+
+Automated checks cover the official MCP client, real stdio subprocesses, EOF and signal cleanup, and an installed tarball without Pi.
+They do not establish Claude Desktop or Cursor UI behavior, automatic authoring guidance, physical LAN access, or human visual acceptance.
+Those client-specific behaviors remain unverified until the user performs this handoff.
+Do not claim client UI acceptance or release readiness from protocol tests alone.
+
 ## Package-owner handoff
 
 The package metadata names `narumiruna/sketchbook`.
