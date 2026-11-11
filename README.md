@@ -41,7 +41,10 @@ Run the published package from your workspace:
 npx -y @narumitw/sketchbook
 ```
 
-The server uses its process working directory by default.
+The current code uses its process working directory by default.
+Published version `0.2.2` predates this change and requires `npx -y @narumitw/sketchbook --cwd .`.
+Until a newer package release includes the default, add `"--cwd", "."` after the package name in the MCP config below.
+
 Add this server to your client's MCP configuration:
 
 ```json
