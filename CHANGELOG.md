@@ -1,4 +1,4 @@
-# pi-sketchbook
+# sketchbook
 
 ## 0.2.2
 

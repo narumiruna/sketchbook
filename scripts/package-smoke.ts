@@ -22,7 +22,7 @@ const temporary = await mkdtemp(join(tmpdir(), "pi-sketchbook-package-"))
 
 async function smoke(packagePath: string, label: string): Promise<void> {
   const manifest = JSON.parse(await readFile(join(packagePath, "package.json"), "utf8"))
-  assert.equal(manifest.name, "pi-sketchbook")
+  assert.equal(manifest.name, "sketchbook")
   const workspace = join(temporary, label)
   const agentDir = join(workspace, "agent")
   await mkdir(workspace, { recursive: true })
@@ -194,7 +194,7 @@ try {
     filename: string
     files: Array<{ path: string }>
   }>
-  assert.equal(packed.name, "pi-sketchbook")
+  assert.equal(packed.name, "sketchbook")
   const files = packed.files.map((file) => file.path)
   assert.ok(files.includes("dist/extension.js"))
   assert.ok(files.includes("dist/web/index.html"))
