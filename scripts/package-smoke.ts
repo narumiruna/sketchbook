@@ -186,6 +186,8 @@ async function smoke(packagePath: string, label: string): Promise<void> {
 }
 
 async function smokeMcp(tarball: string): Promise<void> {
+  // npm notices are not server diagnostics. The SDK does not inherit npm config variables.
+  const npmEnvironment = { npm_config_update_notifier: "false" }
   const install = join(temporary, "mcp-install")
   const workspace = join(install, "workspace")
   await mkdir(install)
@@ -200,13 +202,14 @@ async function smokeMcp(tarball: string): Promise<void> {
   const help = await execute(
     "npx",
     ["--no", "--package=@narumitw/sketchbook", "--", "sketchbook-mcp", "--help"],
-    { cwd: install, timeout: 10_000 },
+    { cwd: install, timeout: 10_000, env: { ...process.env, ...npmEnvironment } },
   )
   assert.equal(help.stdout, "Usage: sketchbook-mcp [--cwd <workspace-directory>]\n")
   assert.equal(help.stderr, "")
   const transport = new StdioClientTransport({
     command: "npx",
     args: ["-y", "@narumitw/sketchbook"],
+    env: npmEnvironment,
     cwd: workspace,
     stderr: "pipe",
   })
