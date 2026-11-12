@@ -1,5 +1,15 @@
 # @narumitw/sketchbook
 
+## 0.3.0
+
+### Minor Changes
+
+- 188aef2: Add a standalone stdio MCP server with the three Sketchbook tools, a current-directory default and optional workspace override, shared document operations, and viewer cleanup on disconnect or signals. Keep Pi queue coordination and make the Pi peer optional for standalone installation.
+
+### Patch Changes
+
+- 91e6815: Keep viewer capabilities during Markdown navigation, preserve and isolate footnote targets, add keyboard diagram panning and source scrolling, recover failed artifact ignore creation, and check staged content without changing user files.
+
 ## 0.2.2
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@narumitw/sketchbook",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Local, hand-drawn Mermaid walkthroughs for Pi and MCP agents.",
   "bin": {
     "sketchbook-mcp": "./dist/mcp-cli.js"
