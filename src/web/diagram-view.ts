@@ -9,6 +9,8 @@ import { measureDiagramFocus } from "./diagram-focus.js"
 // Match the padding on .diagram-viewport. The core reads it from CSS.
 const inset = 16
 const contentHeightProperty = "--diagram-content-height"
+const viewportControlSelector =
+  'input, select, textarea, button, a[href], label, summary, [contenteditable]:not([contenteditable="false"]), [tabindex]'
 
 /** Camera state used by Sketchbook's controls and slide focus hints. */
 export interface DiagramViewState {
@@ -99,6 +101,38 @@ export function createDiagramView(
     return ready && stage.firstElementChild === diagram
   }
 
+  function onWheel(event: WheelEvent): void {
+    // Override only the zoom-out step in diagram-viewer 0.4.0. Leave zoom-in
+    // and unmodified scrolling to the core and the browser, respectively.
+    if (
+      !camera ||
+      event.defaultPrevented ||
+      (!event.ctrlKey && !event.metaKey) ||
+      !Number.isFinite(event.deltaY) ||
+      event.deltaY <= 0 ||
+      !isInteractionEnabled() ||
+      viewport.hidden ||
+      stage.hidden ||
+      !viewport.isConnected ||
+      !stage.isConnected ||
+      viewport.clientWidth <= inset * 2 ||
+      viewport.clientHeight <= inset * 2
+    ) {
+      return
+    }
+    const target =
+      event.target instanceof Element ? event.target.closest(viewportControlSelector) : null
+    if (target && target !== viewport && viewport.contains(target)) return
+    const { display, visibility } = getComputedStyle(stage)
+    if (display === "none" || visibility === "hidden" || visibility === "collapse") return
+
+    // The core skips canceled events. For non-cancelable wheel events, stop
+    // dispatch here so the other listener cannot apply a second zoom step.
+    if (event.cancelable) event.preventDefault()
+    else event.stopImmediatePropagation()
+    camera.zoomBy(1 / 1.1, { x: event.clientX, y: event.clientY })
+  }
+
   function refresh(reset = false): void {
     if (!camera) return
     const next = stage.querySelector<SVGSVGElement>(":scope > svg")
@@ -131,6 +165,22 @@ export function createDiagramView(
     report()
   }
 
+  // Schedule the host's layout pass before the core's observer schedules its
+  // fit. Use an animation frame so height writes do not reenter resize delivery.
+  let resizeFrame: number | undefined
+  const resizeObserver =
+    typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => {
+          if (resizeFrame !== undefined) return
+          resizeFrame = requestAnimationFrame(() => {
+            resizeFrame = undefined
+            refresh()
+          })
+        })
+      : undefined
+  resizeObserver?.observe(viewport)
+  viewport.addEventListener("wheel", onWheel, { passive: false })
+
   camera = createCamera(viewport, stage, {
     manageInlineHeight: false,
     resetMode: "native",
@@ -148,9 +198,6 @@ export function createDiagramView(
       if (!camera || !diagram) return
       laidOut = true
       cropped = value
-      // The core also calls this after laying out a resized viewport. Reuse
-      // its observer and only write a height when the width-based value changes.
-      updateInlineHeight()
       ready = true
       if (pendingCamera) {
         // Clear this before setting the region or mode; those publish again.
@@ -189,6 +236,9 @@ export function createDiagramView(
     },
     destroy() {
       if (!camera) return
+      resizeObserver?.disconnect()
+      if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame)
+      viewport.removeEventListener("wheel", onWheel)
       ready = false
       camera.destroy()
       camera = undefined

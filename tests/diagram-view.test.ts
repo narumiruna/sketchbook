@@ -1,5 +1,5 @@
 import { createDiagramView as createCamera } from "@narumitw/diagram-viewer/core"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { createDiagramView, type DiagramViewState } from "../src/web/diagram-view.js"
 
 vi.mock("@narumitw/diagram-viewer/core", () => ({
@@ -8,10 +8,34 @@ vi.mock("@narumitw/diagram-viewer/core", () => ({
   maxDiagramScale: 4,
 }))
 
+afterEach(() => vi.unstubAllGlobals())
+
 function fixture(initialSize?: [number, number]) {
+  let notifyResize = () => {}
+  let runFrame: FrameRequestCallback | undefined
+  const disconnect = vi.fn()
+  const cancelFrame = vi.fn(() => {
+    runFrame = undefined
+  })
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(callback: () => void) {
+        notifyResize = callback
+      }
+      observe() {}
+      disconnect = disconnect
+    },
+  )
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    runFrame = callback
+    return 1
+  })
+  vi.stubGlobal("cancelAnimationFrame", cancelFrame)
+
   const properties = new Map<string, string>()
   const frame = { className: "", setAttribute: vi.fn(), remove: vi.fn() }
-  const viewport = {
+  const viewport = Object.assign(new EventTarget(), {
     clientWidth: 532,
     clientHeight: 332,
     hidden: false,
@@ -20,7 +44,7 @@ function fixture(initialSize?: [number, number]) {
       removeProperty: vi.fn((name: string) => properties.delete(name)),
     },
     ownerDocument: { activeElement: null },
-  }
+  })
   const stage = {
     firstElementChild: null as SVGSVGElement | null,
     querySelector: () => stage.firstElementChild,
@@ -62,7 +86,7 @@ function fixture(initialSize?: [number, number]) {
   }
   let coreOptions: NonNullable<Parameters<typeof createCamera>[2]>
   function publish(scale = 0.5, minimum = 0.238, maximum = 4, cropped = false) {
-    if (viewport.hidden) return
+    if (viewport.hidden || viewport.clientWidth <= 32 || viewport.clientHeight <= 32) return
     coreOptions.onScaleChange?.(scale, minimum, maximum)
     coreOptions.onCropChange?.(cropped)
   }
@@ -91,6 +115,14 @@ function fixture(initialSize?: [number, number]) {
     states,
     setSvg,
     publish,
+    disconnect,
+    cancelFrame,
+    notifyResize: () => notifyResize(),
+    flushFrame: () => {
+      const callback = runFrame
+      runFrame = undefined
+      callback?.(0)
+    },
   }
 }
 
@@ -168,7 +200,17 @@ describe("diagram view adapter", () => {
   })
 
   it("updates CSS height from the natural SVG and width, not scale or viewport height", () => {
-    const { controller, height, publish, setSvg, state, viewport } = fixture([1000, 500])
+    const {
+      camera,
+      controller,
+      flushFrame,
+      height,
+      notifyResize,
+      publish,
+      setSvg,
+      state,
+      viewport,
+    } = fixture([1000, 500])
     expect(height()).toBe("282px")
     expect(viewport.style.setProperty).toHaveBeenCalledTimes(1)
     viewport.clientHeight = 576
@@ -182,15 +224,46 @@ describe("diagram view adapter", () => {
       cropped: true,
     })
     viewport.clientWidth = 432
-    publish(1.25, 0.1875, 3.75, true)
+    camera.refresh.mockImplementationOnce(() => {
+      expect(height()).toBe("232px")
+      publish(1.25, 0.1875, 3.75, true)
+    })
+    notifyResize()
+    expect(height()).toBe("282px")
+    flushFrame()
     expect(height()).toBe("232px")
     setSvg(100, 50)
     controller.refresh()
     expect(height()).toBe("82px")
   })
 
+  it("updates readiness when a resize leaves no room inside the camera inset", () => {
+    const { viewport, notifyResize, flushFrame, state } = fixture([1000, 500])
+    expect(state()?.ready).toBe(true)
+    viewport.clientHeight = 32
+    notifyResize()
+    flushFrame()
+    expect(state()?.ready).toBe(false)
+    viewport.clientHeight = 332
+    notifyResize()
+    flushFrame()
+    expect(state()?.ready).toBe(true)
+  })
+
   it("cleans up the camera, frame, and inline height once on unmount", () => {
-    const { camera, frame, controller, coreOptions, height, states } = fixture([1000, 500])
+    const {
+      camera,
+      frame,
+      controller,
+      coreOptions,
+      height,
+      states,
+      notifyResize,
+      flushFrame,
+      disconnect,
+      cancelFrame,
+    } = fixture([1000, 500])
+    notifyResize()
     controller.setFocusNodes(["A"])
     const reports = states.length
     controller.destroy()
@@ -204,6 +277,9 @@ describe("diagram view adapter", () => {
     expect(camera.destroy).toHaveBeenCalledTimes(1)
     expect(camera.reset).not.toHaveBeenCalled()
     expect(camera.zoomBy).not.toHaveBeenCalled()
+    flushFrame()
+    expect(disconnect).toHaveBeenCalledTimes(1)
+    expect(cancelFrame).toHaveBeenCalledWith(1)
     expect(frame.remove).toHaveBeenCalledTimes(1)
     expect(height()).toBeUndefined()
     expect(states).toHaveLength(reports)
