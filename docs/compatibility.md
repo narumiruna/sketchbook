@@ -14,7 +14,7 @@ Source inspection and automated tests do not establish human visual acceptance o
 
 | Area                            | Status             | Evidence or remaining check                                                                                                                         |
 | ------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node.js                         | Automated          | Minimum `>=22.19.0` in `package.json`; CI, build, and local/tarball smoke tests pass on `22.19.0` and `26.8.2`.                                     |
+| Node.js                         | Automated          | Minimum `>=26.0.0` in `package.json`; see [Node.js 26 validation](#nodejs-26-validation).                                                           |
 | Pi host                         | Automated          | Pi `1.5.0` and TypeBox `1.3.27`; actual `DefaultResourceLoader` discovery, skill-command expansion, and tool execution pass the package smoke test. |
 | MCP stdio                       | Automated          | Official SDK client and subprocess tests cover all three tools, cancellation, viewer cleanup, and an installed tarball without Pi.                  |
 | Mermaid                         | Automated          | Version `12.3.0`; flowcharts, subgraphs, Chinese text, long labels, and every bundled example slide pass the Chromium suite.                        |
@@ -27,8 +27,24 @@ Source inspection and automated tests do not establish human visual acceptance o
 | Remote access                   | Unverified         | SSH forwarding, containers, and WSLg/Windows browser routing need environment-specific checks.                                                      |
 | Active-agent authoring          | Authoring trial    | Two fresh cases use the revised skill and separate document IDs; automatic skill selection and broader model reliability remain unverified.         |
 
-## Completed checks
+## Node.js 26 validation
 
+CI tests the exact minimum (`26.0.0`) and the latest Node.js 26 release (`26`).
+Local verification on Ubuntu under WSL2 passed on Node.js `26.0.0` and `26.11.1`:
+
+- `npm ci` and `npm run ci` passed, including all 267 unit tests and the
+  production build.
+- `npm run test:browser` passed all 72 Chromium tests on both versions.
+- `npm pack --dry-run` and `npm run test:package` passed, including local and
+  tarball Pi loading and standalone MCP installation without Pi.
+
+A separate headed Chromium check on Node.js `26.11.1` passed three viewer tests
+using Wayland after a successful display connection and round trip. This check
+used Linux Chromium and does not verify Windows browser routing.
+
+## Historical compatibility checks
+
+These results describe earlier revisions, not the current support contract.
 Earlier baseline verification produced these results:
 
 - `npm run ci` passed on Node.js `22.19.0` and `26.8.2`, including formatting/lint checks, 115 of 115 Vitest tests across six files, and production builds.
@@ -99,7 +115,7 @@ They measure every SVG text label in the default fitted view, before Reset or Zo
 The capture helper waits for fonts and paint frames and checks PNG pixels inside every diagram viewport, so a blank full-page frame cannot pass only because an SVG exists in the DOM.
 An independent agent review inspected the bundled examples and code; the main agent inspected the Agent Substrate article and all five slides at both widths.
 These checks do not establish human visual or comprehension acceptance.
-Node.js 22.19.0 was not rerun locally for this update; the existing CI matrix provides a separate check.
+Node.js 22.19.0 was not rerun locally for this update; the CI matrix at the time included it.
 
 On macOS, the existing exact-path tests require a physical temporary-directory path.
 Run `export TMPDIR="$(cd "${TMPDIR:-/tmp}" && pwd -P)"` before the checks when TMPDIR contains the `/var` alias for `/private/var`.
@@ -158,7 +174,7 @@ Long fenced code remains in bounded horizontal scroll containers, not wrapped or
 The article checks reach the right edge of each overflowing code block, preserve its text, and retain end-of-code captures; a default screenshot alone does not show every code column.
 The complete article captures and every slide were inspected by agents at both widths, separately from the automated checks.
 Node.js `22.19.0`, other browser engines, physical touch devices, and human acceptance were not rerun or established by this local update.
-The existing CI matrix provides the separate Node.js compatibility check.
+The CI matrix at the time included Node.js `22.19.0`.
 
 The skill now requires source-supported arrow recipients, actions, direction, required order, decision inputs/outcomes, and useful contributions across decks.
 `tests/fixtures/generation-cases.json` records explicit teaching facts and compact claim/contribution/issues reviews.
@@ -243,7 +259,7 @@ Storage checks verify recovery from a failed first ignore-file write and preserv
 
 The existing Vite chunk-size warning remains.
 Node.js `22.19.0`, other browser engines, screen-reader announcements, physical devices, and human acceptance were not verified locally for this update.
-The existing CI matrix retains the exact minimum Node.js check; external acceptance requirements in [acceptance](acceptance.md) remain unchanged.
+The CI matrix at the time still included Node.js `22.19.0`, the former minimum. External acceptance requirements in [acceptance](acceptance.md) remain unchanged.
 
 ## Standalone MCP server
 
@@ -298,6 +314,8 @@ The browser tests save `rough-path-evidence.json`, `large-flowchart-timing.json`
 Vite reports large Mermaid chunks over 500 kB; lazy renderer chunks remain local, and bundle size is not a passed performance target.
 
 ## Reproduce
+
+Use Node.js 26.0.0 or later.
 
 ```sh
 node --version

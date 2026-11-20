@@ -13,8 +13,8 @@ Matching deck and slide titles appear once visually.
 
 ## Install
 
-Use Node.js 22.19 or later.
-Pi 1.5.0 is tested with Node.js 22.19.0 and 26.8.2; see [compatibility evidence](docs/compatibility.md).
+Use Node.js 26.0.0 or later. Sketchbook tests against Pi 1.5.0; see
+[compatibility evidence](docs/compatibility.md).
 
 Build and install this checkout:
 
@@ -34,7 +34,7 @@ Review package code before installation and project declarations before granting
 ## MCP server
 
 The stdio MCP server exposes `sketchbook_write`, `sketchbook_read`, and `sketchbook_open` to clients such as Claude Desktop and Cursor.
-It does not require Pi. Use Node.js 22.19 or later.
+It does not require Pi. This version of Sketchbook requires Node.js 26.0.0 or later.
 Run the published package from your workspace:
 
 ```sh
