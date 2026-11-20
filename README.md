@@ -13,7 +13,7 @@ Matching deck and slide titles appear once visually.
 
 ## Install
 
-Use Node.js 26.0.0 or later. Sketchbook tests against Pi 1.5.0; see
+Use Node.js 26.0.0 or later. Sketchbook tests against Pi 1.6.0; see
 [compatibility evidence](docs/compatibility.md).
 
 Build and install this checkout:
