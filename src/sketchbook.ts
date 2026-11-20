@@ -119,7 +119,7 @@ export function createSketchbookTools(mutationQueue?: FileMutationQueue) {
     label: "Sketchbook Write",
     promptSnippet: "Create or replace a saved Pi Sketchbook document with revision checks",
     description:
-      "Create or fully replace a Pi Sketchbook document. Updates require documentId and expectedRevision; read after a conflict. Writes only .pi/sketchbook/*.json, same-directory temporary files, and .pi/sketchbook/.gitignore in the workspace; never changes the workspace root .gitignore. Saving does not verify browser rendering.",
+      "Create or fully replace a Pi Sketchbook document with Markdown, code, or Mermaid diagram decks. Updates require documentId and expectedRevision; read after a conflict. Writes only .pi/sketchbook/*.json, same-directory temporary files, and .pi/sketchbook/.gitignore in the workspace; never changes the workspace root .gitignore. Saving does not verify browser rendering.",
     parameters: WriteInputSchema,
     outputSchema: WriteOutputSchema,
     async execute(input: unknown, cwd: string, signal?: AbortSignal) {

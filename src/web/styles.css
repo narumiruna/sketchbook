@@ -419,6 +419,19 @@ button:disabled {
 .slide-explanation .markdown > :last-child {
   margin-bottom: 0;
 }
+.code-block {
+  margin: 1.8rem 0;
+}
+.code-block figcaption {
+  margin-bottom: 0.25rem;
+  color: #536170;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.code-block pre {
+  margin: 0;
+}
+.code-block pre,
 .markdown pre,
 .render-error pre {
   padding: 1rem;

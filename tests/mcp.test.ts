@@ -29,6 +29,7 @@ const document: SketchbookDocument = {
   title: "MCP fixture",
   blocks: [
     { id: "intro", type: "markdown", markdown: "Read the complete document before editing." },
+    { id: "example", type: "code", code: "  const count = 1\n", language: "TypeScript" },
     {
       id: "deck",
       type: "diagram-deck",
@@ -275,6 +276,7 @@ describe("Sketchbook MCP protocol", () => {
       renderingVerified: false,
       blocks: [
         { id: "intro", type: "markdown" },
+        { id: "example", type: "code" },
         { id: "deck", type: "diagram-deck", slides: 1 },
       ],
     })

@@ -22,6 +22,16 @@ export const MarkdownBlockSchema = Type.Object(
   { additionalProperties: false },
 )
 
+export const CodeBlockSchema = Type.Object(
+  {
+    id: IdSchema,
+    type: Type.Literal("code"),
+    code: TextSchema,
+    language: Type.Optional(Type.String({ minLength: 1, maxLength: 64, pattern: "\\S" })),
+  },
+  { additionalProperties: false },
+)
+
 export const DiagramDeckSchema = Type.Object(
   {
     id: IdSchema,
@@ -56,7 +66,7 @@ export const SketchbookDocumentSchema = Type.Object(
   {
     schemaVersion: Type.Literal(1),
     title: TitleSchema,
-    blocks: Type.Array(Type.Union([MarkdownBlockSchema, DiagramDeckSchema]), {
+    blocks: Type.Array(Type.Union([MarkdownBlockSchema, CodeBlockSchema, DiagramDeckSchema]), {
       minItems: 1,
       maxItems: MAX_BLOCKS,
     }),
@@ -85,6 +95,7 @@ export const StoredDocumentSchema = Type.Object(
 
 export type SketchbookDocument = Static<typeof SketchbookDocumentSchema>
 export type MarkdownBlock = Static<typeof MarkdownBlockSchema>
+export type CodeBlock = Static<typeof CodeBlockSchema>
 export type DiagramDeck = Static<typeof DiagramDeckSchema>
 export type WriteInput = Static<typeof WriteInputSchema>
 export type StoredDocument = Static<typeof StoredDocumentSchema>

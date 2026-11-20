@@ -22,7 +22,7 @@ export function createSketchbookMcpServer(cwd: string) {
     {
       capabilities: { tools: {} },
       instructions:
-        "Create technical documents with Markdown and Mermaid flowchart diagram decks. Only flowchart diagrams are supported. Do not use Mermaid directives, frontmatter, HTML, images, icons, click actions, or node metadata. Create documents without documentId or expectedRevision. Read before updates and submit the complete document with the current expectedRevision. On conflict, read again. Saving does not verify rendering. Viewer URLs are private capabilities for trusted networks and expire when this server stops. Do not write the same document from different processes.",
+        "Create technical documents with Markdown, standalone code blocks, and Mermaid flowchart diagram decks. Only flowchart diagrams are supported. Do not use Mermaid directives, frontmatter, HTML, images, icons, click actions, or node metadata. Create documents without documentId or expectedRevision. Read before updates and submit the complete document with the current expectedRevision. On conflict, read again. Saving does not verify rendering. Viewer URLs are private capabilities for trusted networks and expire when this server stops. Do not write the same document from different processes.",
     },
   )
   const catalog: Tool[] = definitions.map((tool) => ({

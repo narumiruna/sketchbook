@@ -11,6 +11,7 @@ type SketchbookDocument = {
   title: string
   blocks: Array<
     | { id: string; type: "markdown"; markdown: string }
+    | { id: string; type: "code"; code: string; language?: string }
     | {
         id: string
         type: "diagram-deck"
@@ -39,7 +40,10 @@ type SketchbookDocument = {
 - Use only the fields shown above and schema version 1.
 
 Markdown supports prose, inline math such as `$r + 1$`, display math between `$$` lines, and fenced code.
-Use a diagram deck even for one diagram; a Mermaid Markdown fence is not a second diagram format.
+Use a `code` block for a standalone snippet. Its `code` field must contain at least one non-whitespace character.
+Pass the source directly, without adding Markdown fences. The viewer displays it as text, preserving whitespace.
+If provided, the `language` label must contain a non-whitespace character and be at most 64 characters long.
+Use a diagram deck even for one diagram; neither a Mermaid Markdown fence nor a `code` block renders a diagram.
 
 ## Slide focus
 

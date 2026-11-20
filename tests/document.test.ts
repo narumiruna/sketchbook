@@ -57,6 +57,33 @@ describe("document validation", () => {
     expect(() => validateDocument(value)).toThrow()
   })
 
+  test("accepts standalone code blocks with or without a language", () => {
+    const value = document()
+    const code = "\n\t<div>Hello & goodbye</div>\n\n"
+    value.blocks.push(
+      { id: "markup", type: "code", code, language: "HTML" },
+      { id: "text", type: "code", code },
+    )
+    expect(validateDocument(value)).toBe(value)
+  })
+
+  test.each([
+    { code: undefined },
+    { code: "" },
+    { code: " \t\n" },
+    { code: 42 },
+    { language: " " },
+    { language: "x".repeat(65) },
+    { markdown: "unexpected" },
+  ])("rejects invalid code block fields: %o", (fields) => {
+    expect(() =>
+      validateDocument({
+        ...document(),
+        blocks: [{ id: "snippet", type: "code", code: "hello", ...fields }],
+      }),
+    ).toThrow("Invalid sketchbook data")
+  })
+
   test("allows a focus region on a later slide that reuses the complete overview", () => {
     const value = document()
     const deck = value.blocks[0]
@@ -102,6 +129,17 @@ describe("document validation", () => {
       id: `s${i}`,
     }))
     expect(() => validateDocument(slideDuplicate)).toThrow()
+  })
+
+  test("applies the document byte limit to standalone code", () => {
+    expect(() =>
+      validateDocument({
+        ...document(),
+        blocks: [
+          { id: "snippet", type: "code", code: "中".repeat(Math.ceil(MAX_DOCUMENT_BYTES / 3)) },
+        ],
+      }),
+    ).toThrow("bytes")
   })
 
   test("measures UTF-8 byte limits instead of only character counts", () => {
