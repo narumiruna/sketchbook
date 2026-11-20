@@ -3,7 +3,7 @@
 ## Current boundary
 
 The bundled examples and static skill checks do not prove that a model will select the skill or use the tools correctly.
-This implementation task authorizes a feature-branch push and pull request, but not paid model evaluations, npm publication, version tags, or release-workflow dispatch.
+Paid model evaluations, npm publication, version tags, and release-workflow dispatch require separate authorization.
 Human visual acceptance and remote forwarding remain unverified.
 
 ## Future authorized model checks
@@ -14,6 +14,27 @@ Do not record credentials or a reusable capability token in published evidence.
 First send each prompt without an explicit skill command to observe discovery.
 If the model does not load the skill, record that result and repeat with `/skill:sketchbook-explain-diagrams` prefixed to the same prompt.
 A successful explicit invocation does not prove reliable automatic selection.
+
+### Indirect activation and near-miss
+
+Run each prompt in a fresh session on the target Pi client and model. Start with no skill command or tool names. Inspect the skill-load trace, not only the answer.
+
+**Indirect prompt:**
+
+> Explain the order of messages when a client sends a request through a gateway to an inventory service and receives the result. I need to see who sends what and what happens first.
+
+- [ ] Record whether the skill loaded. If it did not, repeat with `/skill:sketchbook-explain-diagrams` in a fresh session and record that result separately.
+- [ ] The response suggests a diagram because the order and direction of messages matter. A sequence diagram can make both visible.
+- [ ] No `sketchbook_write` or `sketchbook_open` call occurs without a request for a saved article or Viewer link.
+
+**Simple near-miss:**
+
+> What does HTTP status 204 mean? Answer in one sentence.
+
+- [ ] Record whether the skill loaded.
+- [ ] The answer is direct. It does not suggest a diagram, save a document, or open a Viewer.
+
+Mechanical Pi skill discovery and explicit command expansion do not require a model call. Without the target client and model traces, automatic selection and near-miss behavior remain unverified.
 
 ### Architecture prompt
 
@@ -46,7 +67,7 @@ Expected assertions:
 ### Process prompt
 
 > Create a Pi Sketchbook guide to replacing a saved document.
-> Show the complete flow, then expose the revision inputs, outcomes, and no-write conflict boundary.
+> Use flowcharts to show the complete flow, then expose the revision inputs, outcomes, and no-write conflict boundary.
 > Add detail views only when they add needed information; do not add start or end slides that repeat the overview.
 > Show how a revision conflict returns to a read instead of overwriting a newer change.
 > Include prose, inline and display LaTeX for the next revision, and a fenced TypeScript example.
@@ -68,6 +89,18 @@ Expected assertions:
 - [ ] No direct storage-file edits or unsupported content occur.
 - [ ] The final response reports the saved revision, viewer status, and rendering evidence separately.
 
+## Diagram family acceptance
+
+Use the [Mermaid 12.3.0 header table](../README.md#supported-mermaid-diagrams) as the expected matrix. Run these checks against the production-built Viewer and keep results separate from the earlier discovery probe.
+
+- [ ] Pi and MCP save and read every supported header without altering source or changing the document schema or revision rules. Both reject excluded or unknown headers, disallowed configuration, interactions, external resources, and non-flowchart `focusNodes`.
+- [ ] Every accepted header renders visible fixture-specific labels or marks with nonzero geometry under the existing CSP. Do not count SVG presence alone as a pass.
+  - [ ] Check the mixed deck at 390px and 1440px. Test switching families, Fit, zoom, and inert source display; verify flowchart focus and hand-drawn rendering independently.
+  - [ ] Check duplicate instances, rapid switching, revision updates, and recovery after replacing a malformed body. A failed slide must not hide unrelated content.
+  - [ ] Check that document content does not load resources or attach active markup, event bindings, or styles outside the affected SVG. Any SVG definition reference must resolve within its own sanitized SVG.
+- [ ] Verify a non-flowchart in packed Pi and in standalone MCP. Confirm bundled skill discovery and explicit command expansion mechanically. These checks do not establish automatic skill loading.
+- [ ] Retain tool versions, command results, and representative screenshot paths in [compatibility evidence](compatibility.md#delivery-verification). Report the exact clean-checkout commit in the pull request. Do not retain private Viewer links or user documents.
+
 ## Article structure and visual review
 
 Review the complete article before checking individual deck transitions.
@@ -75,8 +108,9 @@ Check its heading outline, prerequisite concepts, first definitions, repeated te
 The document title owns H1, deck titles remain H2 during navigation, and current slide titles use H3.
 Markdown explanations must not introduce competing chapter headings.
 
-`tests/browser/article-review.spec.ts` covers both bundled examples, the source-linked Agent Substrate regression, and the two active-agent authoring cases in `tests/fixtures/viewer-handoff.json` and `tests/fixtures/receipt-check.json`.
-It captures the complete initial and final article and every slide at 1440px and 390px.
+`tests/browser/mermaid-types.spec.ts` checks that the sequence walkthrough shows the two participants and both messages in order, fits the diagram, and stays within the page at 390px and 1440px.
+`tests/browser/article-review.spec.ts` covers the bundled flowchart examples, the source-linked Agent Substrate regression, and the two active-agent authoring cases in `tests/fixtures/viewer-handoff.json` and `tests/fixtures/receipt-check.json`.
+The article review suite captures the complete initial and final article and every slide at 1440px and 390px.
 Each teaching slide must have initial fitted SVG labels of at least 12 CSS px, body explanations of at least 16px, no exposed emphasis delimiters, no page overflow, and at most 64px of unused frame height.
 These are finite regression checks, not a claim that arbitrary diagrams meet the same target or that passing a size floor establishes explanation quality.
 Review diagram meaning, composition, graph/prose proximity, and contribution independently of rendering results.
@@ -118,6 +152,7 @@ They provide these review references:
 | Process overview      | Establishes complete replacement and recovery.        | Shows that a conflict returns through Read and Edit.                           |
 | Serialized write      | Expands the known Write stage.                        | Exposes expected/stored inputs and Commit/no-write outcomes.                   |
 | Interrupted response  | Applies the save boundary to a different uncertainty. | Requires a content-and-revision read before deciding to retry.                 |
+| Sequence exchange     | Begins with the roles of Client and Service.          | Uses ordered messages to distinguish the request from the return to Client.    |
 
 Check that names and meanings remain consistent when components reappear.
 A detail slide may omit earlier internals when its explanation identifies the change of focus.
@@ -162,8 +197,9 @@ Run a built package in a persistent Pi TUI or RPC session.
 Use `sketchbook_write` to save each bundled asset, then `sketchbook_open` to obtain current URLs.
 
 - [ ] Review the entire article outline and confirm one page H1, stable H2 chapter names, and H3 slide titles.
-- [ ] Confirm all architecture, process, and Agent Substrate slides render with their explanations.
-- [ ] Confirm the teaching diagrams have readable default labels, arrows, Chinese text, and a hand-drawn style.
+- [ ] Confirm all architecture, process, sequence, and Agent Substrate slides render with their explanations.
+- [ ] Confirm that flowcharts keep readable default labels, arrows, Chinese text where used, and a hand-drawn style.
+- [ ] Confirm that the sequence diagram uses Mermaid's normal style, shows Request above Response with arrows to the correct participants, and has no focus frame.
 - [ ] Check long-label stress cases separately; they are not examples of suitable teaching layouts.
 - [ ] Confirm prose, inline/display math, code, and technical names remain readable at 390px and desktop widths.
   - [ ] Scroll long fenced code to its right edge; default captures do not show every column. Confirm the complete code remains reachable on the target input device.

@@ -1,7 +1,7 @@
 # Article and diagram patterns
 
-Plan the whole article before its slide sequences.
-Subgraphs are visual groups, not interactive expansion.
+Plan the whole article before its slide sequences. Use a diagram when it clarifies the answer; a simple definition or one-step instruction normally needs only prose.
+Flowchart subgraphs are visual groups, not interactive expansion.
 
 ## Source and meaning
 
@@ -42,8 +42,8 @@ Static fixture checks can catch known outline regressions, not establish arbitra
   - Retain enough familiar components or steps to make the connection visible.
   - Connect the prose naturally through that shared concept instead of repeating a template about the preceding slide, omitted context, and next slide.
   - Explain a focus change or omission only when the reader needs it to preserve meaning.
-- Keep repeated node IDs, labels, and meanings consistent.
-  - Keep the whole graph on focused slides. A different process-stage graph may omit earlier nodes if the connection is clear.
+- Keep repeated node or participant IDs, labels, and meanings consistent.
+  - Keep the whole flowchart on focused slides. A different process-stage diagram may omit earlier steps if the connection is clear.
 - End with the result or relevant boundary of the deck's question without requiring a separate summary slide.
 
 For each transition, identify the shared component, decision, or process stage.
@@ -60,18 +60,19 @@ System overview → CSS theme comparison → storage write path is disconnected 
 
 ## Choose needed views
 
-Start each architecture deck with one complete overview and no attention frame.
-Each later slide keeps identical complete Mermaid source and uses `focusNodes` to frame and zoom one region for a distinct contribution.
+- Use a flowchart for component relationships or a decision with success and recovery paths.
+  - Start a focused architecture walkthrough with a complete overview and no attention frame. Focused detail slides keep identical complete Mermaid source and use `focusNodes` to zoom in on one region for a distinct contribution.
+  - Select a small set of relevant nodes. Include neighbors only when their relationship matters. Use one frame per detail slide; do not reuse the same set of focus IDs, regardless of order. Regions can overlap when a node connects two distinct contributions.
+  - Check what the frame implies; proximity alone does not imply shared ownership or execution order. Use subgraphs for supported boundaries, not to simulate attention frames.
+  - Name the focused components in the explanation. Move details to prose when including them in the map would make the overview unreadable.
+- Use a `sequenceDiagram` for an exchange where message order matters.
+  - Name each participant. Place messages in required order from top to bottom, and check each arrow's direction. Distinguish a request from its response; a response does not show what its recipient does next.
+  - State limits such as showing only a successful exchange. Explain retries, parallel work, or other omitted paths when they affect the answer.
+  - Omit `focusNodes`. Participants and messages are not flowchart nodes. Use the complete [sequence example](../assets/sequence-walkthrough.json) for a request followed by a response.
+- Mix families in one deck only when the slides build the same answer. A relationship map can establish roles, then a sequence slide can show one ordered exchange between those roles. Use a separate deck for an independent question.
 
-- Select a small set of relevant nodes. Include neighboring nodes only when their relationship is part of the explanation.
-- Use one frame per detail slide. Do not stack frames, repeat the overview, or reuse the same set of focus IDs, regardless of order. Regions can overlap when a node connects two distinct contributions.
-- Check what the frame implies; proximity alone does not imply shared ownership or execution order. Use subgraphs for supported boundaries, not to simulate attention frames.
-- Name the focused components in the explanation. Move details to prose when including them in the map would make the overview unreadable.
-
-A caller handoff can answer a separate question when it shows who receives a result and who acts on it.
-For a process, an overview can establish success and recovery while a detail view exposes decision inputs and outcomes.
-Do not add a start, end, or summary slide when it only repeats that overview.
-Retain enough of the known boundary or stage to connect a focused view to the article.
+Do not add a start, end, or summary slide when it only repeats the overview.
+Retain enough of the known boundary or stage to connect a detail view to the article.
 Use formulas only to clarify a relationship and code only to explain an operation.
 
 ## Compact review record
@@ -87,15 +88,15 @@ Finite fixture assertions catch known failures, not arbitrary diagram meaning or
 
 ## Compact diagrams and visual checks
 
-- Use short node labels and move detailed qualifications to the explanation.
-- Choose an orientation that fits the graph's shape at desktop and 390px.
+- Use short node, participant, and message labels. Move detailed qualifications to the explanation.
+- Choose a layout that fits the diagram at desktop and 390px.
   - Prefer a compact vertical path over a long horizontal chain when it keeps initial fitted labels readable.
   - Keep the full architecture overview compact rather than depending on Reset or Zoom to make the default view usable.
 - For the bundled teaching examples, check a minimum default label size of 12 CSS px at both widths.
-  - Measure every visible node, edge, and subgraph label in its initial fitted view before any camera action.
+  - Measure every visible node, edge, and subgraph label, or every participant and message label for a sequence diagram, in its initial fitted view before any camera action.
   - This is a testable target for these examples, not a promise for arbitrary graphs.
   - Minimum label sizes and successful rendering are prerequisites; they do not establish a good explanation, useful composition, or comfortable reading.
 - Inspect the full rendered article and every slide at both widths for heading order, prose, emphasis, clipped content, labels, and failure caveats.
-  - Check the overview has no frame, detail slides start on one region, and Fit to screen restores the whole diagram with the current frame.
+  - For focused flowchart decks, check that the overview has no frame, focused detail slides start on one region, and Fit to screen restores the whole diagram with the current frame.
   - Successful parsing or a screenshot of only the initial slide is not a complete visual review.
   - Retain viewport and slide coverage with the browser evidence and report any missing coverage as unverified.

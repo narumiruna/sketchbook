@@ -7,17 +7,20 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { describe, expect, test } from "vitest"
 import { type DiagramDeck, type SketchbookDocument, validateDocument } from "../src/document.js"
+import { MERMAID_RENDERERS } from "../src/mermaid-policy.js"
 
 const skillRoot = fileURLToPath(new URL("../skills/sketchbook-explain-diagrams/", import.meta.url))
 const skillFile = resolve(skillRoot, "SKILL.md")
-const assets = ["architecture-walkthrough.json", "process-walkthrough.json"] as const
+const flowchartAssets = ["architecture-walkthrough.json", "process-walkthrough.json"] as const
+const sequenceAsset = "sequence-walkthrough.json"
+const assets = [...flowchartAssets, sequenceAsset] as const
 
 async function loadFixture(name: (typeof assets)[number]) {
   return JSON.parse(await readFile(resolve(skillRoot, "assets", name), "utf8"))
 }
 
 type ReviewCase = {
-  asset: (typeof assets)[number]
+  asset: (typeof flowchartAssets)[number]
   source: { kind: string; facts: Array<{ id: string; statement: string }> }
   review: {
     question: string
@@ -245,7 +248,10 @@ function expectProcessStages(document: SketchbookDocument) {
   )
 }
 
-function expectTeachingClaims(document: SketchbookDocument, name: (typeof assets)[number]) {
+function expectTeachingClaims(
+  document: SketchbookDocument,
+  name: (typeof flowchartAssets)[number],
+) {
   if (name === "architecture-walkthrough.json") expectArchitectureDetails(document)
   else expectProcessStages(document)
 }
@@ -310,6 +316,12 @@ const articleOutlines = {
       "unverified",
       "human acceptance",
     ],
+  },
+  [sequenceAsset]: {
+    blocks: ["sequence-intro", "sequence-order", "sequence-conclusion"],
+    headings: ["Participants and scope", "Message order", "Conclusion"],
+    definitions: ["teaching model", "Client is the caller", "participant is a sender or receiver"],
+    conclusion: ["returns to the original caller", "does not show retries, failure"],
   },
 } as const
 
@@ -402,8 +414,39 @@ describe("bundled Sketchbook skill", () => {
     expect(fields.description.length).toBeLessThanOrEqual(1024)
     expect(fields.description).toMatch(/architecture/i)
     expect(fields.description).toMatch(/process/i)
+    expect(fields.description).toMatch(/message order/i)
     expect(fields.description).toMatch(/when/i)
     expect(skill.split("\n").length).toBeLessThan(100)
+  })
+
+  test("suggests diagrams for useful interactions without saving or opening a simple answer", async () => {
+    const skill = await readFile(skillFile, "utf8")
+    expect(skill).toContain("Suggest a diagram when it makes an interaction")
+    expect(skill).toContain("For a simple answer, reply directly without creating or opening")
+    expect(skill).toContain("Use `sketchbook_write` only for an agreed saved document")
+    expect(skill).toContain("Use `sketchbook_open` only when a viewer link is wanted")
+    expect(skill).toContain("Omit `focusNodes` on all non-flowchart slides")
+  })
+
+  test("publishes the same Mermaid family matrix in the README and skill format", async () => {
+    const documents = await Promise.all([
+      readFile(new URL("../README.md", import.meta.url), "utf8"),
+      readFile(resolve(skillRoot, "references/document-format.md"), "utf8"),
+    ])
+    const matrices = documents.map((markdown) => {
+      const table = /^\|\s*Family\s*\|\s*Accepted headers\s*\|\s*\n[^\n]+\n((?:\|[^\n]+\n)+)/m.exec(
+        markdown,
+      )
+      expect(table).not.toBeNull()
+      const rows = table?.[1].trimEnd().split("\n") ?? []
+      expect(rows).toHaveLength(18)
+      const headers = rows.flatMap((row) =>
+        [...row.matchAll(/`([^`]+)`/g)].map((match) => match[1]),
+      )
+      expect(headers.sort()).toEqual(Object.keys(MERMAID_RENDERERS).sort())
+      return rows.map((row) => row.split("|").map((cell) => cell.trim()))
+    })
+    expect(matrices[0]).toEqual(matrices[1])
   })
 
   test("requires whole-article review before slide continuity and saving", async () => {
@@ -499,7 +542,7 @@ describe("bundled Sketchbook skill", () => {
     const skill = await readFile(skillFile, "utf8")
     const directTargets = localLinks(skill).map((link) => resolve(skillRoot, link))
     expect(directTargets.sort()).toEqual(resources.sort())
-    expect(resources).toHaveLength(4)
+    expect(resources).toHaveLength(5)
 
     for (const file of [skillFile, ...resources.filter((path) => path.endsWith(".md"))]) {
       for (const link of localLinks(await readFile(file, "utf8"))) {
@@ -511,7 +554,7 @@ describe("bundled Sketchbook skill", () => {
     }
   })
 
-  for (const name of assets) {
+  for (const name of flowchartAssets) {
     test(`${name} satisfies the strict schema and contains mixed-format content`, async () => {
       const fixture = await loadFixture(name)
       expect(() => validateDocument(fixture)).not.toThrow()
@@ -535,7 +578,7 @@ describe("bundled Sketchbook skill", () => {
     })
   }
 
-  test.each(assets)(
+  test.each(flowchartAssets)(
     "%s has the reviewed article outline and compact teaching labels",
     async (name) => {
       const document = validateDocument(await loadFixture(name))
@@ -544,6 +587,32 @@ describe("bundled Sketchbook skill", () => {
       for (const markdown of fixtureMarkdown(document)) expectParsedEmphasis(markdown)
     },
   )
+
+  test("sequence walkthrough teaches ordered messages without flowchart focus", async () => {
+    const document = validateDocument(await loadFixture(sequenceAsset))
+    expectArticleOutline(document, sequenceAsset)
+    for (const markdown of fixtureMarkdown(document)) expectParsedEmphasis(markdown)
+    const sequence = deck(document, "sequence-order")
+    expect(sequence.slides.map((slide) => slide.id)).toEqual(["sequence-request"])
+    const [slide] = sequence.slides
+    expect(slide.focusNodes).toBeUndefined()
+    expect(slide.mermaid.split("\n").map((line) => line.trim())).toEqual([
+      "sequenceDiagram",
+      "participant Client",
+      "participant Service",
+      "Client->>Service: Request",
+      "Service-->>Client: Response",
+    ])
+    expect(slide.explanationMarkdown).toContain("Read the messages from top to bottom")
+    expect(slide.explanationMarkdown).toContain("First, Client sends Request to Service")
+    expect(slide.explanationMarkdown).toContain(
+      "After handling it, Service sends Response back to Client",
+    )
+    sequence.slides.push({ ...slide, id: "sequence-focus", focusNodes: ["Client"] })
+    expect(() => validateDocument(document)).toThrow(
+      /focus nodes are only supported for flowchart/i,
+    )
+  })
 
   test("the CJK emphasis example renders without raw delimiters", async () => {
     const document = validateDocument(await loadFixture("architecture-walkthrough.json"))
@@ -603,31 +672,34 @@ describe("bundled Sketchbook skill", () => {
     })
   })
 
-  test.each(assets)("label checks catch long labels and horizontal chains in %s", async (name) => {
-    const document = validateDocument(await loadFixture(name))
-    const deck = document.blocks.find(
-      (block): block is DiagramDeck => block.type === "diagram-deck",
-    )
-    if (!deck) throw new Error("Missing teaching deck")
-    const source = deck.slides[0].mermaid
-    const update = (mermaid: string) => {
-      deck.slides[0].mermaid = mermaid
-      for (const slide of deck.slides) {
-        if (slide.focusNodes) slide.mermaid = mermaid
+  test.each(flowchartAssets)(
+    "label checks catch long labels and horizontal chains in %s",
+    async (name) => {
+      const document = validateDocument(await loadFixture(name))
+      const deck = document.blocks.find(
+        (block): block is DiagramDeck => block.type === "diagram-deck",
+      )
+      if (!deck) throw new Error("Missing teaching deck")
+      const source = deck.slides[0].mermaid
+      const update = (mermaid: string) => {
+        deck.slides[0].mermaid = mermaid
+        for (const slide of deck.slides) {
+          if (slide.focusNodes) slide.mermaid = mermaid
+        }
       }
-    }
-    update(source.replace(/"[^"]+"/, '"A long prose explanation that belongs in Markdown"'))
-    expect(() => validateDocument(document)).not.toThrow()
-    expect(() => expectCompactLabels(document)).toThrow()
-    update(source.replace("flowchart TD", "flowchart LR"))
-    expect(() => validateDocument(document)).not.toThrow()
-    expect(() => expectCompactLabels(document)).toThrow()
-  })
+      update(source.replace(/"[^"]+"/, '"A long prose explanation that belongs in Markdown"'))
+      expect(() => validateDocument(document)).not.toThrow()
+      expect(() => expectCompactLabels(document)).toThrow()
+      update(source.replace("flowchart TD", "flowchart LR"))
+      expect(() => validateDocument(document)).not.toThrow()
+      expect(() => expectCompactLabels(document)).toThrow()
+    },
+  )
 
   test("teaching facts and compact review records cover every slide across both decks", async () => {
     const cases = await loadReviewCases()
     expect(cases.scope).toContain("not a universal semantic linter")
-    expect(cases.cases.map((item) => item.asset)).toEqual(assets)
+    expect(cases.cases.map((item) => item.asset)).toEqual(flowchartAssets)
     for (const item of cases.cases) {
       const document = validateDocument(await loadFixture(item.asset))
       expect(item.source.kind).toBe("supplied teaching facts")
@@ -657,7 +729,7 @@ describe("bundled Sketchbook skill", () => {
     }
   })
 
-  test.each(assets)("%s has its reviewed source-supported contributions", async (name) => {
+  test.each(flowchartAssets)("%s has its reviewed source-supported contributions", async (name) => {
     expectTeachingClaims(validateDocument(await loadFixture(name)), name)
   })
 
@@ -855,8 +927,8 @@ describe("bundled Sketchbook skill", () => {
   })
 
   test.each([
-    "sequenceDiagram\nAlice->>Bob: unsupported",
-    "graph LR\n A --> B",
+    "mindmap\n root((Topic))",
+    "flowchart-elk LR\n A --> B",
     "---\ntitle: Override\n---\nflowchart LR\n A --> B",
     '%%{init: {"securityLevel": "loose"}}%%\nflowchart LR\n A --> B',
     'flowchart LR\n A --> B\n click A "https://example.com"',

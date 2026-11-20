@@ -162,8 +162,25 @@ describe("document validation", () => {
     ).toThrow("bytes")
   })
 
+  test("rejects focus on a later sequence slide with identical source", () => {
+    const value = document("sequenceDiagram\n Client->>Server: Save")
+    const deck = value.blocks[0]
+    if (deck?.type !== "diagram-deck") throw new Error("Fixture missing deck")
+    deck.slides.push({ ...deck.slides[0], id: "detail", focusNodes: ["Client"] })
+    expect(() => validateDocument(value)).toThrow("only supported for flowchart")
+  })
+
   test.each([
-    "sequenceDiagram\n A->>B: Hello",
+    "eventmodeling\n tf 01 evt Start",
+    "architecture-beta\n service app(server)[Service]",
+    "mindmap\n Root",
+    "xychart-beta\n bar [1, 2]",
+    "flowchart-elk LR\n A-->B",
+    "flowchartJunk LR\n A-->B",
+    "sequenceDiagram\n A->>B: Message\n link A: Reference @ /guide",
+    "sequenceDiagram\n A->>B: Message\n links A: {}",
+    "sequenceDiagram\n participant A@{ type: database }",
+    'classDiagram\n class A\n link A "/guide"',
     "---\nconfig:\n look: classic\n---\nflowchart LR\n A-->B",
     "%%{init: {securityLevel: 'loose'}}%%\nflowchart LR\n A-->B",
     "flowchart LR\n A-->B\n click A callback",

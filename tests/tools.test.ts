@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { SketchbookDocument, StoredDocument } from "../src/document.js"
 import extension from "../src/extension.js"
 import { DocumentStore } from "../src/store.js"
+import { mermaidTypesDocument } from "./fixtures/mermaid-types.js"
 
 vi.mock("@earendil-works/pi-coding-agent", async (importOriginal) => {
   const original = await importOriginal<typeof import("@earendil-works/pi-coding-agent")>()
@@ -200,6 +201,25 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
       expect(listen).not.toHaveBeenCalled()
     },
   )
+
+  it("round-trips exact source for all supported Mermaid headers through Pi", async () => {
+    const document = mermaidTypesDocument()
+    const written = data<Written>(await host.call("sketchbook_write", { document }, cwd))
+    expect(written).toMatchObject({ ok: true, revision: 1, renderingVerified: false })
+    const read = data<Read>(
+      await host.call("sketchbook_read", { documentId: written.documentId }, cwd),
+    )
+    expect(read.stored.document).toEqual(document)
+    const deck = document.blocks[0]
+    if (deck.type !== "diagram-deck") throw new Error("Fixture missing deck")
+    const sequence = deck.slides[2]
+    deck.slides = [sequence, { ...sequence, id: "focus", focusNodes: ["Client"] }]
+    const rejected = await host.call("sketchbook_write", { document }, cwd)
+    expect(rejected.structuredContent).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("only supported for flowchart"),
+    })
+  })
 
   it("updates with CAS, reports conflicts as structured errors, and preserves the winning revision", async () => {
     const written = await write()

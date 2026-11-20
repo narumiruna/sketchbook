@@ -110,13 +110,45 @@ test("stored policy rejects Mermaid configuration, callbacks, external assets an
     'flowchart LR\n A@{img:"https://external.invalid/image.png"}',
     "flowchart LR\n A-->B\n classDef remote fill:url(https://external.invalid/fill.svg);",
     'flowchart LR\n A["<img src=https://external.invalid/raw.png>"]',
-    "sequenceDiagram\n A->>B: unsupported",
+    "eventmodeling\n tf 01 evt Start",
+    "sequenceDiagram\n A->>B: Message\n link A: Reference @ /guide",
   ]) {
     const document = documentFixture()
     getDeck(document, "first").slides[0].mermaid = mermaid
     const response = await request.post("http://127.0.0.1:4179/documents", { data: { document } })
     expect(response.status(), mermaid).toBe(400)
   }
+})
+
+test("Viewer independently rejects excluded headers and non-flowchart focus", async ({
+  page,
+  request,
+}) => {
+  const document = documentFixture()
+  const fixture = await save(request, document)
+  getDeck(document, "first").slides[0].mermaid = "eventmodeling\n tf 01 evt Start"
+  const sequence = getDeck(document, "second").slides[0]
+  sequence.mermaid = "sequenceDiagram\n Client->>Server: Save"
+  sequence.focusNodes = ["Client"]
+  const diagramChunks: string[] = []
+  page.on("request", (request) => {
+    const name = new URL(request.url()).pathname
+    if (/(?:eventmodeling|sequenceDiagram)-[^/]+\.js$/.test(name)) diagramChunks.push(name)
+  })
+  await page.route("**/api/documents/**", async (route) => {
+    const response = await route.fetch()
+    if (response.status() === 304) return route.fulfill({ response })
+    await route.fulfill({ response, json: { ...(await response.json()), document } })
+  })
+  await page.goto(fixture.url)
+  await expect(page.locator('[data-block-id="first"]').getByRole("alert")).toContainText(
+    "diagram type is not supported",
+  )
+  await expect(page.locator('[data-block-id="second"]').getByRole("alert")).toContainText(
+    "only supported for flowchart diagrams",
+  )
+  await expect(page.locator(".diagram-svg > svg")).toHaveCount(0)
+  expect(diagramChunks).toEqual([])
 })
 
 test("quoted and escaped Mermaid metadata is rejected before renderer resource requests", async ({
@@ -186,7 +218,7 @@ test("browser defense rejects config overrides and sanitizes encoded labels and 
         await originalDraw(...args);
         const svg = document.getElementById(args[1]);
         if (svg) {
-          svg.querySelector("style").textContent += " .hostile { fill: url(https://external.invalid/fill.svg); }";
+          svg.querySelector("style").textContent += " .hostile { fill: url(https://external.invalid/fill.svg); } .diagram-svg svg text, .slide-explanation { opacity: 0.75; }";
           const link = document.createElementNS("http://www.w3.org/2000/svg", "a");
           link.setAttribute("href", "javascript:alert(1)");
           svg.append(link);
@@ -207,5 +239,7 @@ test("browser defense rejects config overrides and sanitizes encoded labels and 
   await expect(second.locator("img, image, foreignObject, script, a, [onerror]")).toHaveCount(0)
   const svg = await second.locator(".diagram-svg > svg").innerHTML()
   expect(svg).not.toMatch(/url\([^)]*https?:/i)
+  await expect(second.locator(".diagram-svg svg text").first()).toHaveCSS("opacity", "0.75")
+  await expect(second.locator(".slide-explanation")).toHaveCSS("opacity", "1")
   expect(external).toEqual([])
 })
