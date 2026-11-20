@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react"
-import type { DiagramDeck, StoredDocument } from "../document.js"
+import type { CodeBlock, DiagramDeck, StoredDocument } from "../document.js"
 import { Diagram } from "./diagram"
 import { Markdown } from "./markdown"
 
@@ -222,6 +222,23 @@ function Deck({ deck }: { deck: DiagramDeck }) {
   )
 }
 
+function CodeSnippet({ block }: { block: CodeBlock }) {
+  return (
+    <figure className="code-block" data-block-id={block.id}>
+      {block.language && <figcaption>{block.language}</figcaption>}
+      {/* biome-ignore lint/a11y/useSemanticElements: Preserve preformatted code in a named scroll region. */}
+      <pre
+        role="region"
+        aria-label={block.language ? `${block.language} code` : "Code block"}
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: Focus enables native keyboard scrolling.
+        tabIndex={0}
+      >
+        <code>{block.code}</code>
+      </pre>
+    </figure>
+  )
+}
+
 export function App({ session }: { session: Session }) {
   const { stored, status } = useDocument(session)
   useEffect(() => {
@@ -242,19 +259,24 @@ export function App({ session }: { session: Session }) {
             Revision {stored.revision} ·{" "}
             <time dateTime={stored.updatedAt}>{new Date(stored.updatedAt).toLocaleString()}</time>
           </p>
-          {stored.document.blocks.map((block) =>
-            block.type === "markdown" ? (
-              <section
-                key={block.id}
-                data-block-id={block.id}
-                aria-label={`Text block ${block.id}`}
-              >
-                <Markdown markdown={block.markdown} context={`Block ${block.id}`} />
-              </section>
-            ) : (
-              <Deck key={block.id} deck={block} />
-            ),
-          )}
+          {stored.document.blocks.map((block) => {
+            switch (block.type) {
+              case "markdown":
+                return (
+                  <section
+                    key={block.id}
+                    data-block-id={block.id}
+                    aria-label={`Text block ${block.id}`}
+                  >
+                    <Markdown markdown={block.markdown} context={`Block ${block.id}`} />
+                  </section>
+                )
+              case "code":
+                return <CodeSnippet key={block.id} block={block} />
+              default:
+                return <Deck key={block.id} deck={block} />
+            }
+          })}
         </main>
       )}
     </div>

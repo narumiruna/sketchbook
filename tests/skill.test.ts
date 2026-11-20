@@ -314,11 +314,11 @@ const articleOutlines = {
 } as const
 
 function fixtureMarkdown(document: SketchbookDocument) {
-  return document.blocks.flatMap((block) =>
-    block.type === "markdown"
-      ? [block.markdown]
-      : block.slides.map((slide) => slide.explanationMarkdown),
-  )
+  return document.blocks.flatMap((block) => {
+    if (block.type === "markdown") return [block.markdown]
+    if (block.type === "diagram-deck") return block.slides.map((slide) => slide.explanationMarkdown)
+    return []
+  })
 }
 
 // A known article outline and its prerequisite terms are regression checks, not a prose evaluator.
@@ -332,6 +332,7 @@ function expectArticleOutline(document: SketchbookDocument, name: (typeof assets
       }
       return [block.title]
     }
+    if (block.type !== "markdown") return []
     expect(block.markdown).not.toMatch(/^#\s/m)
     return [...block.markdown.matchAll(/^## (.+)$/gm)].map((match) => match[1])
   })

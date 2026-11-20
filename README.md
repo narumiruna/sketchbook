@@ -119,6 +119,17 @@ On conflict, read again and apply the change to the current document.
 A successful write confirms validation and storage, not browser rendering.
 The [document format](skills/sketchbook-explain-diagrams/references/document-format.md) defines fields, IDs, limits, heading roles, and tool details.
 
+For a standalone snippet, add an entry like this to `document.blocks`:
+
+```json
+{ "id": "example", "type": "code", "language": "TypeScript", "code": "const answer = 42;\n" }
+```
+
+Omit `language` to hide the label.
+The viewer displays the code as text without executing it.
+Focus the block with Tab and use the arrow keys to scroll long lines.
+Use Markdown fences instead for snippets inside prose or slide explanations.
+
 ### LAN access
 
 Call `sketchbook_open` and use its complete returned URL on a device on the same trusted LAN.

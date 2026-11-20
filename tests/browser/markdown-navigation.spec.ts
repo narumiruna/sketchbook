@@ -105,7 +105,7 @@ test("independent article blocks and slide explanations have unique footnote tar
   for (const block of document.blocks) {
     if (block.type === "markdown") {
       block.markdown = `Claim ${block.id}[^1].\n\n[^1]: Note for ${block.id}.`
-    } else {
+    } else if (block.type === "diagram-deck") {
       for (const slide of block.slides) {
         slide.explanationMarkdown = `Claim ${block.id}/${slide.id}[^1].\n\n[^1]: Note for ${block.id}/${slide.id}.`
       }
