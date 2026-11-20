@@ -212,6 +212,45 @@ for (const width of [390, 1440]) {
   })
 }
 
+test("sequence arrowheads and number badges use the message line color", async ({
+  page,
+  request,
+}) => {
+  const numbered = {
+    ...sequence,
+    source: "sequenceDiagram\nautonumber\nClient->>Server: Request\nServer-->>Client: Response",
+  }
+  const content = documentFixture(deckFixture("numbered", numbered))
+  await page.goto((await save(request, content)).url)
+  const deck = page.locator('[data-block-id="numbered"]')
+  await expectDiagram(deck, numbered)
+  const svg = graphic(deck)
+  await expect(svg.locator(".sequenceNumber").first()).toHaveText("1")
+  const colors = await svg.evaluate((node) => {
+    const message = node.querySelector(".messageLine0[marker-end]")
+    const badgeLine = node.querySelector('line[marker-start][stroke-width="0"]')
+    if (!message || !badgeLine) throw new Error("Missing sequence marker references")
+    const marker = (line: Element, attribute: string, shape: string) => {
+      const id = /^url\(#([\w:.-]+)\)$/.exec(line.getAttribute(attribute) ?? "")?.[1]
+      const target = id && node.querySelector(`defs marker#${CSS.escape(id)} ${shape}`)
+      if (!target) throw new Error(`Missing local ${shape} for ${attribute}`)
+      return getComputedStyle(target)
+    }
+    const arrow = marker(message, "marker-end", "path")
+    const badge = marker(badgeLine, "marker-start", "circle")
+    return {
+      signal: getComputedStyle(message).stroke,
+      arrowFill: arrow.fill,
+      arrowStroke: arrow.stroke,
+      badgeFill: badge.fill,
+    }
+  })
+  expect(colors.signal).not.toBe("none")
+  expect([colors.arrowFill, colors.arrowStroke, colors.badgeFill]).toEqual(
+    Array.from({ length: 3 }, () => colors.signal),
+  )
+})
+
 test("duplicate sequence diagrams keep their artwork and controls independent", async ({
   page,
   request,

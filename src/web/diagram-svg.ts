@@ -94,7 +94,9 @@ export function sanitizeDiagramSvg(markup: string, id: string): SVGSVGElement {
     ...svg.querySelectorAll(`defs :is(${definitionTags})[id]`),
   ].entries()) {
     const original = node.id
-    node.id = `${id}-definition-${index}`
+    // Mermaid styles some sequence markers by ID suffix.
+    const suffix = /^[\w:.-]+$/.test(original) ? `-${original}` : ""
+    node.id = `${id}-definition-${index}${suffix}`
     if (!definitions.has(original)) definitions.set(original, node.id)
   }
   const scope = `:where(#${CSS.escape(id)}, #${CSS.escape(id)} *)`
