@@ -15,7 +15,7 @@ Source inspection and automated tests do not establish human visual acceptance o
 | Area                            | Status             | Evidence or remaining check                                                                                                                         |
 | ------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Node.js                         | Automated          | Minimum `>=26.0.0` in `package.json`; see [Node.js 26 validation](#nodejs-26-validation).                                                           |
-| Pi host                         | Automated          | Pi `1.5.0` and TypeBox `1.3.27`; actual `DefaultResourceLoader` discovery, skill-command expansion, and tool execution pass the package smoke test. |
+| Pi host                         | Automated          | Pi `1.6.0` and TypeBox `1.4.7`; actual `DefaultResourceLoader` discovery, skill-command expansion, and tool execution pass the package smoke tests. |
 | MCP stdio                       | Automated          | Official SDK client and subprocess tests cover all three tools, cancellation, viewer cleanup, and an installed tarball without Pi.                  |
 | Mermaid                         | Automated          | Version `12.3.0`; flowcharts, subgraphs, Chinese text, long labels, and every bundled example slide pass the Chromium suite.                        |
 | Hand-drawn output               | Source + Automated | Rough.js `4.6.6`; source trace below plus real rough paths, fixed-seed redraws, markers, styles, and isolated SVG IDs checked in Chromium.          |
