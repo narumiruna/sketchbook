@@ -88,8 +88,12 @@ for (const fixture of fixtures) {
             .toBeGreaterThanOrEqual(12)
           const metrics = await readingMetrics(deck)
           expect(metrics.labels).toBeGreaterThan(0)
-          expect(metrics.graphWidth).toBeLessThanOrEqual(metrics.frameWidth + 1)
-          expect(metrics.frameHeight - metrics.graphHeight).toBeLessThanOrEqual(64)
+          const frame = deck.locator(".diagram-focus-frame")
+          await expect(frame).toHaveCount(slide.focusNodes ? 1 : 0)
+          if (!slide.focusNodes) {
+            expect(metrics.graphWidth).toBeLessThanOrEqual(metrics.frameWidth + 1)
+            expect(metrics.frameHeight - metrics.graphHeight).toBeLessThanOrEqual(64)
+          }
           expect(metrics.bodyFontPx).toBeGreaterThanOrEqual(16)
           expect(metrics.overflow).toBe(false)
           expect(metrics.heading).not.toBeNull()
@@ -106,6 +110,17 @@ for (const fixture of fixtures) {
             path: screenshot,
             contentType: "image/png",
           })
+          if (slide.focusNodes) {
+            await deck.getByRole("button", { name: "Fit to screen", exact: true }).click()
+            const fitted = await readingMetrics(deck)
+            expect(fitted.graphWidth).toBeLessThanOrEqual(fitted.frameWidth + 1)
+            expect(fitted.graphHeight).toBeLessThanOrEqual(fitted.frameHeight + 1)
+            await expect(frame).toHaveCount(1)
+            const full = testInfo.outputPath(`${block.id}-${slide.id}-full.png`)
+            await deck.screenshot({ path: full })
+            await testInfo.attach(`${slide.id}/full`, { path: full, contentType: "image/png" })
+            await deck.getByRole("button", { name: "Reset to slide focus", exact: true }).click()
+          }
           const codeScrolling = []
           for (const [index, pre] of (await page.locator("main .markdown pre").all()).entries()) {
             const original = await pre.textContent()

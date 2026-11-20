@@ -13,6 +13,9 @@ Create an article whose decks answer distinct questions in a clear reading order
    - Use [diagram patterns](references/diagram-patterns.md) to plan each diagram's visible claim and check its meaning, contribution, and composition.
    - Adapt the complete [architecture example](assets/architecture-walkthrough.json) or [process example](assets/process-walkthrough.json) when it fits the request.
 3. Outline the article, then write its context, decks, and conclusion.
+   - Start an architecture deck with one complete overview and no attention frame.
+   - Keep the exact same Mermaid on each later detail slide and use `focusNodes` to frame one small region for a distinct explanation.
+   - Process decks may use different graphs for different stages.
    - Keep node IDs, short labels, and meanings stable across slides.
    - Put detailed explanations, formulas, and code in Markdown rather than node labels.
 4. Before saving, review the whole article's outline, concept order, first definitions, repetition, and conclusion.

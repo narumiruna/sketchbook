@@ -167,7 +167,7 @@ Stop the Pi session to close the listener and invalidate its capability; no docu
 ## Rendering and security
 
 - Only Mermaid `flowchart` diagrams are supported, including subgraphs.
-  - The viewer uses Mermaid's `handDrawn` look through Rough.js with a fixed nonzero seed.
+  - The viewer uses Mermaid's `handDrawn` look through Rough.js with a fixed nonzero seed and a muted blue-gray default palette.
   - Frontmatter, directives, node metadata (`@{...}`), click actions, HTML, images, and icons are not supported.
   - Diagrams start fitted without upscaling; inline frame height follows the SVG aspect ratio and available width, within a bounded height.
   - Fit can still make large graphs small. Rework a teaching graph that is unreadable at its default scale; Reset, Zoom, and panning remain available for inspecting large graphs.
@@ -192,9 +192,12 @@ Input-specific help remains visible below the buttons; no More controls panel is
 Enabled controls are available in the keyboard tab order.
 Hover or focus an icon button to show its label.
 Show source displays inert text, not executable HTML. Tab to the source region and use the arrow or Page Up/Page Down keys to scroll it, including in fullscreen.
-A new diagram source restores the diagram view.
+Changing slides restores the diagram view.
 
-- Fit shows the complete graph; Reset restores 100% native size.
+- **Fit to screen** shows the complete graph. **Reset zoom** restores 100% native size on slides without a focus region.
+- Architecture decks start with a full overview and no frame. Detail slides can open zoomed in on a single blue, lightly hatched focus region on the same graph.
+  - In forced-colors mode, a dashed system-color border identifies the focus region without shading.
+  - **Fit to screen** shows the complete graph without removing the current frame. **Reset to slide focus** returns to that detail view.
 - Zoom is limited to 400%; the lower limit is 25% or the fitted scale when smaller.
 - Drag with a mouse or pen to pan a large graph.
   - Ctrl/Command + wheel zooms at the pointer; an ordinary wheel continues document scrolling.

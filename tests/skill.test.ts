@@ -65,82 +65,75 @@ function expectArchitectureDetails(document: SketchbookDocument) {
     "architecture-commit",
   ])
   const [overview, api, storage, commit] = save.slides
-  const labels = new Map([
-    ["Client", "Client"],
-    ["Api", "API"],
-    ["Store", "Store"],
-    ["Valid", "Valid?"],
-    ["Invalid", "No write"],
-    ["Queue", "Queue"],
-    ["Current", "Read rev"],
-    ["Compare", "Match?"],
-    ["Conflict", "No write"],
-    ["Temp", "Temp JSON"],
-    ["Commit", "Rename"],
-    ["Files", "Files"],
+  expect(overview.focusNodes).toBeUndefined()
+  const focused = save.slides.slice(1).map((slide) => {
+    expect(slide.mermaid).toBe(overview.mermaid)
+    return [...(slide.focusNodes ?? [])].sort()
+  })
+  expect(focused).toEqual([["Api", "Client"], ["Store"], ["Files", "Store"]])
+  expect(Object.fromEntries(diagramNodes(overview.mermaid))).toEqual({
+    Client: "Client",
+    Api: "API",
+    Store: "Store",
+    Files: "Files",
+  })
+  expect(overview.mermaid.split("\n").slice(1)).toEqual([
+    '  Client["Client"] -->|calls| Api["API"]',
+    '  subgraph Backend["Service 服務"]',
+    '    Api -->|delegates| Store["Store"]',
+    '    Store -->|writes| Files["Files"]',
+    "  end",
   ])
-  const stages = [
-    { slide: overview, nodes: ["Client", "Api", "Store"], grouped: true },
-    { slide: api, nodes: ["Api", "Valid", "Invalid", "Store"], grouped: true },
-    {
-      slide: storage,
-      nodes: ["Queue", "Current", "Compare", "Conflict", "Temp"],
-      grouped: false,
-    },
-    { slide: commit, nodes: ["Temp", "Commit", "Files"], grouped: false },
-  ]
-  for (const { slide, nodes, grouped } of stages) {
-    const actual = diagramNodes(slide.mermaid)
-    expect([...actual.keys()].sort()).toEqual([...nodes].sort())
-    for (const [id, label] of actual) expect(label).toBe(labels.get(id))
-    expect(slide.mermaid.includes("subgraph")).toBe(grouped)
-  }
-  expect(overview.mermaid).toContain('Client["Client"] -->|calls| Api["API"]')
-  expect(overview.mermaid).toContain('Api -->|delegates| Store["Store"]')
-  expect(overview.explanationMarkdown).toContain("component relationships, not execution order")
-  for (const edge of [
-    'subgraph ApiDetail["API checks"]',
-    'Api["API"] --> Valid{"Valid?"}',
-    '  end\n  Valid -->|Yes| Store["Store"]',
-    'Valid -->|No| Invalid["No write"]',
-  ]) {
-    expect(api.mermaid).toContain(edge)
-  }
-  for (const edge of [
-    'Queue["Queue"] --> Current["Read rev"]',
-    'Queue -->|expected rev| Compare{"Match?"}',
-    "Current -->|current rev| Compare",
-    'Compare -->|Yes| Temp["Temp JSON"]',
-    'Compare -->|No| Conflict["No write"]',
-  ]) {
-    expect(storage.mermaid).toContain(edge)
-  }
-  for (const edge of ['Temp["Temp JSON"] --> Commit["Rename"]', 'Commit --> Files["Files"]']) {
-    expect(commit.mermaid).toContain(edge)
-  }
-  expect(api.explanationMarkdown).toContain("complete document from Client")
-  expect(api.explanationMarkdown).toContain("schema and content policy")
-  expect(api.explanationMarkdown).toContain("accepted replacement through Handler to Store")
-  expect(api.explanationMarkdown).toContain("invalid input stops without a write")
-  expect(api.explanationMarkdown).toContain("cannot reach Store")
-  expect(storage.explanationMarkdown).toContain("then Read rev reads the stored revision")
-  expect(storage.explanationMarkdown).toContain("inside that operation")
-  expect(storage.explanationMarkdown).toContain("No rejects a stale replacement")
-  expect(storage.explanationMarkdown).toContain("without creating Temp JSON, calling Rename")
   expect(storage.title).toBe("Serialized revision check")
-  expect(storage.explanationMarkdown).toContain("Queue supplies the request's expected revision")
-  expect(storage.explanationMarkdown).toContain("Read rev supplies the current revision")
-  expect(storage.explanationMarkdown).toContain("Only after a match")
-  expect(storage.explanationMarkdown).toContain("cannot enter between Read rev, Match?, and Rename")
-  expect(commit.explanationMarkdown).toContain("accepted replacement from Match?")
-  expect(commit.explanationMarkdown).toContain("within the same serialized Store operation")
-  expect(commit.explanationMarkdown).toContain("Rename is the commit boundary")
-  expect(commit.explanationMarkdown).toContain("confirms persistence, not rendering")
+  expect(overview.explanationMarkdown).toContain(
+    "These arrows show component relationships, not execution order.",
+  )
+  expect(overview.explanationMarkdown).toContain(
+    "The rejection boundaries are input validation in API and the revision check in Store.",
+  )
+  expect(api.explanationMarkdown).toContain(
+    "API receives the complete document from Client and checks its schema and content policy.",
+  )
+  expect(api.explanationMarkdown).toContain("API sends only an accepted replacement to Store.")
+  expect(api.explanationMarkdown).toContain(
+    "API returns a validation error to Client: invalid input stops without a write and cannot reach Store.",
+  )
+  expect(storage.explanationMarkdown).toContain(
+    "Store queues replacements so only one replacement can run at a time. Inside that operation, Store reads the current stored revision.",
+  )
+  expect(storage.explanationMarkdown).toContain(
+    "Store compares the request's expected revision with the current revision.",
+  )
+  expect(storage.explanationMarkdown).toContain(
+    "A mismatch rejects a stale replacement without creating temporary JSON, renaming a file, or incrementing the revision.",
+  )
+  expect(storage.explanationMarkdown).toContain(
+    "Only after a match does Store write the complete replacement to temporary JSON.",
+  )
+  expect(storage.explanationMarkdown).toContain(
+    "Another replacement cannot enter between the revision read, comparison, and rename; they remain one serialized Store operation.",
+  )
+  expect(commit.explanationMarkdown).toContain(
+    "After the revision check matches, Store writes the accepted replacement to temporary JSON.",
+  )
+  expect(commit.explanationMarkdown).toContain(
+    "Store then renames the temporary file over the stored file in Files within the same serialized Store operation.",
+  )
+  expect(commit.explanationMarkdown).toContain(
+    "Writing the temporary file alone does not replace the stored file; the atomic rename is the commit boundary.",
+  )
+  expect(commit.explanationMarkdown).toContain(
+    "A successful save increments the revision and confirms persistence, not rendering.",
+  )
+  expect(commit.explanationMarkdown).toContain(
+    "For expected revision $r_e$ and stored revision $r_s$, a successful replacement obeys:",
+  )
   expect(commit.explanationMarkdown).toContain("r_e = r_s,\\quad r_{next} = r_s + 1")
 
   const handoff = deck(document, "architecture-boundary")
   expect(handoff.slides.map((slide) => slide.id)).toEqual(["architecture-boundary-slide"])
   const [link] = handoff.slides
+  expect(link.focusNodes).toBeUndefined()
   expect(Object.fromEntries(diagramNodes(link.mermaid))).toEqual({
     Client: "Client",
     Link: "Link API",
@@ -167,6 +160,9 @@ function expectProcessStages(document: SketchbookDocument) {
     "process-processing",
   ])
   const [overview, processing] = replacement.slides
+  expect(overview.focusNodes).toBeUndefined()
+  expect(processing.focusNodes).toBeUndefined()
+  expect(processing.mermaid).not.toBe(overview.mermaid)
   expect(Object.fromEntries(diagramNodes(overview.mermaid))).toEqual({
     Read: "Read",
     Edit: "Edit",
@@ -613,13 +609,16 @@ describe("bundled Sketchbook skill", () => {
     )
     if (!deck) throw new Error("Missing teaching deck")
     const source = deck.slides[0].mermaid
-    deck.slides[0].mermaid = source.replace(
-      /"[^"]+"/,
-      '"A long prose explanation that belongs in Markdown"',
-    )
+    const update = (mermaid: string) => {
+      deck.slides[0].mermaid = mermaid
+      for (const slide of deck.slides) {
+        if (slide.focusNodes) slide.mermaid = mermaid
+      }
+    }
+    update(source.replace(/"[^"]+"/, '"A long prose explanation that belongs in Markdown"'))
     expect(() => validateDocument(document)).not.toThrow()
     expect(() => expectCompactLabels(document)).toThrow()
-    deck.slides[0].mermaid = source.replace("flowchart TD", "flowchart LR")
+    update(source.replace("flowchart TD", "flowchart LR"))
     expect(() => validateDocument(document)).not.toThrow()
     expect(() => expectCompactLabels(document)).toThrow()
   })
@@ -681,58 +680,10 @@ describe("bundled Sketchbook skill", () => {
     {
       asset: "architecture-walkthrough.json",
       deckId: "architecture-deck",
-      index: 1,
-      failure: "wrong storage handoff recipient",
-      from: 'Valid -->|Yes| Store["Store"]',
-      to: 'Valid -->|Yes| Client["Client"]',
-    },
-    {
-      asset: "architecture-walkthrough.json",
-      deckId: "architecture-deck",
-      index: 1,
-      failure: "lost validation rejection outcome",
-      from: '  Valid -->|No| Invalid["No write"]',
-      to: "",
-    },
-    {
-      asset: "architecture-walkthrough.json",
-      deckId: "architecture-deck",
-      index: 2,
-      failure: "lost revision no-write outcome",
-      from: '  Compare -->|No| Conflict["No write"]',
-      to: "",
-    },
-    {
-      asset: "architecture-walkthrough.json",
-      deckId: "architecture-deck",
-      index: 2,
-      failure: "lost queued expected revision input",
-      from: '  Queue -->|expected rev| Compare{"Match?"}\n',
-      to: "",
-    },
-    {
-      asset: "architecture-walkthrough.json",
-      deckId: "architecture-deck",
-      index: 2,
-      failure: "lost current revision input",
-      from: "  Current -->|current rev| Compare\n",
-      to: "",
-    },
-    {
-      asset: "architecture-walkthrough.json",
-      deckId: "architecture-deck",
-      index: 3,
-      failure: "rename before temporary write",
-      from: '  Temp["Temp JSON"] --> Commit["Rename"]',
-      to: '  Commit["Rename"] --> Temp["Temp JSON"]',
-    },
-    {
-      asset: "architecture-walkthrough.json",
-      deckId: "architecture-deck",
-      index: 2,
-      failure: "current revision read before serialization",
-      from: '  Queue["Queue"] --> Current["Read rev"]',
-      to: '  Current["Read rev"] --> Queue["Queue"]',
+      index: 0,
+      failure: "reversed service delegation",
+      from: 'Api -->|delegates| Store["Store"]',
+      to: 'Store["Store"] -->|delegates| Api',
     },
     {
       asset: "process-walkthrough.json",
@@ -778,7 +729,12 @@ describe("bundled Sketchbook skill", () => {
     const document = validateDocument(await loadFixture(asset))
     const slide = deck(document, deckId).slides[index]
     expect(slide.mermaid).toContain(from)
-    slide.mermaid = slide.mermaid.replace(from, to)
+    const updated = slide.mermaid.replace(from, to)
+    if (deckId === "architecture-deck") {
+      for (const view of deck(document, deckId).slides) view.mermaid = updated
+    } else {
+      slide.mermaid = updated
+    }
     // All mutations remain schema-valid; only these reviewed case claims reject them.
     expect(() => validateDocument(document)).not.toThrow()
     expect(() => expectTeachingClaims(document, asset)).toThrow()
@@ -800,16 +756,17 @@ describe("bundled Sketchbook skill", () => {
       )
       if (!first) throw new Error("Missing overview")
       const detail = deck(document, deckId).slides[index]
-      const originalGraph = detail.mermaid
-      // A different graph with a copied overview explanation also loses its needed contribution.
+      const originalExplanation = detail.explanationMarkdown
+      // Reusing the full graph does not make a copied overview explanation useful.
       detail.explanationMarkdown = first.slides[0].explanationMarkdown
       expect(() => validateDocument(document)).not.toThrow()
       expect(() => expectTeachingClaims(document, asset)).toThrow()
-      detail.mermaid = first.slides[0].mermaid
-      expect(detail.mermaid).not.toBe(originalGraph)
-      expect(() => validateDocument(document)).not.toThrow()
-      expect(() => expectTeachingClaims(document, asset)).toThrow()
-      // This is not a graph-equality rule: the checks require the case's named inputs and outcomes.
+      if (!detail.focusNodes) {
+        detail.explanationMarkdown = originalExplanation
+        detail.mermaid = first.slides[0].mermaid
+        expect(() => validateDocument(document)).not.toThrow()
+        expect(() => expectTeachingClaims(document, asset)).toThrow()
+      }
     },
   )
 
@@ -844,6 +801,35 @@ describe("bundled Sketchbook skill", () => {
     },
   )
 
+  test.each([
+    [1, "only an accepted replacement to Store", "only an accepted replacement to Client"],
+    [1, "invalid input stops without a write", "invalid input reaches storage"],
+    [2, "without creating temporary JSON", "after renaming the stored file"],
+    [2, "the request's expected revision", "a constant"],
+    [2, "with the current revision", "with a constant"],
+    [2, "Inside that operation", "Before entering the queue"],
+    [3, "Store then renames", "Store renames before writing"],
+  ] as const)(
+    "review catches altered architecture prose on slide %i: %s",
+    async (index, from, to) => {
+      const document = validateDocument(await loadFixture("architecture-walkthrough.json"))
+      const slide = deck(document, "architecture-deck").slides[index]
+      expect(slide.explanationMarkdown).toContain(from)
+      slide.explanationMarkdown = slide.explanationMarkdown.replace(from, to)
+      expect(() => validateDocument(document)).not.toThrow()
+      expect(() => expectArchitectureDetails(document)).toThrow()
+    },
+  )
+
+  test.each(
+    [["Api", "Client"], ["Unknown"], ["Client", "Files"]].map((focusNodes) => ({ focusNodes })),
+  )("review catches an incorrect or reused focus: $focusNodes", async ({ focusNodes }) => {
+    const document = validateDocument(await loadFixture("architecture-walkthrough.json"))
+    deck(document, "architecture-deck").slides[2].focusNodes = focusNodes
+    expect(() => validateDocument(document)).not.toThrow()
+    expect(() => expectArchitectureDetails(document)).toThrow()
+  })
+
   test("finite case check catches a saved response before commit", async () => {
     const document = validateDocument(await loadFixture("process-walkthrough.json"))
     const processing = deck(document, "process-deck").slides[1]
@@ -877,9 +863,8 @@ describe("bundled Sketchbook skill", () => {
     'flowchart LR\n A@{ img: "https://example.com/image.png" }',
     'flowchart LR\n A@{ icon: "fa:home" }',
   ])("rejects unsupported or unsafe Mermaid source: %s", async (mermaid) => {
-    const fixture = await loadFixture("architecture-walkthrough.json")
-    const deck = fixture.blocks.find((block: { type: string }) => block.type === "diagram-deck")
-    deck.slides[0].mermaid = mermaid
+    const fixture = validateDocument(await loadFixture("architecture-walkthrough.json"))
+    deck(fixture, "architecture-boundary").slides[0].mermaid = mermaid
     expect(() => validateDocument(fixture)).toThrow()
   })
 

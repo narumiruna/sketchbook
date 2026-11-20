@@ -34,6 +34,15 @@ export const DiagramDeckSchema = Type.Object(
           title: TitleSchema,
           mermaid: Type.String({ minLength: 1, maxLength: MAX_MERMAID_BYTES }),
           explanationMarkdown: TextSchema,
+          focusNodes: Type.Optional(
+            Type.Array(IdSchema, {
+              minItems: 1,
+              maxItems: 12,
+              uniqueItems: true,
+              description:
+                "Mermaid node IDs for one focus region on the unchanged first slide diagram.",
+            }),
+          ),
         },
         { additionalProperties: false },
       ),
@@ -116,10 +125,17 @@ export function validateDocument(value: unknown): SketchbookDocument {
     blockIds.add(block.id)
     if (block.type !== "diagram-deck") continue
     const slideIds = new Set<string>()
+    const overview = block.slides[0]
     for (const slide of block.slides) {
-      if (slideIds.has(slide.id)) throw new Error(`Duplicate slide ID: ${block.id}/${slide.id}`)
+      const location = `${block.id}/${slide.id}`
+      if (slideIds.has(slide.id)) throw new Error(`Duplicate slide ID: ${location}`)
       slideIds.add(slide.id)
-      validateMermaid(slide.mermaid, `${block.id}/${slide.id}`)
+      if (slide.focusNodes && (slide === overview || slide.mermaid !== overview.mermaid)) {
+        throw new Error(
+          `${location}: A focus slide must reuse the first slide's Mermaid source unchanged`,
+        )
+      }
+      validateMermaid(slide.mermaid, location)
     }
   }
   return value

@@ -154,7 +154,12 @@ function Deck({ deck }: { deck: DiagramDeck }) {
       <div className="slide-content">
         <div className="slide-figure">
           <div className="deck-viewport" id={viewportId}>
-            <Diagram source={active.mermaid} blockId={deck.id} slideId={active.id} />
+            <Diagram
+              source={active.mermaid}
+              blockId={deck.id}
+              slideId={active.id}
+              focusNodes={active.focusNodes}
+            />
           </div>
           {multiple && (
             <fieldset className="slide-pagination" aria-label={`${deck.title} slide positions`}>

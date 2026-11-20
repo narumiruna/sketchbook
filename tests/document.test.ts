@@ -57,6 +57,32 @@ describe("document validation", () => {
     expect(() => validateDocument(value)).toThrow()
   })
 
+  test("allows a focus region on a later slide that reuses the complete overview", () => {
+    const value = document()
+    const deck = value.blocks[0]
+    if (deck?.type !== "diagram-deck") throw new Error("Fixture missing deck")
+    const overview = deck.slides[0]
+    deck.slides.push({ ...overview, id: "detail", focusNodes: ["A", "B"] })
+    expect(validateDocument(value)).toBe(value)
+    deck.slides[1].mermaid = "flowchart LR\n A[Start]"
+    expect(() => validateDocument(value)).toThrow("reuse the first slide")
+    deck.slides.pop()
+    overview.focusNodes = ["A"]
+    expect(() => validateDocument(value)).toThrow("reuse the first slide")
+  })
+
+  test.each(
+    [[], ["A", "A"], ["#A"], ["客戶"], Array.from({ length: 13 }, (_, i) => `A${i}`)].map(
+      (focusNodes) => ({ focusNodes }),
+    ),
+  )("rejects invalid focus node lists: $focusNodes", ({ focusNodes }) => {
+    const value = document()
+    const deck = value.blocks[0]
+    if (deck?.type !== "diagram-deck") throw new Error("Fixture missing deck")
+    deck.slides.push({ ...deck.slides[0], id: "detail", focusNodes })
+    expect(() => validateDocument(value)).toThrow("Invalid sketchbook data")
+  })
+
   test("rejects empty decks and duplicate block/slide IDs", () => {
     const value = document()
     const deck = value.blocks[0]

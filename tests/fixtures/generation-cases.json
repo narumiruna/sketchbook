@@ -8,11 +8,11 @@
         "facts": [
           {
             "id": "service-boundary",
-            "statement": "Client is outside Service. API and Store are inside Service. Client calls API, and API delegates persistence to Store. These component relationships do not specify execution order."
+            "statement": "Client is outside Service. API, Store, and the service's local Files are inside Service. Client calls API, API delegates persistence to Store, and Store writes Files. These component relationships do not specify execution order."
           },
           {
             "id": "validation",
-            "statement": "API checks the complete document against schema and content policy. Valid input passes through Handler to Store. Invalid input returns an error to Client without reaching Store or writing a file."
+            "statement": "API checks the complete document against schema and content policy. API sends only accepted replacements to Store. Invalid input returns an error to Client without reaching Store or writing a file."
           },
           {
             "id": "serialized-revision",
@@ -58,19 +58,19 @@
           {
             "deckId": "architecture-deck",
             "slideId": "architecture-api",
-            "adds": "Expose validation input, accepted handoff, and rejected no-write outcome.",
+            "adds": "The Client/API focus locates the validation boundary on the shared map. Prose explains the validation input, accepted handoff, and rejected no-write outcome.",
             "sources": ["validation"]
           },
           {
             "deckId": "architecture-deck",
             "slideId": "architecture-storage",
-            "adds": "Expose both revision inputs, serialized read/compare order, and match/Temp JSON versus mismatch/no-write effects. Temp JSON connects the revision gate to the commit boundary.",
+            "adds": "The Store focus locates the revision gate on the shared map. Prose explains both revision inputs, serialized read and comparison, and the match and mismatch outcomes.",
             "sources": ["serialized-revision", "atomic-commit"]
           },
           {
             "deckId": "architecture-deck",
             "slideId": "architecture-commit",
-            "adds": "Expand Temp JSON into ordered Rename and Files steps. Distinguish temporary writing from atomic stored-file replacement and state the successful revision invariant.",
+            "adds": "The Store/Files focus locates the write boundary on the shared map. Prose distinguishes the temporary write from atomic replacement and states the successful revision invariant.",
             "sources": ["serialized-revision", "atomic-commit", "revision-invariant"]
           },
           {

@@ -610,7 +610,8 @@ for (const name of ["architecture-walkthrough", "process-walkthrough"]) {
         expect(await deck.locator("svg .rough-node path").count()).toBeGreaterThan(0)
         const viewport = await deck.locator(".diagram-viewport").boundingBox()
         expect(viewport?.height).toBeLessThanOrEqual(576)
-        await deck.getByRole("button", { name: "Reset zoom", exact: true }).click()
+        const reset = slide.focusNodes ? "Reset to slide focus" : "Reset zoom"
+        await deck.getByRole("button", { name: reset, exact: true }).click()
         const textScale = await deck
           .locator(".diagram-svg svg text")
           .first()

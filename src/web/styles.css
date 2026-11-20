@@ -338,6 +338,20 @@ button:disabled {
 .diagram-svg svg text {
   font-family: system-ui, sans-serif;
 }
+.diagram-focus-frame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #2167a4;
+  border-radius: 10px;
+  background: repeating-linear-gradient(135deg, transparent 0 6px, rgb(33 103 164 / 8%) 6px 7px);
+  pointer-events: none;
+}
+@media (forced-colors: active) {
+  .diagram-focus-frame {
+    border-color: Highlight;
+    border-style: dashed;
+  }
+}
 .diagram-source {
   height: var(--diagram-height);
   margin: 0;

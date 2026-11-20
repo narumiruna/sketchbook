@@ -1,3 +1,5 @@
+import { type DiagramRegion, measureDiagramFocus, showDiagramFocus } from "./diagram-focus.js"
+
 const inset = 16
 const maximumScale = 4
 
@@ -6,6 +8,7 @@ export interface DiagramViewState {
   minScale: number
   ready: boolean
   cropped: boolean
+  focus?: "ready" | "missing"
 }
 
 export interface DiagramViewController {
@@ -13,6 +16,7 @@ export interface DiagramViewController {
   reset(): void
   zoomBy(factor: number): void
   refresh(reset?: boolean): void
+  setFocusNodes(ids?: readonly string[]): void
   destroy(): void
 }
 
@@ -62,7 +66,10 @@ export function createDiagramView(
   options: { onChange: (state: DiagramViewState) => void },
 ): DiagramViewController {
   let diagram: SVGSVGElement | null = null
-  let mode: "fit" | "native" | "manual" = "fit"
+  let mode: "fit" | "focus" | "native" | "manual" = "fit"
+  let focusNodes: readonly string[] | undefined
+  let focusRegion: DiagramRegion | null | undefined
+  let focusFrame: HTMLElement | undefined
   let scale = 1
   let x = 0
   let y = 0
@@ -102,14 +109,16 @@ export function createDiagramView(
     const minScale = ready
       ? Math.min(0.25, diagramFitScale(width, height, naturalWidth, naturalHeight))
       : 0.25
+    const focus = focusRegion ? "ready" : focusRegion === null ? "missing" : undefined
     if (
       reported?.scale === scale &&
       reported.minScale === minScale &&
       reported.ready === ready &&
-      reported.cropped === cropped
+      reported.cropped === cropped &&
+      reported.focus === focus
     )
       return
-    reported = { scale, minScale, ready, cropped }
+    reported = { scale, minScale, ready, cropped, ...(focus && { focus }) }
     options.onChange({ ...reported })
   }
 
@@ -131,6 +140,20 @@ export function createDiagramView(
     }
   }
 
+  function clearFocus(): void {
+    focusFrame?.remove()
+    focusFrame = undefined
+    focusRegion = undefined
+  }
+
+  function setFocusNodes(ids?: readonly string[]): void {
+    focusNodes = ids
+    clearFocus()
+    stopPan()
+    pendingFit = true
+    refresh()
+  }
+
   function refresh(reset = false): void {
     if (destroyed) return
     if (reset) pendingFit = true
@@ -138,6 +161,7 @@ export function createDiagramView(
     if (next !== diagram) {
       stopPan()
       diagram = next
+      clearFocus()
       initialized = false
       pendingFit = true
     }
@@ -171,9 +195,24 @@ export function createDiagramView(
     stage.style.width = `${naturalWidth}px`
     stage.style.height = `${naturalHeight}px`
     stage.style.transformOrigin = "0 0"
-    if (pendingFit) mode = "fit"
+    if (diagram && focusNodes && focusRegion === undefined) {
+      focusRegion = measureDiagramFocus(diagram, focusNodes)
+      if (focusRegion) focusFrame = showDiagramFocus(stage, focusRegion)
+    }
+    if (pendingFit) mode = focusRegion ? "focus" : "fit"
     const fit = diagramFitScale(width, height, naturalWidth, naturalHeight)
-    if (mode === "fit" || mode === "native") {
+    if (mode === "focus" && focusRegion) {
+      scale = Math.max(
+        fit,
+        Math.min(
+          2,
+          (width - inset * 2) / focusRegion.width,
+          (height - inset * 2) / focusRegion.height,
+        ),
+      )
+      x = width / 2 - (focusRegion.x + focusRegion.width / 2) * scale
+      y = height / 2 - (focusRegion.y + focusRegion.height / 2) * scale
+    } else if (mode === "fit" || mode === "native") {
       scale = mode === "fit" ? fit : 1
       x = (width - naturalWidth * scale) / 2
       y = (height - naturalHeight * scale) / 2
@@ -198,7 +237,7 @@ export function createDiagramView(
   function reset(): void {
     if (!interactive()) return
     stopPan()
-    mode = "native"
+    mode = focusRegion ? "focus" : "native"
     refresh()
   }
 
@@ -322,16 +361,18 @@ export function createDiagramView(
   const observer =
     typeof ResizeObserver === "function" ? new ResizeObserver(() => refresh()) : undefined
   observer?.observe(viewport)
-  refresh(true)
+  refresh()
 
   return {
     fit: fitToViewport,
     reset,
     zoomBy,
     refresh,
+    setFocusNodes,
     destroy() {
       if (destroyed) return
       destroyed = true
+      clearFocus()
       stopPan()
       observer?.disconnect()
       viewport.removeEventListener("pointerdown", onPointerDown)

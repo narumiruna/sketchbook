@@ -11,9 +11,10 @@ Before drawing, identify the reader's main question, important execution or trus
   - Check sender, receiver, action or data, direction, and required order against that evidence.
   - Distinguish component relationships from process order; a dependency arrow does not establish which operation runs first.
   - Separate a returned value from the action its caller later performs; returning a URL to a caller is not a browser request.
-- Make each important decision's inputs, outcomes, and relevant side effects visible in the graph.
+- In a decision or process view, make each important decision's inputs, outcomes, and relevant side effects visible in the graph.
   - Use short input and branch labels, including rejection or no-write outcomes, rather than a full code expression in a node.
   - Show the handoff that enables the next operation and any ordering boundary that prevents an unsafe action.
+  - If an architecture map shows only component relationships, explain decisions and order in prose rather than implying that the map shows a request trace.
 - Mark assumptions and omitted paths that affect the answer.
   - Do not use implementation claims for a teaching model unless inspected sources support them.
 
@@ -42,7 +43,7 @@ Static fixture checks can catch known outline regressions, not establish arbitra
   - Connect the prose naturally through that shared concept instead of repeating a template about the preceding slide, omitted context, and next slide.
   - Explain a focus change or omission only when the reader needs it to preserve meaning.
 - Keep repeated node IDs, labels, and meanings consistent.
-  - A focused slide need not retain all previous nodes or add new nodes if its explanation adds needed information.
+  - Keep the whole graph on focused slides. A different process-stage graph may omit earlier nodes if the connection is clear.
 - End with the result or relevant boundary of the deck's question without requiring a separate summary slide.
 
 For each transition, identify the shared component, decision, or process stage.
@@ -59,7 +60,14 @@ System overview → CSS theme comparison → storage write path is disconnected 
 
 ## Choose needed views
 
-For architecture, an overview can show responsibilities while detail views expose validation and persistence boundaries.
+Start each architecture deck with one complete overview and no attention frame.
+Each later slide keeps identical complete Mermaid source and uses `focusNodes` to frame and zoom one region for a distinct contribution.
+
+- Select a small set of relevant nodes. Include neighboring nodes only when their relationship is part of the explanation.
+- Use one frame per detail slide. Do not stack frames, repeat the overview, or reuse the same set of focus IDs, regardless of order. Regions can overlap when a node connects two distinct contributions.
+- Check what the frame implies; proximity alone does not imply shared ownership or execution order. Use subgraphs for supported boundaries, not to simulate attention frames.
+- Name the focused components in the explanation. Move details to prose when including them in the map would make the overview unreadable.
+
 A caller handoff can answer a separate question when it shows who receives a result and who acts on it.
 For a process, an overview can establish success and recovery while a detail view exposes decision inputs and outcomes.
 Do not add a start, end, or summary slide when it only repeats that overview.
@@ -82,11 +90,12 @@ Finite fixture assertions catch known failures, not arbitrary diagram meaning or
 - Use short node labels and move detailed qualifications to the explanation.
 - Choose an orientation that fits the graph's shape at desktop and 390px.
   - Prefer a compact vertical path over a long horizontal chain when it keeps initial fitted labels readable.
-  - Split unnecessary detail into focused slides rather than depending on Reset or Zoom to make the default view usable.
+  - Keep the full architecture overview compact rather than depending on Reset or Zoom to make the default view usable.
 - For the bundled teaching examples, check a minimum default label size of 12 CSS px at both widths.
   - Measure every visible node, edge, and subgraph label in its initial fitted view before any camera action.
   - This is a testable target for these examples, not a promise for arbitrary graphs.
   - Minimum label sizes and successful rendering are prerequisites; they do not establish a good explanation, useful composition, or comfortable reading.
 - Inspect the full rendered article and every slide at both widths for heading order, prose, emphasis, clipped content, labels, and failure caveats.
+  - Check the overview has no frame, detail slides start on one region, and Fit to screen restores the whole diagram with the current frame.
   - Successful parsing or a screenshot of only the initial slide is not a complete visual review.
   - Retain viewport and slide coverage with the browser evidence and report any missing coverage as unverified.

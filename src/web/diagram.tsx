@@ -3,14 +3,25 @@ import mermaid from "mermaid"
 import { type RefObject, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
 import { assertMermaidPolicy } from "../mermaid-policy.js"
 import { DiagramControl } from "./diagram-controls"
-import { createDiagramView } from "./diagram-view"
+import { createDiagramView, type DiagramViewState } from "./diagram-view"
 
 mermaid.initialize({
   startOnLoad: false,
   securityLevel: "strict",
   look: "handDrawn",
   handDrawnSeed: 42,
-  theme: "default",
+  theme: "base",
+  themeVariables: {
+    primaryColor: "#e5edf6",
+    primaryBorderColor: "#607b98",
+    primaryTextColor: "#243447",
+    titleColor: "#243447",
+    clusterBkg: "#f5f7fa",
+    clusterBorder: "#788796",
+    lineColor: "#53667b",
+    arrowheadColor: "#53667b",
+    edgeLabelBackground: "#eef2f7",
+  },
   fontFamily: "system-ui, sans-serif",
   htmlLabels: false,
   flowchart: { htmlLabels: false },
@@ -64,6 +75,7 @@ interface Props {
   source: string
   blockId: string
   slideId: string
+  focusNodes?: readonly string[]
 }
 
 type Result = { source: string; svg: string } | { source: string; error: string }
@@ -265,7 +277,7 @@ function useCoarsePointer() {
   return coarse
 }
 
-export function Diagram({ source, blockId, slideId }: Props) {
+export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
   const card = useRef<HTMLElement>(null)
   const viewport = useRef<HTMLElement>(null)
   const host = useRef<HTMLDivElement>(null)
@@ -277,11 +289,16 @@ export function Diagram({ source, blockId, slideId }: Props) {
   const sourceToggle = useRef<HTMLButtonElement>(null)
   const coarsePointer = useCoarsePointer()
   const [result, setResult] = useState<Result | null>(null)
-  const [view, setView] = useState({ scale: 1, minScale: 0.25, ready: false, cropped: false })
+  const [view, setView] = useState<DiagramViewState>({
+    scale: 1,
+    minScale: 0.25,
+    ready: false,
+    cropped: false,
+  })
   const [showSource, setShowSource] = useState(false)
   const fullscreen = useDiagramFullscreen(source, card, viewport)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!viewport.current || !host.current) return
     const next = createDiagramView(viewport.current, host.current, { onChange: setView })
     controller.current = next
@@ -292,7 +309,7 @@ export function Diagram({ source, blockId, slideId }: Props) {
   }, [])
 
   // Keep keyboard focus in the toolbar while a new source disables camera controls.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: A new source starts with the diagram visible.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A new slide or source starts with the diagram visible.
   useLayoutEffect(() => {
     if (
       controls.current?.contains(document.activeElement) &&
@@ -301,7 +318,7 @@ export function Diagram({ source, blockId, slideId }: Props) {
       sourceToggle.current?.focus({ preventScroll: true })
     }
     setShowSource(false)
-  }, [source])
+  }, [source, slideId])
 
   useEffect(() => {
     const current = ++generation.current
@@ -328,18 +345,22 @@ export function Diagram({ source, blockId, slideId }: Props) {
     }
   }, [source])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = host.current
     if (!element) return
     // Only sanitized SVG reaches this DOM boundary.
     if (result?.source === source && "svg" in result) {
       element.innerHTML = result.svg
-      controller.current?.refresh(true)
     } else {
       element.replaceChildren()
-      controller.current?.refresh(true)
     }
+    controller.current?.refresh()
   }, [result, source])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Apply the camera when entering any slide, including one sharing the same SVG.
+  useLayoutEffect(() => {
+    controller.current?.setFocusNodes(focusNodes)
+  }, [slideId, focusNodes])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Refresh after visibility or fullscreen geometry changes.
   useEffect(() => {
@@ -356,7 +377,13 @@ export function Diagram({ source, blockId, slideId }: Props) {
       ? "Use the controls to zoom. Exit fullscreen to scroll the article."
       : "Use the controls to zoom. Swipe to scroll the article."
     : "Drag with a mouse or pen to pan. Use Ctrl or Command + wheel to zoom."
-  const help = `${pointerHelp} With the diagram focused, use plus or minus to zoom, zero to fit, and Shift + arrow keys to pan.`
+  const cameraHelp =
+    "With the diagram focused, use plus or minus to zoom, zero to fit, and Shift + arrow keys to pan."
+  const focusHelp =
+    ready && focusNodes && view.focus === "ready"
+      ? " The hatched frame marks this slide’s focus. Fit to screen shows the whole diagram."
+      : ""
+  const help = `${pointerHelp} ${cameraHelp}${focusHelp}`
   return (
     // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-modal is set only when the frame has the dialog role.
     <section
@@ -397,7 +424,7 @@ export function Diagram({ source, blockId, slideId }: Props) {
           onClick={() => controller.current?.zoomBy(1.25)}
         />
         <DiagramControl
-          label="Reset zoom"
+          label={focusNodes && view.focus === "ready" ? "Reset to slide focus" : "Reset zoom"}
           icon="reset"
           disabled={disabled}
           onClick={() => controller.current?.reset()}
@@ -463,6 +490,11 @@ export function Diagram({ source, blockId, slideId }: Props) {
         >
           <code>{source}</code>
         </pre>
+      )}
+      {ready && focusNodes && view.focus === "missing" && (
+        <p className="diagram-pan-hint" role="status">
+          Could not find the slide’s focus region. Showing the whole diagram.
+        </p>
       )}
       {fullscreen.status && <p role="status">{fullscreen.status}</p>}
     </section>

@@ -19,6 +19,7 @@ type SketchbookDocument = {
           id: string
           title: string
           mermaid: string
+          focusNodes?: string[]
           explanationMarkdown: string
         }>
       }
@@ -40,6 +41,17 @@ type SketchbookDocument = {
 Markdown supports prose, inline math such as `$r + 1$`, display math between `$$` lines, and fenced code.
 Use a diagram deck even for one diagram; a Mermaid Markdown fence is not a second diagram format.
 
+## Slide focus
+
+- Leave `focusNodes` absent on the first slide of every deck. The first slide shows the whole diagram without an attention frame.
+- On a focused detail slide, supply 1–12 unique Mermaid node IDs in `focusNodes`. Each ID must match the same ASCII ID pattern above.
+  - Use actual node IDs, not display labels, subgraph IDs, or edge IDs. For `Api["Document API"]`, use `"Api"`.
+  - Copy the complete first slide's Mermaid string exactly, including whitespace. Do not crop or restyle the source to focus it.
+- The viewer shows one hatched attention frame and starts zoomed in on its region. The frame replaces any previous frame.
+  - **Fit to screen** shows the complete diagram with the current frame. **Reset to slide focus** returns to the detail view.
+  - If any focus ID cannot be resolved, the viewer shows the full diagram without a frame and reports the missing focus. Correct the IDs rather than relying on the fallback.
+- Architecture detail slides use this mechanism. Process slides can omit `focusNodes` and use different Mermaid for different stages.
+
 ## Article headings and emphasis
 
 - `document.title` owns the page H1; do not repeat it as a Markdown H1 or an opening subject heading.
@@ -53,7 +65,7 @@ Use a diagram deck even for one diagram; a Mermaid Markdown fence is not a secon
 ## Content policy
 
 - Begin each diagram with `flowchart` and a direction such as `LR` or `TD`.
-  - Use subgraphs to group architecture components.
+  - Use subgraphs for real component groups or service boundaries, not to draw attention frames.
   - Submit plain Mermaid source, without Markdown fences.
 - Do not use other diagram types, Mermaid frontmatter, configuration directives, node metadata (`@{...}`), click actions, HTML, images, or icons.
 - Do not use raw HTML or images in Markdown.
