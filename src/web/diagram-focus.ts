@@ -39,17 +39,3 @@ export function measureDiagramFocus(
   const h = Math.min(height - 1, bottom + padding) - y
   return w > 0 && h > 0 ? { x, y, width: w, height: h } : null
 }
-
-export function showDiagramFocus(stage: HTMLElement, region: DiagramRegion): HTMLElement {
-  const frame = stage.ownerDocument.createElement("div")
-  frame.className = "diagram-focus-frame"
-  frame.setAttribute("aria-hidden", "true")
-  Object.assign(frame.style, {
-    left: `${region.x}px`,
-    top: `${region.y}px`,
-    width: `${region.width}px`,
-    height: `${region.height}px`,
-  })
-  stage.append(frame)
-  return frame
-}

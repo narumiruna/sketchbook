@@ -3,7 +3,7 @@ import mermaid from "mermaid"
 import { type RefObject, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
 import { assertMermaidPolicy } from "../mermaid-policy.js"
 import { DiagramControl } from "./diagram-controls"
-import { createDiagramView, type DiagramViewState } from "./diagram-view"
+import { createDiagramView, initialDiagramViewState } from "./diagram-view"
 
 mermaid.initialize({
   startOnLoad: false,
@@ -289,12 +289,7 @@ export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
   const sourceToggle = useRef<HTMLButtonElement>(null)
   const coarsePointer = useCoarsePointer()
   const [result, setResult] = useState<Result | null>(null)
-  const [view, setView] = useState<DiagramViewState>({
-    scale: 1,
-    minScale: 0.25,
-    ready: false,
-    cropped: false,
-  })
+  const [view, setView] = useState(initialDiagramViewState)
   const [showSource, setShowSource] = useState(false)
   const fullscreen = useDiagramFullscreen(source, card, viewport)
 
@@ -363,7 +358,7 @@ export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
   }, [slideId, focusNodes])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Refresh after visibility or fullscreen geometry changes.
-  useEffect(() => {
+  useLayoutEffect(() => {
     controller.current?.refresh()
   }, [showSource, fullscreen.mode])
 
@@ -411,7 +406,7 @@ export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
         <DiagramControl
           label="Zoom out"
           icon="minus"
-          disabled={disabled || view.scale <= view.minScale + 1e-6}
+          disabled={disabled || view.scale <= view.minScale}
           onClick={() => controller.current?.zoomBy(0.8)}
         />
         <output aria-label="Current zoom">
@@ -420,7 +415,7 @@ export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
         <DiagramControl
           label="Zoom in"
           icon="plus"
-          disabled={disabled || view.scale >= 4 - 1e-6}
+          disabled={disabled || view.scale >= view.maxScale}
           onClick={() => controller.current?.zoomBy(1.25)}
         />
         <DiagramControl

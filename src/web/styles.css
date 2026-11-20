@@ -312,7 +312,7 @@ button:disabled {
   min-height: 0;
   margin: 0;
   overflow: hidden;
-  padding: 0;
+  padding: 16px;
   cursor: grab;
   touch-action: pan-y;
 }
@@ -340,6 +340,10 @@ button:disabled {
 }
 .diagram-focus-frame {
   position: absolute;
+  top: var(--ndv-region-y);
+  left: var(--ndv-region-x);
+  width: var(--ndv-region-width);
+  height: var(--ndv-region-height);
   box-sizing: border-box;
   border: 2px solid #2167a4;
   border-radius: 10px;

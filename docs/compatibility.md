@@ -42,6 +42,25 @@ A separate headed Chromium check on Node.js `26.11.1` passed three viewer tests
 using Wayland after a successful display connection and round trip. This check
 used Linux Chromium and does not verify Windows browser routing.
 
+## Shared diagram camera
+
+Sketchbook uses `@narumitw/diagram-viewer/core` from npm version `0.4.0` for
+zoom, pan, and focus-region geometry. Vite bundles the core and includes its
+MIT license in `dist/web/THIRD_PARTY_LICENSES.md`. The installed Pi and MCP
+packages do not fetch the viewer from npm or require an adjacent checkout.
+Sketchbook still owns Mermaid configuration, SVG sanitization, frame sizing,
+the toolbar, source view, and native and fallback fullscreen.
+
+Validation on Node.js `26.11.1` covered 248 unit tests, 73 Chromium tests, and
+local and packed Pi and standalone MCP smoke tests. The browser suite checks
+that Reset returns to native size, large diagrams can zoom out to fit, wheel
+zoom steps do not drift, and controls recover after a resize leaves no usable
+graph area. It also checks that hidden diagrams ignore input and focus slides
+reuse the same SVG. Package smoke tests verify that the bundled viewer makes
+no external browser requests.
+Other browser engines, physical touch devices, and human visual acceptance
+were not verified for this change; see the [human browser review](acceptance.md#human-browser-review).
+
 ## Historical compatibility checks
 
 These results describe earlier revisions, not the current support contract.
