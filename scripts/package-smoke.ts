@@ -15,13 +15,30 @@ import {
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js"
-import { chromium } from "@playwright/test"
+import { chromium, type Locator } from "@playwright/test"
 import { Check } from "typebox/value"
-import type { SketchbookDocument } from "../src/document.js"
+import type { DiagramDeck, SketchbookDocument } from "../src/document.js"
 
 const execute = promisify(execFile)
 const root = resolve(import.meta.dirname, "..")
 const temporary = await realpath(await mkdtemp(join(tmpdir(), "pi-sketchbook-package-")))
+
+const sequenceMessage = "Return saved revision"
+const sequenceSlide: DiagramDeck["slides"][number] = {
+  id: "save-sequence",
+  title: "Save request and response",
+  mermaid: `sequenceDiagram\nClient->>Server: Save document\nServer-->>Client: ${sequenceMessage}`,
+  explanationMarkdown: "The server replies with the revision after it saves the document.",
+}
+
+async function checkSequence(deck: Locator): Promise<void> {
+  await deck.locator(`button[data-slide-id="${sequenceSlide.id}"]`).click()
+  // A visible message in the rendered SVG cannot come from the preceding flowchart.
+  await deck
+    .locator(".diagram-svg > svg text")
+    .filter({ hasText: sequenceMessage })
+    .waitFor({ timeout: 30_000 })
+}
 
 async function smoke(packagePath: string, label: string): Promise<void> {
   const manifest = JSON.parse(await readFile(join(packagePath, "package.json"), "utf8"))
@@ -57,6 +74,11 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   assert.deepEqual(skills.diagnostics, [])
   assert.equal(skills.skills.length, 1)
   assert.equal(skills.skills[0].name, "sketchbook-explain-diagrams")
+  assert.equal(
+    skills.skills[0].filePath,
+    join(packagePath, "skills/sketchbook-explain-diagrams/SKILL.md"),
+    "Pi must discover the skill from the package being tested",
+  )
 
   // Queue expansion exercises Pi's public skill command path without requesting a model turn.
   const modelRuntime = await ModelRuntime.create({
@@ -109,6 +131,9 @@ async function smoke(packagePath: string, label: string): Promise<void> {
         "utf8",
       ),
     )
+    const sequenceDeck = document.blocks.find((block) => block.type === "diagram-deck")
+    assert.ok(sequenceDeck, "Packed walkthrough must include a diagram deck")
+    sequenceDeck.slides.push(sequenceSlide)
     const created = await call("sketchbook_write", { document })
     assert.equal(created.path, join(workspace, ".pi/sketchbook", `${created.documentId}.json`))
     assert.equal(created.renderingVerified, false)
@@ -147,6 +172,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
       await page.locator(".diagram-svg svg").first().waitFor({ timeout: 30_000 })
       assert.equal(await page.title(), `${document.title} — Pi Sketchbook`)
       assert.equal(await page.locator(".brand").textContent(), "Pi Sketchbook")
+      await checkSequence(page.locator(`[data-block-id="${sequenceDeck.id}"]`))
       // Math belongs to its explanatory slide, not necessarily the first view.
       const mathDeck = document.blocks.find(
         (block) =>
@@ -175,7 +201,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
     await assert.rejects(fetch(url.origin, { signal: AbortSignal.timeout(2000) }))
     assert.deepEqual(errors, [])
     console.log(
-      `Passed ${label}: Pi discovery, skill command expansion, automatic LAN URL without flags, tools, packed browser assets, shutdown`,
+      `Passed ${label}: Pi discovery, skill command expansion, automatic LAN URL without flags, tools, packed browser assets and sequence render, shutdown`,
     )
   } finally {
     for (const handler of extension.handlers.get("session_shutdown") ?? []) {
@@ -241,6 +267,7 @@ async function smokeMcp(tarball: string): Promise<void> {
               mermaid: "flowchart LR\nClient --> Server --> Store",
               explanationMarkdown: "The MCP server saves the document in the selected workspace.",
             },
+            sequenceSlide,
           ],
         },
       ],
@@ -282,6 +309,7 @@ async function smokeMcp(tarball: string): Promise<void> {
       await page.goto(url.href)
       await page.locator(".diagram-svg svg").waitFor({ timeout: 30_000 })
       assert.equal(await page.title(), "Standalone MCP — Pi Sketchbook")
+      await checkSequence(page.locator('[data-block-id="deck"]'))
     } finally {
       await browser.close()
     }
@@ -289,7 +317,7 @@ async function smokeMcp(tarball: string): Promise<void> {
     await assert.rejects(fetch(endpoint, { headers, signal: AbortSignal.timeout(2000) }))
     assert.equal(stderr, "")
     console.log(
-      "Passed standalone MCP: npx executable without Pi, tools, browser assets, EOF shutdown",
+      "Passed standalone MCP: npx executable without Pi, tools, browser assets and sequence render, EOF shutdown",
     )
   } finally {
     await client.close()

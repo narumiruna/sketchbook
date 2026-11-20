@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "title": "From request to response",
+  "blocks": [
+    {
+      "id": "sequence-intro",
+      "type": "markdown",
+      "markdown": "## Participants and scope\n\nThis teaching model shows one successful exchange. Client is the caller; Service handles the request. A participant is a sender or receiver of messages. The dashed vertical line below each participant traces its role through the exchange."
+    },
+    {
+      "id": "sequence-order",
+      "type": "diagram-deck",
+      "title": "Message order",
+      "slides": [
+        {
+          "id": "sequence-request",
+          "title": "One successful exchange",
+          "mermaid": "sequenceDiagram\n  participant Client\n  participant Service\n  Client->>Service: Request\n  Service-->>Client: Response",
+          "explanationMarkdown": "Read the messages from top to bottom. First, Client sends Request to Service. After handling it, Service sends Response back to Client. Here the dashed arrow marks the reply; its arrowhead points to Client, the receiver."
+        }
+      ]
+    },
+    {
+      "id": "sequence-conclusion",
+      "type": "markdown",
+      "markdown": "## Conclusion\n\nThe request starts the exchange; the response returns to the original caller. This diagram does not show retries, failure, how long the work takes, or what Client does after the response."
+    }
+  ]
+}

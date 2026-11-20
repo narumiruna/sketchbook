@@ -21,7 +21,9 @@ const coordinator = createServer((request, response) => {
     }
     if (request.method === "GET" && path.startsWith("/assets/")) {
       const name = path.slice("/assets/".length)
-      if (!["architecture-walkthrough", "process-walkthrough"].includes(name)) {
+      if (
+        !["architecture-walkthrough", "process-walkthrough", "sequence-walkthrough"].includes(name)
+      ) {
         response.writeHead(404).end()
         return
       }

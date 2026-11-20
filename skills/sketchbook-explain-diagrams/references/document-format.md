@@ -43,18 +43,18 @@ Markdown supports prose, inline math such as `$r + 1$`, display math between `$$
 Use a `code` block for a standalone snippet. Its `code` field must contain at least one non-whitespace character.
 Pass the source directly, without adding Markdown fences. The viewer displays it as text, preserving whitespace.
 If provided, the `language` label must contain a non-whitespace character and be at most 64 characters long.
-Use a diagram deck even for one diagram; neither a Mermaid Markdown fence nor a `code` block renders a diagram.
+Use a `diagram-deck` even for one diagram. Slides can use different supported families in the same deck; neither a Mermaid Markdown fence nor a `code` block renders a diagram.
 
 ## Slide focus
 
-- Leave `focusNodes` absent on the first slide of every deck. The first slide shows the whole diagram without an attention frame.
+- Leave `focusNodes` absent on the first slide of every deck and on all non-flowchart slides. Only `flowchart` and `graph` can use it on detail slides. Neither participant IDs nor other Mermaid identifiers can select a flowchart focus region.
 - On a focused detail slide, supply 1–12 unique Mermaid node IDs in `focusNodes`. Each ID must match the same ASCII ID pattern above.
   - Use actual node IDs, not display labels, subgraph IDs, or edge IDs. For `Api["Document API"]`, use `"Api"`.
   - Copy the complete first slide's Mermaid string exactly, including whitespace. Do not crop or restyle the source to focus it.
 - The viewer shows one hatched attention frame and starts zoomed in on its region. The frame replaces any previous frame.
   - **Fit to screen** shows the complete diagram with the current frame. **Reset to slide focus** returns to the detail view.
   - If any focus ID cannot be resolved, the viewer shows the full diagram without a frame and reports the missing focus. Correct the IDs rather than relying on the fallback.
-- Architecture detail slides use this mechanism. Process slides can omit `focusNodes` and use different Mermaid for different stages.
+- Focused architecture detail slides use this mechanism. Unfocused slides can use different Mermaid for different stages.
 
 ## Article headings and emphasis
 
@@ -68,16 +68,37 @@ Use a diagram deck even for one diagram; neither a Mermaid Markdown fence nor a 
 
 ## Content policy
 
-- Begin each diagram with `flowchart` and a direction such as `LR` or `TD`.
-  - Use subgraphs for real component groups or service boundaries, not to draw attention frames.
-  - Submit plain Mermaid source, without Markdown fences.
-- Do not use other diagram types, Mermaid frontmatter, configuration directives, node metadata (`@{...}`), click actions, HTML, images, or icons.
+Begin the plain Mermaid source with a header from this table for Mermaid 12.3.0. For a flowchart, give a direction such as `LR` or `TD` and use subgraphs for real component groups or service boundaries, not to draw attention frames.
+
+| Family              | Accepted headers                                                       |
+| ------------------- | ---------------------------------------------------------------------- |
+| Flowchart           | `flowchart`, `graph`                                                   |
+| Sequence            | `sequenceDiagram`                                                      |
+| Class               | `classDiagram`                                                         |
+| State               | `stateDiagram-v2`, `stateDiagram`                                      |
+| Entity relationship | `erDiagram`                                                            |
+| User journey        | `journey`                                                              |
+| Gantt               | `gantt`                                                                |
+| Pie                 | `pie`                                                                  |
+| Git graph           | `gitGraph`                                                             |
+| Requirement         | `requirementDiagram`                                                   |
+| Timeline            | `timeline`                                                             |
+| Quadrant chart      | `quadrantChart`                                                        |
+| Kanban              | `kanban`                                                               |
+| Block               | `block`                                                                |
+| Packet              | `packet`                                                               |
+| Sankey              | `sankey`                                                               |
+| XY chart            | `xychart`                                                              |
+| C4                  | `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` |
+
+Use only these headers. Beta-only families, Mindmap, Event Modeling, ZenUML, and other diagram formats are not supported. Do not use `flowchart-elk`, `xychart-beta`, `classDiagram-v2`, or bare `requirement` even if Mermaid recognizes them.
+
+- Use plain text for diagram labels. Do not use Mermaid frontmatter, configuration directives, node metadata (`@{...}`), click actions or other interactive links, HTML, images, icons, external resources, or custom plugins.
 - Do not use raw HTML or images in Markdown.
   - Use ordinary links with safe schemes such as HTTPS.
 - Do not use LaTeX commands that require trusted HTML or external resources.
 
-The application controls the hand-drawn look, fixed seed, strict security settings, and SVG sanitization.
-Do not try to override these settings.
+Flowcharts use the hand-drawn look and a fixed seed. Other families use Mermaid's normal style. The application controls all rendering settings, runs Mermaid in strict mode without HTML labels or event bindings, and sanitizes generated SVG. Do not try to override these settings.
 
 ## Tool contract
 
@@ -86,7 +107,7 @@ Do not try to override these settings.
 `sketchbook_write({ document })` creates a generated ID at revision 1.
 Omit both `documentId` and `expectedRevision` for creation.
 The result includes `documentId`, `revision`, `path`, a `blocks` summary, and `renderingVerified: false`.
-A successful write means validation and persistence succeeded, not that Mermaid or LaTeX rendered.
+A successful write means validation and persistence succeeded. Pi and MCP check headers and source policy without parsing the full Mermaid body. They store the exact source; the Viewer handles diagram parsing and reports any errors on the affected slide. Saving or opening does not verify that Mermaid or LaTeX rendered.
 
 Keep these evidence states separate in the handoff:
 
@@ -145,3 +166,5 @@ Tree navigation, resume, and fork do not undo disk writes; create a new ID for a
 Shutdown closes the viewer server, but preserves saved documents.
 After reload, new, resume, or fork, open again for a current URL.
 Physical second-device LAN access, remote host forwarding, and a user's browser access require separate verification.
+
+Schema version 1 and revisions are unchanged. An older reader that accepts only `flowchart` cannot open a document with a newly accepted header. Back up the original before downgrading. Keep the source intact and use the newer reader to copy it if needed.

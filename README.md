@@ -1,6 +1,6 @@
 # Pi Sketchbook
 
-Pi Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and hand-drawn Mermaid diagram decks.
+Pi Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Mermaid diagram decks. Flowcharts use a hand-drawn style.
 Each deck shows one diagram and its explanation at a time.
 Review the complete article outline before reviewing its decks.
 Build each deck around one question: each slide must connect to the established context and add useful information.
@@ -104,8 +104,8 @@ Load the bundled skill explicitly:
 /skill:sketchbook-explain-diagrams Explain this system with an overview, API detail, and storage detail.
 ```
 
-Automatic skill selection is not guaranteed.
-The skill includes complete [architecture](skills/sketchbook-explain-diagrams/assets/architecture-walkthrough.json) and [process](skills/sketchbook-explain-diagrams/assets/process-walkthrough.json) examples.
+Automatic skill selection remains unverified. The skill recommends a diagram when it helps explain an interaction, not a saved document for every answer.
+The skill includes complete [architecture](skills/sketchbook-explain-diagrams/assets/architecture-walkthrough.json), [process](skills/sketchbook-explain-diagrams/assets/process-walkthrough.json), and [sequence](skills/sketchbook-explain-diagrams/assets/sequence-walkthrough.json) examples.
 
 | Tool               | Input and result                                                                                                      |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------- |
@@ -117,6 +117,7 @@ The skill includes complete [architecture](skills/sketchbook-explain-diagrams/as
 For updates, read first and use the returned revision.
 On conflict, read again and apply the change to the current document.
 A successful write confirms validation and storage, not browser rendering.
+Pi and MCP apply the same Mermaid header and source checks and preserve the exact source. The Viewer parses the diagram body in the browser.
 The [document format](skills/sketchbook-explain-diagrams/references/document-format.md) defines fields, IDs, limits, heading roles, and tool details.
 
 For a standalone snippet, add an entry like this to `document.blocks`:
@@ -175,17 +176,55 @@ Stop the Pi session to close the listener and invalidate its capability; no docu
 - Use short labels and compact graphs that can be read without Reset or Zoom.
   - Long-label and large-graph stress tests do not define suitable teaching layouts.
 
+## Supported Mermaid diagrams
+
+Use a `diagram-deck` even for one diagram. Slides in one deck can use different families. Put plain Mermaid source in `slides[].mermaid`, not a Markdown fence. Use one of these headers from the pinned Mermaid 12.3.0 release:
+
+| Family              | Accepted headers                                                       |
+| ------------------- | ---------------------------------------------------------------------- |
+| Flowchart           | `flowchart`, `graph`                                                   |
+| Sequence            | `sequenceDiagram`                                                      |
+| Class               | `classDiagram`                                                         |
+| State               | `stateDiagram-v2`, `stateDiagram`                                      |
+| Entity relationship | `erDiagram`                                                            |
+| User journey        | `journey`                                                              |
+| Gantt               | `gantt`                                                                |
+| Pie                 | `pie`                                                                  |
+| Git graph           | `gitGraph`                                                             |
+| Requirement         | `requirementDiagram`                                                   |
+| Timeline            | `timeline`                                                             |
+| Quadrant chart      | `quadrantChart`                                                        |
+| Kanban              | `kanban`                                                               |
+| Block               | `block`                                                                |
+| Packet              | `packet`                                                               |
+| Sankey              | `sankey`                                                               |
+| XY chart            | `xychart`                                                              |
+| C4                  | `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` |
+
+Flowcharts, including subgraphs, keep the hand-drawn Rough.js style with a fixed nonzero seed and a muted blue-gray default palette. Other families use Mermaid's normal style. Only flowchart detail slides can use `focusNodes`.
+
+Not supported:
+
+- Beta-only families: Architecture, Agentflow, Swimlanes, TreeView, Radar, Ishikawa, Venn, Wardley, Cynefin, Use Case, Treemap, and the four Railroad forms.
+- Experimental Mindmap, Event Modeling (the pinned renderer needs HTML for its event labels), and ZenUML (requires a plugin).
+- Headers outside the table, including `flowchart-elk`, `xychart-beta`, `classDiagram-v2`, bare `requirement`, the `info` version display, and internal `error` and `---` entries. Parser acceptance does not add a header to this list.
+- PlantUML, Graphviz, raw SVG, and other diagram formats.
+
+### Downgrade without losing source
+
+Schema version 1 and revisions are unchanged. Older versions that accept only `flowchart` still open existing flowchart-only documents, but reject a document that contains a newly accepted header, including `graph`. Before downgrading, back up your documents and leave the originals unchanged. Use the newer reader to copy Mermaid source for use elsewhere. Do not rewrite diagrams as flowcharts or migrate files in place to make them open in an older reader.
+
 ## Rendering and security
 
-- Only Mermaid `flowchart` diagrams are supported, including subgraphs.
-  - The viewer uses Mermaid's `handDrawn` look through Rough.js with a fixed nonzero seed and a muted blue-gray default palette.
-  - Frontmatter, directives, node metadata (`@{...}`), click actions, HTML, images, and icons are not supported.
+- Support for a Mermaid family does not enable all of its syntax.
+  - Use plain text labels. Do not use frontmatter, configuration directives, node metadata (`@{...}`), click actions or other interactive links, HTML, images, icons, external resources, or custom plugins.
+  - Use simple declarations for supported styling statements. Custom CSS rules and C4 style update commands are not supported.
+  - The viewer checks source before rendering, runs Mermaid in strict mode without HTML labels or diagram event bindings, and sanitizes generated SVG. SVG definition references must stay within that diagram.
   - Diagrams start fitted without upscaling; inline frame height follows the SVG aspect ratio and available width, within a bounded height.
-  - Fit can still make large graphs small. Rework a teaching graph that is unreadable at its default scale; Reset, Zoom, and panning remain available for inspecting large graphs.
+  - Fit can still make large diagrams small. Rework a teaching diagram that is unreadable at its default scale; Reset, Zoom, and panning remain available for inspecting large diagrams.
 - Markdown supports inline/display LaTeX, fenced code, and footnotes, but not raw HTML or images.
   - Footnote targets are local to each Markdown block or slide explanation.
   - In-page links move focus without replacing the viewer token, so the current URL remains valid after navigation.
-  - Mermaid uses strict security and disables HTML labels; generated SVG is sanitized.
   - KaTeX uses `trust: false`, `maxExpand: 1000`, and `maxSize: 20`.
 - Viewer scripts, styles, fonts, and renderers are bundled; no CDN is required.
 - The read-only server binds to `0.0.0.0` on an ephemeral port and automatically returns a private IPv4 URL, with a loopback URL fallback.
@@ -206,7 +245,7 @@ Show source displays inert text, not executable HTML. Tab to the source region a
 Changing slides restores the diagram view.
 
 - **Fit to screen** shows the complete graph. **Reset zoom** restores 100% native size on slides without a focus region.
-- Architecture decks start with a full overview and no frame. Detail slides can open zoomed in on a single blue, lightly hatched focus region on the same graph.
+- Flowchart architecture decks start with a full overview and no frame. Flowchart detail slides can open zoomed in on a single blue, lightly hatched focus region on the same graph.
   - In forced-colors mode, a dashed system-color border identifies the focus region without shading.
   - **Fit to screen** shows the complete graph without removing the current frame. **Reset to slide focus** returns to that detail view.
 - Zoom is limited to 400%; the lower limit is 25% or the fitted scale when smaller.
@@ -259,5 +298,5 @@ Automated checks do not establish visual acceptance or reliable automatic skill 
 
 ## Scope and license
 
-This release does not provide cloud sharing, accounts, collaboration, browser editing, autoplay, export, partial updates, HTTP MCP transport, or arbitrary Mermaid types and external assets.
+This release does not provide cloud sharing, accounts, collaboration, browser editing, autoplay, export, partial updates, or HTTP MCP transport.
 See [LICENSE](LICENSE) for the GNU Affero General Public License, version 3.

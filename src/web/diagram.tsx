@@ -1,15 +1,13 @@
-import DOMPurify from "dompurify"
-import mermaid from "mermaid"
-import { type RefObject, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
-import { assertMermaidPolicy } from "../mermaid-policy.js"
+import mermaid, { type MermaidConfig } from "mermaid"
+import { type RefObject, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { assertMermaidFocus, assertMermaidPolicy } from "../mermaid-policy.js"
 import { DiagramControl } from "./diagram-controls"
+import { sanitizeDiagramSvg } from "./diagram-svg"
 import { createDiagramView, initialDiagramViewState } from "./diagram-view"
 
-mermaid.initialize({
+const renderConfig = {
   startOnLoad: false,
   securityLevel: "strict",
-  look: "handDrawn",
-  handDrawnSeed: 42,
   theme: "base",
   themeVariables: {
     primaryColor: "#e5edf6",
@@ -25,51 +23,24 @@ mermaid.initialize({
   fontFamily: "system-ui, sans-serif",
   htmlLabels: false,
   flowchart: { htmlLabels: false },
+  // Some built-in renderers measure labels in temporary HTML nodes. Do not
+  // let Mermaid's text sanitizer preserve resource or style attributes there.
+  dompurifyConfig: { ALLOWED_TAGS: ["br", "b", "em", "i", "strong"], ALLOWED_ATTR: [] },
   suppressErrorRendering: true,
-})
+} satisfies MermaidConfig
+
+function checkSource(source: string) {
+  try {
+    return { renderer: assertMermaidPolicy(source), error: null }
+  } catch (error) {
+    return { renderer: null, error: error instanceof Error ? error.message : String(error) }
+  }
+}
 
 // Mermaid has shared mutable state. Serialize all renders, including those from
 // different decks. Failed renders must not stop the queue.
 let queue: Promise<unknown> = Promise.resolve()
 let nextId = 0
-
-function sanitizeSvg(svg: string) {
-  const clean = DOMPurify.sanitize(svg, {
-    USE_PROFILES: { svg: true, svgFilters: true },
-    FORBID_TAGS: ["foreignObject", "image", "a", "script"],
-    FORBID_ATTR: ["href", "xlink:href"],
-  })
-  const parsed = new DOMParser().parseFromString(clean, "image/svg+xml")
-  if (parsed.documentElement.localName !== "svg") throw new Error("Invalid sanitized diagram SVG")
-  // DOMPurify does not sanitize CSS. Only local fragment URLs are needed for
-  // Mermaid markers and clip paths. Drop imports and every other CSS URL.
-  const localCss = (css: string) =>
-    css
-      .replace(/@import[^;{}]*(?:;|$)/gi, "")
-      .replace(
-        /url\s*\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*))\s*\)/gi,
-        (
-          _match,
-          double: string | undefined,
-          single: string | undefined,
-          bare: string | undefined,
-        ) => {
-          const value = (double ?? single ?? bare ?? "").trim()
-          return /^#[\w:.-]+$/.test(value) ? `url(${value})` : "none"
-        },
-      )
-  for (const style of parsed.querySelectorAll("style")) {
-    style.textContent = localCss(style.textContent ?? "")
-  }
-  for (const node of parsed.querySelectorAll("*")) {
-    for (const attribute of [...node.attributes]) {
-      if (/url\s*\(/i.test(attribute.value) || attribute.name === "style") {
-        node.setAttribute(attribute.name, localCss(attribute.value))
-      }
-    }
-  }
-  return new XMLSerializer().serializeToString(parsed.documentElement)
-}
 
 interface Props {
   source: string
@@ -78,7 +49,7 @@ interface Props {
   focusNodes?: readonly string[]
 }
 
-type Result = { source: string; svg: string } | { source: string; error: string }
+type Result = { source: string; svg: SVGSVGElement } | { source: string; error: string }
 
 type FrameMode = "native" | "fallback" | null
 
@@ -292,6 +263,15 @@ export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
   const [view, setView] = useState(initialDiagramViewState)
   const [showSource, setShowSource] = useState(false)
   const fullscreen = useDiagramFullscreen(source, card, viewport)
+  const { renderer, error: sourceError } = useMemo(() => checkSource(source), [source])
+  let policyError = sourceError
+  if (renderer) {
+    try {
+      assertMermaidFocus(renderer, focusNodes)
+    } catch (error) {
+      policyError = error instanceof Error ? error.message : String(error)
+    }
+  }
 
   useLayoutEffect(() => {
     if (!viewport.current || !host.current) return
@@ -316,21 +296,35 @@ export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
   }, [source, slideId])
 
   useEffect(() => {
+    if (!renderer || policyError) return
     const current = ++generation.current
     const id = `sketchbook-diagram-${++nextId}`
     let cancelled = false
     const render = async () => {
       if (cancelled) return
+      const staging = document.createElement("div")
       try {
-        // Defense in depth: never let a document override the rendering policy.
-        assertMermaidPolicy(source)
-        const rendered = await mermaid.render(id, source)
-        const svg = sanitizeSvg(rendered.svg)
+        mermaid.initialize({
+          ...renderConfig,
+          ...(renderer === "flowchart-v2" ? { look: "handDrawn", handDrawnSeed: 42 } : {}),
+        })
+        // Some Mermaid detectors match beyond the first token. Fail closed
+        // before Mermaid stages a different renderer than the one checked.
+        if (mermaid.detectType(source) !== renderer) {
+          throw new Error("Mermaid diagram source does not match its supported header")
+        }
+        staging.inert = true
+        staging.style.cssText = "position: fixed; left: -10000px; width: 100%; visibility: hidden"
+        document.body.append(staging)
+        const rendered = await mermaid.render(id, source, staging)
+        const svg = sanitizeDiagramSvg(rendered.svg, id)
         if (!cancelled && generation.current === current) setResult({ source, svg })
       } catch (error) {
         if (!cancelled && generation.current === current) {
           setResult({ source, error: error instanceof Error ? error.message : String(error) })
         }
+      } finally {
+        staging.remove()
       }
     }
     queue = queue.then(render, render)
@@ -338,19 +332,19 @@ export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
       cancelled = true
       generation.current++
     }
-  }, [source])
+  }, [source, renderer, policyError])
 
   useLayoutEffect(() => {
     const element = host.current
     if (!element) return
     // Only sanitized SVG reaches this DOM boundary.
-    if (result?.source === source && "svg" in result) {
-      element.innerHTML = result.svg
+    if (!policyError && result?.source === source && "svg" in result) {
+      element.replaceChildren(result.svg)
     } else {
       element.replaceChildren()
     }
     controller.current?.refresh()
-  }, [result, source])
+  }, [result, source, policyError])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Apply the camera when entering any slide, including one sharing the same SVG.
   useLayoutEffect(() => {
@@ -362,7 +356,11 @@ export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
     controller.current?.refresh()
   }, [showSource, fullscreen.mode])
 
-  const active = result?.source === source ? result : null
+  const active = policyError
+    ? { source, error: policyError }
+    : result?.source === source
+      ? result
+      : null
   const error = active && "error" in active ? active.error : null
   const ready = !!active && "svg" in active && view.ready
   const disabled = !ready || showSource

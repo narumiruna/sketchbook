@@ -23,6 +23,7 @@ import {
 import { createSketchbookMcpServer } from "../src/mcp.js"
 import { ViewerServer } from "../src/server.js"
 import { DocumentStore } from "../src/store.js"
+import { mermaidTypesDocument } from "./fixtures/mermaid-types.js"
 
 const document: SketchbookDocument = {
   schemaVersion: 1,
@@ -242,8 +243,8 @@ describe("Sketchbook MCP protocol", () => {
     expect(catalog.tools[2].description).toContain("trusted networks")
     const instructions = client.getInstructions()
     for (const text of [
-      "Only flowchart diagrams are supported",
-      "Do not use Mermaid directives, frontmatter, HTML, images, icons, click actions, or node metadata",
+      "Decks can mix types, but focusNodes is flowchart-only",
+      "Do not use Mermaid directives, frontmatter, HTML, images, icons, links, click actions, or node metadata",
       "Create documents without documentId or expectedRevision",
       "Read before updates",
       "current expectedRevision",
@@ -264,6 +265,22 @@ describe("Sketchbook MCP protocol", () => {
     await closing
     expect(await readdir(cwd)).toEqual([])
     expect(listen).not.toHaveBeenCalled()
+  })
+
+  it("round-trips exact source for all supported Mermaid headers through MCP", async () => {
+    const { client } = await session()
+    const document = mermaidTypesDocument()
+    const written = await write(client, document)
+    expect(written).toMatchObject({ ok: true, revision: 1, renderingVerified: false })
+    expect((await read(client, written.documentId)).stored.document).toEqual(document)
+    const deck = document.blocks[0]
+    if (deck.type !== "diagram-deck") throw new Error("Fixture missing deck")
+    const sequence = deck.slides[2]
+    deck.slides = [sequence, { ...sequence, id: "focus", focusNodes: ["Client"] }]
+    failure(
+      await client.callTool({ name: "sketchbook_write", arguments: { document } }),
+      /only supported for flowchart/,
+    )
   })
 
   it("creates, reads, replaces, and rejects revision conflicts without opening a viewer", async () => {
@@ -402,7 +419,8 @@ describe("Sketchbook MCP protocol", () => {
       const written = state === "saved" ? await write(client) : undefined
       const before = await snapshot(cwd)
       for (const mermaid of [
-        "sequenceDiagram\nA->>B: Message",
+        "eventmodeling\n tf 01 evt Start",
+        "architecture-beta\n service app(server)[Service]",
         '%%{init: {"theme": "dark"}}%%\nflowchart LR\nA --> B',
         "---\ntitle: Configuration\n---\nflowchart LR\nA --> B",
         'flowchart LR\nA["<b>HTML</b>"] --> B',
@@ -419,7 +437,7 @@ describe("Sketchbook MCP protocol", () => {
               ...(written ? { documentId: written.documentId, expectedRevision: 1 } : {}),
             },
           }),
-          /only flowchart|not (?:permitted|supported)/i,
+          /not (?:permitted|supported)/i,
         )
         expect(await snapshot(cwd)).toEqual(before)
       }

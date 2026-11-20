@@ -1,6 +1,6 @@
 import { type Static, type TSchema, Type } from "typebox"
 import { Check, Errors } from "typebox/value"
-import { assertMermaidPolicy, MAX_MERMAID_BYTES } from "./mermaid-policy.js"
+import { assertMermaidFocus, assertMermaidPolicy, MAX_MERMAID_BYTES } from "./mermaid-policy.js"
 
 export { MAX_MERMAID_BYTES }
 export const MAX_DOCUMENT_BYTES = 1024 * 1024
@@ -50,7 +50,7 @@ export const DiagramDeckSchema = Type.Object(
               maxItems: 12,
               uniqueItems: true,
               description:
-                "Mermaid node IDs for one focus region on the unchanged first slide diagram.",
+                "Flowchart node IDs for one focus region on the unchanged first slide diagram.",
             }),
           ),
         },
@@ -117,9 +117,10 @@ export function validateDocumentId(id: string): void {
   assertSchema(DocumentIdSchema, id)
 }
 
-function validateMermaid(source: string, location: string): void {
+function validateMermaid(slide: DiagramDeck["slides"][number], location: string): void {
   try {
-    assertMermaidPolicy(source)
+    const renderer = assertMermaidPolicy(slide.mermaid)
+    assertMermaidFocus(renderer, slide.focusNodes)
   } catch (error) {
     throw new Error(`${location}: ${error instanceof Error ? error.message : String(error)}`)
   }
@@ -146,7 +147,7 @@ export function validateDocument(value: unknown): SketchbookDocument {
           `${location}: A focus slide must reuse the first slide's Mermaid source unchanged`,
         )
       }
-      validateMermaid(slide.mermaid, location)
+      validateMermaid(slide, location)
     }
   }
   return value
