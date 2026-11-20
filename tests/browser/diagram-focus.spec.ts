@@ -9,7 +9,13 @@ for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 })
     const doc = await asset(request, "architecture-walkthrough")
     const model = getDeck(doc, "architecture-deck")
-    model.slides.push({ ...model.slides[1], id: "missing", focusNodes: ["Client", "Missing"] })
+    const focusSlides = model.slides.slice(1)
+    const repeated = { ...model.slides[model.slides.length - 1], id: "repeated-focus" }
+    model.slides.push(repeated, {
+      ...model.slides[1],
+      id: "missing",
+      focusNodes: ["Client", "Missing"],
+    })
     await page.goto((await save(request, doc)).url)
 
     const deck = page.locator('[data-block-id="architecture-deck"]')
@@ -27,7 +33,7 @@ for (const width of [1280, 390]) {
       box.right <= frame.right + 1 &&
       box.bottom <= frame.bottom + 1
     expect((await readingMetrics(deck)).minFontPx).toBeGreaterThanOrEqual(12)
-    for (const slide of model.slides.slice(1, -1)) {
+    for (const slide of focusSlides) {
       await selectSlide(deck, slide.id)
       await expect(frame).toHaveCount(1)
       await expect(frame).toHaveAttribute("aria-hidden", "true")
@@ -66,6 +72,15 @@ for (const width of [1280, 390]) {
       await button("Reset to slide focus").click()
       await expect(zoom).toHaveText(focused ?? "")
     }
+
+    const focused = await zoom.textContent()
+    await button("Fit to screen").click()
+    await expect(zoom).toHaveText(fitted ?? "")
+    // A new slide selects focus, even when the SVG and the focus bounds match.
+    await selectSlide(deck, repeated.id)
+    await expect(zoom).toHaveText(focused ?? "")
+    await expect(frame).toHaveCount(1)
+    expect(await svg.evaluate((node, original) => node === original, overview)).toBe(true)
 
     await selectSlide(deck, "missing")
     await expect(frame).toHaveCount(0)

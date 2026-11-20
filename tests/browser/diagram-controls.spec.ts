@@ -342,6 +342,12 @@ for (const width of [390, 1280]) {
     await expect.poll(height).toBeGreaterThan(700)
     await expect(zoom(deck)).toHaveText("125%")
     expect(await graphic?.evaluate((node) => node.isConnected)).toBe(true)
+    await control(deck, "Fit to screen").click()
+    const fullscreenFit = await percentage(deck)
+    expect(fullscreenFit).toBeLessThanOrEqual(100)
+    if (width === 1280) expect(fullscreenFit).toBe(100)
+    await control(deck, "Reset zoom").click()
+    await control(deck, "Zoom in").click()
     await page.keyboard.press("Escape")
     await expect(page.getByRole("dialog")).toHaveCount(0)
     await expect.poll(height).toBe(inlineHeight)
@@ -350,6 +356,10 @@ for (const width of [390, 1280]) {
     await rendered(deck)
     await expect.poll(height).toBe(576)
     await expectGraphInsideViewport(deck)
+    const largerText = await page.addStyleTag({ content: ":root { font-size: 20px; }" })
+    await expect.poll(height).toBe(672) // 70vh, now below the rem-based cap.
+    await expectGraphInsideViewport(deck)
+    await largerText.evaluate((style) => style.parentNode?.removeChild(style))
     await selectSlide(deck, "overview")
     await rendered(deck)
     await expect.poll(height).toBe(inlineHeight)
@@ -381,6 +391,17 @@ test("drag and modified wheel control the camera; normal wheel scrolls and sourc
   const viewport = deck.locator(".diagram-viewport")
   const stage = deck.locator(".diagram-svg")
   const before = await stage.getAttribute("style")
+  await viewport.evaluate((node) => {
+    const button = document.createElement("button")
+    button.textContent = "Nested control"
+    button.style.position = "absolute"
+    node.append(button)
+  })
+  const nested = viewport.getByRole("button", { name: "Nested control", exact: true })
+  await nested.click()
+  await expect(nested).toBeFocused()
+  await expect(stage).toHaveAttribute("style", before ?? "")
+  await nested.evaluate((node) => node.remove())
   await viewport.scrollIntoViewIfNeeded()
   const box = await viewport.boundingBox()
   if (!box) throw new Error("Missing viewport")
@@ -388,6 +409,7 @@ test("drag and modified wheel control the camera; normal wheel scrolls and sourc
   await page.mouse.down()
   await page.mouse.move(box.x + box.width / 2 - 90, box.y + box.height / 2, { steps: 5 })
   await page.mouse.up()
+  await expect(viewport).toBeFocused()
   await expect(stage).not.toHaveAttribute("style", before ?? "")
   const panned = await stage.getAttribute("style")
   const scroll = await page.evaluate(() => scrollY)
@@ -406,7 +428,14 @@ test("drag and modified wheel control the camera; normal wheel scrolls and sourc
   for (const name of ["Zoom out", "Zoom in", "Fit to screen", "Reset zoom"])
     await expect(control(deck, name)).toBeDisabled()
   const sourceCamera = await stage.getAttribute("style")
-  await viewport.dispatchEvent("wheel", { deltaY: -120, ctrlKey: true })
+  const ignored = await viewport.evaluate((node) =>
+    [
+      new WheelEvent("wheel", { deltaY: -120, ctrlKey: true, cancelable: true }),
+      new PointerEvent("pointerdown", { pointerType: "mouse", isPrimary: true, cancelable: true }),
+      new KeyboardEvent("keydown", { key: "+", cancelable: true }),
+    ].map((event) => node.dispatchEvent(event)),
+  )
+  expect(ignored).toEqual([true, true, true])
   await expect(stage).toHaveAttribute("style", sourceCamera ?? "")
   await expect(deck.locator(".diagram-source svg, .diagram-source script")).toHaveCount(0)
   await control(deck, "Show diagram").click()
