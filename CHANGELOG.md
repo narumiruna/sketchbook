@@ -1,5 +1,12 @@
 # @narumitw/sketchbook
 
+## 0.5.0
+
+### Minor Changes
+
+- d081bd2: Grow a standalone page into a book without replacing its content or changing its active Viewer link. Add named sections, chapter navigation, and direct links. Use the new revision-checked `sketchbook_edit` and `sketchbook_read_book` tools in Pi and MCP to add content without resending unrelated blocks. Existing standalone documents and tools remain compatible.
+- ad2e3b0: Rename the bundled skill from `sketchbook-explain-diagrams` to `sketchbook-create-diagrams`. Update explicit `/skill:` commands and saved prompts to use the new name. The skill workflow, Sketchbook tools, and saved documents are unchanged.
+
 ## 0.4.0
 
 ### Minor Changes
