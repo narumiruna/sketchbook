@@ -106,6 +106,7 @@ Load the bundled skill explicitly:
 
 When the skill handles a diagram request, it saves the article, opens the local Viewer, and returns its link by default.
 You do not need to ask separately for a link.
+The skill chooses from the [supported diagram families](#supported-mermaid-diagrams) based on the question: for example, a state diagram for lifecycle changes or an XY chart for numeric trends.
 Simple questions that do not benefit from diagrams should not trigger the skill automatically.
 Automatic skill selection remains unverified.
 The skill includes complete [architecture](skills/sketchbook-explain-diagrams/assets/architecture-walkthrough.json), [process](skills/sketchbook-explain-diagrams/assets/process-walkthrough.json), and [sequence](skills/sketchbook-explain-diagrams/assets/sequence-walkthrough.json) examples.

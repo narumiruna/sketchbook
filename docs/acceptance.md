@@ -8,7 +8,7 @@ Human visual acceptance and remote forwarding remain unverified.
 
 ## Future authorized model checks
 
-The provider or account owner must authorize API usage before either check is run.
+The provider or account owner must authorize API usage before running these checks.
 Record the model ID, Pi version, package revision, prompt, tool transcript, output ID/revision, browser evidence, and any errors.
 Do not record credentials or a reusable capability token in published evidence.
 First send each prompt without an explicit skill command to observe discovery.
@@ -35,6 +35,14 @@ Run each prompt in a fresh session on the target Pi client and model. Start with
 - [ ] The answer is direct. It does not suggest a diagram, save a document, or open a Viewer.
 
 Mechanical Pi skill discovery and explicit command expansion do not require a model call. Without the target client and model traces, automatic selection and near-miss behavior remain unverified.
+
+### Quantitative visualization prompt
+
+> Compare open ticket counts for January, February, and March: 4, 7, and 5. Show the comparison as a diagram.
+
+- [ ] The skill selects an XY chart instead of a flowchart or component map.
+- [ ] The three values match the three months in the prompt. The chart labels the quantity as open tickets.
+- [ ] The skill saves the document and returns its Viewer link without another request.
 
 ### Architecture prompt
 

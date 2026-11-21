@@ -58,8 +58,32 @@ For "How is a document saved?", system overview → API validation → storage w
 Validation expands the overview's API, and storage follows the validated request into persistence.
 System overview → CSS theme comparison → storage write path is disconnected because the theme does not explain saving.
 
-## Choose needed views
+## Choose a diagram family
 
+First identify what the reader needs to see. Use the user's requested family if it is supported. Otherwise, choose the simplest family that shows the answer directly. If a requested family is not supported, name a suitable supported alternative. Check the [document format](document-format.md#content-policy) for accepted headers and syntax limits.
+
+| Reader's question                                                | Diagram family                                                              |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| What happens next, including branches and recovery?              | Flowchart (`flowchart`)                                                     |
+| Who sends each message, and in what order?                       | Sequence (`sequenceDiagram`)                                                |
+| Which states can this item enter, and what triggers each change? | State (`stateDiagram-v2`)                                                   |
+| How do records relate, and how many can be linked?               | Entity relationship (`erDiagram`)                                           |
+| How do software types relate?                                    | Class (`classDiagram`)                                                      |
+| What are the system boundaries and levels of detail?             | C4 (`C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment`) |
+| What belongs where in a grid or a grouped layout?                | Block (`block`)                                                             |
+| What happened, and when?                                         | Timeline (`timeline`)                                                       |
+| When are tasks scheduled, and which tasks depend on others?      | Gantt (`gantt`)                                                             |
+| How do tasks move across work columns?                           | Kanban (`kanban`)                                                           |
+| What choices and experiences does a person have at each step?    | User journey (`journey`)                                                    |
+| How did commits and branches diverge or merge?                   | Git graph (`gitGraph`)                                                      |
+| What requirements exist, and what satisfies or verifies them?    | Requirement (`requirementDiagram`)                                          |
+| Which bits belong to each field?                                 | Packet (`packet`)                                                           |
+| How do values compare or change along an axis?                   | XY chart (`xychart`)                                                        |
+| What fraction of one whole does each category represent?         | Pie (`pie`)                                                                 |
+| How much of a quantity moves between each pair of groups?        | Sankey (`sankey`)                                                           |
+| How do items compare on two independent criteria?                | Quadrant chart (`quadrantChart`)                                            |
+
+- For charts and data diagrams, label units and categories, keep values and relationships faithful to their source, and do not invent missing numbers.
 - Use a flowchart for component relationships or a decision with success and recovery paths.
   - Start a focused architecture walkthrough with a complete overview and no attention frame. Focused detail slides keep identical complete Mermaid source and use `focusNodes` to zoom in on one region for a distinct contribution.
   - Select a small set of relevant nodes. Include neighbors only when their relationship matters. Use one frame per detail slide; do not reuse the same set of focus IDs, regardless of order. Regions can overlap when a node connects two distinct contributions.
