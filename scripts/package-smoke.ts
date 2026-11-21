@@ -72,10 +72,10 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   const skills = loader.getSkills()
   assert.deepEqual(skills.diagnostics, [])
   assert.equal(skills.skills.length, 1)
-  assert.equal(skills.skills[0].name, "sketchbook-explain-diagrams")
+  assert.equal(skills.skills[0].name, "sketchbook-create-diagrams")
   assert.equal(
     skills.skills[0].filePath,
-    join(packagePath, "skills/sketchbook-explain-diagrams/SKILL.md"),
+    join(packagePath, "skills/sketchbook-create-diagrams/SKILL.md"),
     "Pi must discover the skill from the package being tested",
   )
 
@@ -101,11 +101,11 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   await session.bindExtensions({ mode: "rpc", onError: (error) => errors.push(error.error) })
   try {
     assert.equal(
-      await session.followUp("/skill:sketchbook-explain-diagrams Explain the API architecture."),
+      await session.followUp("/skill:sketchbook-create-diagrams Explain the API architecture."),
       "queued",
     )
     const expanded = session.getFollowUpMessages()[0]
-    assert.ok(expanded.includes('<skill name="sketchbook-explain-diagrams"'))
+    assert.ok(expanded.includes('<skill name="sketchbook-create-diagrams"'))
     assert.ok(expanded.includes("sketchbook_write"))
     assert.ok(expanded.endsWith("Explain the API architecture."))
     assert.ok(session.getActiveToolNames().includes("sketchbook_write"))
@@ -122,10 +122,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
     }
     const document: SketchbookDocument = JSON.parse(
       await readFile(
-        join(
-          packagePath,
-          "skills/sketchbook-explain-diagrams/assets/architecture-walkthrough.json",
-        ),
+        join(packagePath, "skills/sketchbook-create-diagrams/assets/architecture-walkthrough.json"),
         "utf8",
       ),
     )
@@ -339,7 +336,7 @@ try {
   assert.ok(files.includes("dist/web/index.html"))
   assert.ok(files.includes("dist/web/THIRD_PARTY_LICENSES.md"))
   for (const path of [
-    "skills/sketchbook-explain-diagrams/SKILL.md",
+    "skills/sketchbook-create-diagrams/SKILL.md",
     ".claude-plugin/plugin.json",
     ".claude-plugin/marketplace.json",
     ".codex-plugin/plugin.json",

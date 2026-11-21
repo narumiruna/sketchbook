@@ -40,7 +40,7 @@ Review package code before installation and project declarations before granting
 
 ### Claude Code and Codex plugins
 
-Install the plugin to get `sketchbook-explain-diagrams` and its MCP tools together. The plugins are for local clients; they use the same `sketchbook-mcp` executable.
+Install the plugin to get `sketchbook-create-diagrams` and its MCP tools together. The plugins are for local clients; they use the same `sketchbook-mcp` executable.
 
 Build and install the npm tarball from this checkout with Node.js 26.0.0 or later. This keeps the skill and MCP server on the same version. Run these commands at the repository root:
 
@@ -112,13 +112,13 @@ To run the MCP server from this checkout, use Node.js 26.0.0 or later, run `npm 
   - Keep the complete capability URL private. It permits reads within the viewer workspace.
   - Client disconnect, stdin EOF, SIGINT, or SIGTERM closes the viewer. Restarting requires a new URL; saved files remain.
 - MCP exposes tools, not Pi slash commands or automatic skill loading.
-  - The bundled [authoring skill](skills/sketchbook-explain-diagrams/SKILL.md) and [document format](skills/sketchbook-explain-diagrams/references/document-format.md) remain available as guidance.
+  - The bundled [authoring skill](skills/sketchbook-create-diagrams/SKILL.md) and [document format](skills/sketchbook-create-diagrams/references/document-format.md) remain available as guidance.
   - Client-specific UI behavior still requires the [MCP client handoff](docs/acceptance.md#mcp-client-handoff).
 
 ## Upgrade from Pi Canvas
 
 The package is now `@narumitw/sketchbook`.
-Replace `canvas_*` tool calls with `sketchbook_*` and `/skill:canvas-explain-diagrams` with `/skill:sketchbook-explain-diagrams`.
+Replace `canvas_*` tool calls with `sketchbook_*` and `/skill:canvas-explain-diagrams` with `/skill:sketchbook-create-diagrams`.
 The old names are not aliases.
 
 Existing documents in `.pi/canvas/` are not moved automatically.
@@ -130,10 +130,12 @@ Start Pi again to load the renamed tools and skill, then open documents for new 
 
 ## Use
 
+If you used `/skill:sketchbook-explain-diagrams`, update your prompts and integrations to use `/skill:sketchbook-create-diagrams`. The old command is not an alias.
+
 Load the bundled skill explicitly:
 
 ```text
-/skill:sketchbook-explain-diagrams Explain this system with an overview, API detail, and storage detail.
+/skill:sketchbook-create-diagrams Explain this system with an overview, API detail, and storage detail.
 ```
 
 When the skill handles a diagram request, it saves the article, opens the local Viewer, and returns its link by default.
@@ -141,7 +143,7 @@ You do not need to ask separately for a link.
 The skill chooses from the [supported diagram families](#supported-mermaid-diagrams) based on the question: for example, a state diagram for lifecycle changes or an XY chart for numeric trends.
 Simple questions that do not benefit from diagrams should not trigger the skill automatically.
 Automatic skill selection remains unverified.
-The skill includes complete [architecture](skills/sketchbook-explain-diagrams/assets/architecture-walkthrough.json), [process](skills/sketchbook-explain-diagrams/assets/process-walkthrough.json), and [sequence](skills/sketchbook-explain-diagrams/assets/sequence-walkthrough.json) examples.
+The skill includes complete [architecture](skills/sketchbook-create-diagrams/assets/architecture-walkthrough.json), [process](skills/sketchbook-create-diagrams/assets/process-walkthrough.json), and [sequence](skills/sketchbook-create-diagrams/assets/sequence-walkthrough.json) examples.
 
 | Tool               | Input and result                                                                                                      |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------- |
@@ -154,7 +156,7 @@ For updates, read first and use the returned revision.
 On conflict, read again and apply the change to the current document.
 A successful write confirms validation and storage, not browser rendering.
 Pi and MCP apply the same Mermaid header and source checks and preserve the exact source. The Viewer parses the diagram body in the browser.
-The [document format](skills/sketchbook-explain-diagrams/references/document-format.md) defines fields, IDs, limits, heading roles, and tool details.
+The [document format](skills/sketchbook-create-diagrams/references/document-format.md) defines fields, IDs, limits, heading roles, and tool details.
 
 For a standalone snippet, add an entry like this to `document.blocks`:
 

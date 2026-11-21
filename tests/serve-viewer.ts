@@ -27,7 +27,7 @@ const coordinator = createServer((request, response) => {
       }
       response.end(
         await readFile(
-          new URL(`../skills/sketchbook-explain-diagrams/assets/${name}.json`, import.meta.url),
+          new URL(`../skills/sketchbook-create-diagrams/assets/${name}.json`, import.meta.url),
         ),
       )
       return

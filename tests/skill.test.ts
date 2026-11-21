@@ -9,7 +9,7 @@ import { describe, expect, test } from "vitest"
 import { type DiagramDeck, type SketchbookDocument, validateDocument } from "../src/document.js"
 import { MERMAID_RENDERERS } from "../src/mermaid-policy.js"
 
-const skillRoot = fileURLToPath(new URL("../skills/sketchbook-explain-diagrams/", import.meta.url))
+const skillRoot = fileURLToPath(new URL("../skills/sketchbook-create-diagrams/", import.meta.url))
 const skillFile = resolve(skillRoot, "SKILL.md")
 const flowchartAssets = ["architecture-walkthrough.json", "process-walkthrough.json"] as const
 const sequenceAsset = "sequence-walkthrough.json"
@@ -403,7 +403,7 @@ describe("bundled Sketchbook skill", () => {
         }),
     )
     expect(Object.keys(fields).sort()).toEqual(["description", "name"])
-    expect(fields.name).toBe("sketchbook-explain-diagrams")
+    expect(fields.name).toBe("sketchbook-create-diagrams")
     expect(fields.name).toBe(relative(dirname(skillRoot), skillRoot))
     expect(fields.name).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     expect(fields.name.length).toBeLessThanOrEqual(64)

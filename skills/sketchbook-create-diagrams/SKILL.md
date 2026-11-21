@@ -1,9 +1,9 @@
 ---
-name: sketchbook-explain-diagrams
+name: sketchbook-create-diagrams
 description: Create Mermaid diagrams and charts in Pi Sketchbook and open the Viewer when a user invokes this skill or asks to visualize a topic, such as architecture, processes, message order, state changes, data relationships, timelines, or quantitative comparisons.
 ---
 
-# Explain with Pi Sketchbook
+# Create Diagrams with Pi Sketchbook
 
 Use this skill when the user invokes it explicitly or when a visual explanation would clarify the topic.
 Do not select it automatically for a simple answer that does not benefit from a diagram.

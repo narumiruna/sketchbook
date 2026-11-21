@@ -318,11 +318,11 @@ Claude Desktop and Cursor UI behavior, physical LAN access, and human acceptance
 
 ## Fixture coverage
 
-[Architecture walkthrough](../skills/sketchbook-explain-diagrams/assets/architecture-walkthrough.json) provides four connected save-boundary views and a separate caller URL/browser-request handoff.
+[Architecture walkthrough](../skills/sketchbook-create-diagrams/assets/architecture-walkthrough.json) provides four connected save-boundary views and a separate caller URL/browser-request handoff.
 It includes subgraphs, Chinese text, and an independent one-slide deck.
-[Process walkthrough](../skills/sketchbook-explain-diagrams/assets/process-walkthrough.json) provides a replacement overview, a serialized revision decision, and an independent interrupted-response check.
+[Process walkthrough](../skills/sketchbook-create-diagrams/assets/process-walkthrough.json) provides a replacement overview, a serialized revision decision, and an independent interrupted-response check.
 Both flowchart walkthroughs include Markdown prose, inline/display LaTeX, fenced TypeScript, an opening H2, and a final conclusion without redundant start/end reminders.
-[Sequence walkthrough](../skills/sketchbook-explain-diagrams/assets/sequence-walkthrough.json) teaches the order of one request and its response without `focusNodes`.
+[Sequence walkthrough](../skills/sketchbook-create-diagrams/assets/sequence-walkthrough.json) teaches the order of one request and its response without `focusNodes`.
 Earlier complete-article browser checks covered the eight bundled flowchart slides, five Agent Substrate slides, and three fresh authoring slides at narrow and desktop widths.
 Controlled compact/wide/tall layout and 20-slide navigation cases are separate from the teaching articles; the large cases do not inherit the compact label-size target.
 The skill test protects known outline and meaning regressions, not arbitrary narrative quality.

@@ -7,14 +7,14 @@ const fixtures = [
   {
     name: "architecture",
     path: new URL(
-      "../../skills/sketchbook-explain-diagrams/assets/architecture-walkthrough.json",
+      "../../skills/sketchbook-create-diagrams/assets/architecture-walkthrough.json",
       import.meta.url,
     ),
   },
   {
     name: "process",
     path: new URL(
-      "../../skills/sketchbook-explain-diagrams/assets/process-walkthrough.json",
+      "../../skills/sketchbook-create-diagrams/assets/process-walkthrough.json",
       import.meta.url,
     ),
   },

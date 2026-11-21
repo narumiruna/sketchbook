@@ -12,7 +12,7 @@ The provider or account owner must authorize API usage before running these chec
 Record the model ID, Pi version, package revision, prompt, tool transcript, output ID/revision, browser evidence, and any errors.
 Do not record credentials or a reusable capability token in published evidence.
 First send each prompt without an explicit skill command to observe discovery.
-If the model does not load the skill, record that result and repeat with `/skill:sketchbook-explain-diagrams` prefixed to the same prompt.
+If the model does not load the skill, record that result and repeat with `/skill:sketchbook-create-diagrams` prefixed to the same prompt.
 A successful explicit invocation does not prove reliable automatic selection.
 
 ### Indirect activation and near-miss
@@ -23,7 +23,7 @@ Run each prompt in a fresh session on the target Pi client and model. Start with
 
 > Explain the order of messages when a client sends a request through a gateway to an inventory service and receives the result. I need to see who sends what and what happens first.
 
-- [ ] Record whether the skill loaded. If it did not, repeat with `/skill:sketchbook-explain-diagrams` in a fresh session and record that result separately.
+- [ ] Record whether the skill loaded. If it did not, repeat with `/skill:sketchbook-create-diagrams` in a fresh session and record that result separately.
 - [ ] After the skill loads, it uses a sequence diagram to show the message order and direction.
 - [ ] The skill calls `sketchbook_write` and then `sketchbook_open` without a separate request for a saved article or Viewer link.
 
