@@ -1,11 +1,7 @@
 # Pi Sketchbook
 
-Pi Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Mermaid diagram decks. Start with one page and add sections or chapters when readers need more detail. Flowcharts use a hand-drawn style.
+Pi Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Mermaid diagram decks. Start with one page and add sections or chapters when readers need more detail.
 Each deck shows one diagram and its explanation at a time, independently of chapter navigation.
-Review the complete article outline before reviewing its decks.
-Build each deck around one question: each slide must connect to the established context and add useful information.
-Define required terms before use, remove repeated prose, and conclude each main topic.
-Keep repeated component names and meanings consistent; put independent questions in separate decks.
 Use the bottom Previous/Next buttons or labelled position dots to change slides; focused decks also support Left/Right keyboard keys.
 On wide screens, explanations appear beside their diagrams; narrower screens use one reading column.
 The page title is H1. Outside named sections, deck titles are H2 and current slide titles are H3. Inside a named section, they are H3 and H4.
@@ -101,16 +97,13 @@ To run the MCP server from this checkout, use Node.js 26.0.0 or later, run `npm 
   - In a terminal, the default is the shell's current directory. An MCP client chooses the directory when it starts the server; this is not necessarily the project open in the client.
   - Documents stay in that workspace's `.pi/sketchbook/` directory, using the same format as Pi.
   - Tool inputs cannot change the workspace. Use a separate server configuration for another workspace.
-  - Do not write the same document from different Pi or MCP processes at the same time.
+  - See [Files and lifecycle](#files-and-lifecycle) for limits on concurrent writes.
 - The server uses stdio only; stdout is reserved for MCP messages and diagnostics use stderr.
   - Each tool returns JSON text and `structuredContent`; failures also set `isError: true`.
   - Unlike Pi's bounded read text, MCP's `sketchbook_read` includes the complete stored document in both result channels.
   - Create without `documentId` and `expectedRevision`. For a full-page replacement, read first and submit both fields with the complete document. For a local edit, use `sketchbook_edit`.
-- `sketchbook_open` starts the existing read-only HTTP viewer, not an HTTP MCP endpoint.
-  - It returns a URL without opening a browser. Saving and opening do not verify browser rendering.
-  - The viewer binds to all IPv4 interfaces and requires a trusted network; the [LAN rules](#lan-access) also apply to MCP.
-  - Keep the complete capability URL private. It permits reads within the viewer workspace.
-  - Client disconnect, stdin EOF, SIGINT, or SIGTERM closes the viewer. Restarting requires a new URL; saved files remain.
+- `sketchbook_open` starts the read-only HTTP viewer, not an HTTP MCP endpoint. The [LAN rules](#lan-access) also apply to MCP.
+  - Client disconnect, stdin EOF, SIGINT, or SIGTERM closes the viewer.
 - MCP exposes tools, not Pi slash commands or automatic skill loading.
   - The bundled [authoring skill](skills/sketchbook-create-diagrams/SKILL.md) and [document format](skills/sketchbook-create-diagrams/references/document-format.md) remain available as guidance.
   - Client-specific UI behavior still requires the [MCP client handoff](docs/acceptance.md#mcp-client-handoff).
@@ -139,7 +132,7 @@ Load the bundled skill explicitly:
 ```
 
 For a quick overview, answer in chat first: state what the subject does and list its main features. Save a page only when requested or when a visual helps.
-When the skill handles a diagram request, it saves the page, opens the local Viewer, and returns its link by default. You do not need to ask separately for a link.
+When the skill handles a diagram request, it saves the page, opens the local Viewer, and returns its link by default.
 The skill chooses from the [supported diagram families](#supported-mermaid-diagrams) based on the question: for example, a state diagram for lifecycle changes or an XY chart for numeric trends.
 Simple questions that do not benefit from diagrams should not trigger the skill automatically.
 Automatic skill selection remains unverified.
@@ -155,7 +148,7 @@ The skill includes complete [architecture](skills/sketchbook-create-diagrams/ass
 | `sketchbook_edit`      | `{documentId, expectedRevision, operation}` returns `{ok: true, documentId, revision, record: 'document' \| 'book', renderingVerified: false}`. |
 
 For edits, read the record you intend to change and use its revision. On conflict or an uncertain result, read that same record again before deciding whether to retry.
-A successful write confirms validation and storage, not browser rendering.
+A successful write confirms validation and storage. Neither writing nor calling `sketchbook_open` verifies browser rendering.
 Pi and MCP apply the same Mermaid header and source checks and preserve the exact source. The Viewer parses the diagram body in the browser.
 The [document format](skills/sketchbook-create-diagrams/references/document-format.md) defines fields, IDs, limits, heading roles, and tool details.
 
@@ -186,7 +179,7 @@ Call `sketchbook_open` and use its complete returned URL on a device on the same
 No manual IP entry, host flag, or network configuration is required in Pi Sketchbook.
 After changing this checkout, run `npm run build`, use `/reload` in Pi, and reopen the document.
 
-- The viewer listens on `0.0.0.0` on a random port.
+- The read-only viewer listens on `0.0.0.0` on a random port.
   - This opens every IPv4 interface, not just the LAN; Host checks are not client-IP filtering.
   - The returned URL uses the first detected non-internal private IPv4 address in operating-system interface order.
   - Private addresses are in `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16`.
@@ -195,10 +188,11 @@ After changing this checkout, run `npm run build`, use `/reload` in Pi, and reop
 - Requests must use a detected private address or `127.0.0.1` with the exact viewer port.
   - If an Origin header is present, it must match that request's allowed Host.
   - Wildcard, public-address, hostname, and unassigned-address Host values are rejected.
+  - Host validation, same-origin access, and Content Security Policy (CSP) limit browser access.
 - HTTP is unencrypted.
   - Use only trusted networks and operating-system firewall policy; do not expose or forward the port to the Internet.
-  - Keep secrets out of documents and keep the full URL private.
-  - Its fragment token permits document reads within that viewer's workspace, not only the linked document.
+  - Keep secrets out of documents.
+- Keep the full viewer URL private. Data requests require the per-server capability token in its fragment. The token permits document reads within that viewer's workspace, not only the linked document.
 - VPNs or virtual interfaces can affect which private address is detected first.
   - Automatic selection does not prove that a second device can reach that address.
   - Firewall policy or Wi-Fi client isolation can also block access; Pi Sketchbook does not change either.
@@ -206,14 +200,14 @@ After changing this checkout, run `npm run build`, use `/reload` in Pi, and reop
 
 Addresses are captured when the listener starts.
 If the network or DHCP address changes, reload Pi and open a fresh URL.
-Stop the Pi session to close the listener and invalidate its capability; no document migration is required.
 
 ### Article review
 
 - Start chapter introduction Markdown headings at H2 and section Markdown headings at H3. Do not repeat the page or section title in Markdown.
   - Legacy Markdown blocks with H1 are shifted down when rendered; saved JSON is unchanged.
   - Keep explanation headings subordinate to their slide.
-- Review the complete heading outline, concept order, first definitions, repeated text, and conclusion before checking slide transitions.
+- Review the complete heading outline and concept order before reviewing decks and slide transitions. Check that required terms are defined before use, repeated text is removed, and each main topic has a conclusion.
+  - Give each deck one question. Make each slide build on established context and add useful information. Use consistent names and meanings for components that appear more than once.
   - Check every arrow's sender, receiver, action, direction, and required order against sources or explicit teaching facts.
   - Make important decision inputs, outcomes, and write/no-write effects visible in the graph.
   - Compare slide contributions across decks; a new title does not make a repeated explanation useful.
@@ -276,11 +270,7 @@ The original page stays schema version 1. A version without book support can sti
   - In-page links move focus without replacing the viewer token, so the current URL remains valid after navigation.
   - KaTeX uses `trust: false`, `maxExpand: 1000`, and `maxSize: 20`.
 - Viewer scripts, styles, fonts, and renderers are bundled; no CDN is required.
-- The read-only server binds to `0.0.0.0` on an ephemeral port and automatically returns a private IPv4 URL, with a loopback URL fallback.
-  - LAN access retains token validation and exact per-request Host/Origin checks; it requires a trusted network.
-  - Data requests require a per-server capability token carried by the viewer URL fragment.
-  - Host validation, same-origin access, and CSP limit browser access.
-  - Treat the full viewer URL as private and keep secrets out of documents.
+- See [LAN access](#lan-access) for viewer network controls and URL privacy.
 - A parse error is shown locally with source details instead of removing the rest of the document.
   - Rendering runs on the browser main thread; error handling is not CPU isolation.
 
@@ -296,7 +286,7 @@ Changing slides restores the diagram view.
 - **Fit to screen** shows the complete graph. **Reset zoom** restores 100% native size on slides without a focus region.
 - Flowchart architecture decks start with a full overview and no frame. Flowchart detail slides can open zoomed in on a single blue, lightly hatched focus region on the same graph.
   - In forced-colors mode, a dashed system-color border identifies the focus region without shading.
-  - **Fit to screen** shows the complete graph without removing the current frame. **Reset to slide focus** returns to that detail view.
+  - **Fit to screen** keeps the current frame visible. **Reset to slide focus** returns to that detail view.
 - Zoom is limited to 400%; the lower limit is 25% or the fitted scale when smaller.
 - Drag with a mouse or pen to pan a large graph.
   - Ctrl/Command + wheel zooms at the pointer; an ordinary wheel continues document scrolling.
@@ -317,8 +307,7 @@ Writes use revision checks, a same-process mutation queue per record, and atomic
 
 Only `sketchbook_open` starts the viewer server.
 Pi TUI and RPC sessions can open it; Pi print and JSON modes can read and write records but cannot open the Viewer.
-The MCP server can keep the viewer running until the client disconnects or the process stops.
-Shutdown closes the server but does not remove documents.
+Stopping the Pi session or MCP server closes the viewer and invalidates its URLs without removing documents.
 After reload, new, resume, or fork, open again for a current URL.
 Tree navigation and session branching do not restore disk documents; read and create a new ID for a separate document branch.
 Physical second-device LAN access, remote SSH, container forwarding, and WSLg/Windows browser access need environment-specific verification.
