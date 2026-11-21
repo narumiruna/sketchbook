@@ -77,7 +77,7 @@ type StoredBook = {
 - The viewer shows one hatched attention frame and starts zoomed in on its region. The frame replaces any previous frame.
   - **Fit to screen** shows the complete diagram with the current frame. **Reset to slide focus** returns to the detail view.
   - If any focus ID cannot be resolved, the viewer shows the full diagram without a frame and reports the missing focus. Correct the IDs rather than relying on the fallback.
-- Focused architecture detail slides use this mechanism. Unfocused slides can use different Mermaid for different stages.
+- Focus is optional. A deck can leave it out entirely; unfocused slides can use different Mermaid source and different supported families.
 
 ## Article headings and emphasis
 

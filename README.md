@@ -250,7 +250,7 @@ Use a `diagram-deck` even for one diagram. Slides in one deck can use different 
 | XY chart            | `xychart`                                                              |
 | C4                  | `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` |
 
-Flowcharts, including subgraphs, keep the hand-drawn Rough.js style with a fixed nonzero seed and a muted blue-gray default palette. Other families use Mermaid's normal style. Only flowchart detail slides can use `focusNodes`.
+Flowcharts, including subgraphs, keep the hand-drawn Rough.js style with a fixed nonzero seed and a muted blue-gray default palette. Other families use Mermaid's normal style. The diagram skill omits `focusNodes` by default. Use it only on a flowchart detail slide that needs to zoom into a region of the overview.
 
 Not supported:
 

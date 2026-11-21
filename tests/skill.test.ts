@@ -427,7 +427,15 @@ describe("bundled Sketchbook skill", () => {
     expect(skill).toContain(
       "Return the Viewer link, saved document ID, revision, and available evidence",
     )
-    expect(skill).toContain("Omit `focusNodes` on all non-flowchart slides")
+  })
+
+  test("chooses diagrams for the reader without requiring focus or a single family", async () => {
+    const skill = await readFile(skillFile, "utf8")
+    const format = await readFile(resolve(skillRoot, "references/document-format.md"), "utf8")
+    expect(skill).toContain("Honor a requested family if the Viewer supports it")
+    expect(skill).toContain("draw different diagrams and mix families in the same deck")
+    expect(skill).toContain("Omit `focusNodes` by default")
+    expect(format).toContain("Only `flowchart` and `graph` can use it on detail slides")
   })
 
   test("gives selection guidance for every supported Mermaid family", async () => {

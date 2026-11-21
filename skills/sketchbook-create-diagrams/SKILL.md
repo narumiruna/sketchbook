@@ -13,15 +13,15 @@ Use one compact deck for a quick diagram. A standalone page does not need a cove
 1. Identify the audience, main question, important execution or trust boundaries, and source-supported facts.
    - Mark assumptions instead of presenting invented components or behavior as verified facts.
 2. Read [document format](references/document-format.md) before building a payload.
-   - Use [diagram patterns](references/diagram-patterns.md) to match the family to the reader's question and plan each diagram's visible claim.
-   - Honor a requested family if the Viewer supports it.
-   - Use the complete [architecture](assets/architecture-walkthrough.json), [process](assets/process-walkthrough.json), and [sequence](assets/sequence-walkthrough.json) examples as references, not as a limit on the families you can use.
+   - Honor a requested family if the Viewer supports it; otherwise choose the simplest supported family that answers the reader's question.
+   - Use [diagram patterns](references/diagram-patterns.md) to plan each diagram's visible claim.
+   - Use the complete [architecture](assets/architecture-walkthrough.json), [process](assets/process-walkthrough.json), and [sequence](assets/sequence-walkthrough.json) examples as references, not as limits on family or slide structure.
 3. Outline the article, then write its context, decks, and conclusion.
    - Add detail to the same work when requested. Use a section for a named part of the same scrollable page, or a chapter for a topic that needs its own page. Keep the original page as the first chapter; do not reorganize earlier content without a request.
-   - Start a focused flowchart walkthrough with one complete overview and no attention frame.
-   - Copy the exact same Mermaid on each focused detail slide and use `focusNodes` to frame one small region for a distinct explanation. Only flowchart slides support this field.
-   - Omit `focusNodes` on all non-flowchart slides.
-   - Use different diagrams for different stages when doing so helps the reader. Keep IDs, short labels, and meanings stable across slides.
+   - Use one diagram when it answers the question, or draw different diagrams and mix families in the same deck when each slide adds to the same answer.
+   - Omit `focusNodes` by default; do not choose a flowchart or repeat a diagram just to add a focus frame.
+   - Follow the document format's Slide focus rules only when zooming into a region of the same flowchart helps the reader.
+   - Keep IDs, short labels, and meanings stable for elements that recur across slides.
    - Put detailed explanations, formulas, and code in Markdown rather than node labels.
 4. Before saving, review the whole article's outline, concept order, first definitions, repetition, and conclusion.
    - Complete this review before checking each slide's contribution and continuity with adjacent slides.

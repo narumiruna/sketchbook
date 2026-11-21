@@ -84,8 +84,9 @@ First identify what the reader needs to see. Use the user's requested family if 
 | How do items compare on two independent criteria?                | Quadrant chart (`quadrantChart`)                                            |
 
 - For charts and data diagrams, label units and categories, keep values and relationships faithful to their source, and do not invent missing numbers.
-- Use a flowchart for component relationships or a decision with success and recovery paths.
-  - Start a focused architecture walkthrough with a complete overview and no attention frame. Focused detail slides keep identical complete Mermaid source and use `focusNodes` to zoom in on one region for a distinct contribution.
+- For system architecture, use C4 when boundaries or levels of detail are the point; use a flowchart when decisions, branches, or recovery paths are the point.
+- Leave `focusNodes` out unless zooming into one region of the same flowchart improves the explanation.
+  - For a focused flowchart walkthrough, start with a complete overview and no attention frame. Focused detail slides keep identical complete Mermaid source and use `focusNodes` to zoom in on one region for a distinct contribution.
   - Select a small set of relevant nodes. Include neighbors only when their relationship matters. Use one frame per detail slide; do not reuse the same set of focus IDs, regardless of order. Regions can overlap when a node connects two distinct contributions.
   - Check what the frame implies; proximity alone does not imply shared ownership or execution order. Use subgraphs for supported boundaries, not to simulate attention frames.
   - Name the focused components in the explanation. Move details to prose when including them in the map would make the overview unreadable.
