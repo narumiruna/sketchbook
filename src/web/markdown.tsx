@@ -106,9 +106,7 @@ function followFragment(event: MouseEvent<HTMLAnchorElement>, href: string | und
   if (!event.currentTarget.matches("[data-footnote-ref], [data-footnote-backref]")) {
     try {
       id = decodeURIComponent(fragment)
-    } catch {
-      // A literal target can still exist when the fragment is not valid URI text.
-    }
+    } catch {}
   }
   const target = document.getElementById(id) ?? document.getElementById(fragment)
   if (!target) return

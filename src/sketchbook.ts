@@ -80,7 +80,6 @@ function result<T extends object>(data: T, text: string) {
 }
 
 export function failed(error: unknown) {
-  // Bound errors as well as source output. Errors never include a viewer capability URL.
   const message = (error instanceof Error ? error.message : "Sketchbook operation failed.").slice(
     0,
     2000,

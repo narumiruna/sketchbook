@@ -2,19 +2,6 @@
   "scripts/capture-reading-layout.ts": [
     "// Never store its temporary capability URL or use a user's document directory."
   ],
-  "src/mcp-cli.ts": [
-    "// Do not log protocol payloads, document content, or viewer capability URLs."
-  ],
-  "src/server.ts": [
-    "// This is the HTTP error boundary. Never expose paths, credentials, or request data.",
-    "// open() receives the startup error. There might still be a listener to clean up."
-  ],
-  "src/sketchbook.ts": [
-    "// Bound errors as well as source output. Errors never include a viewer capability URL."
-  ],
-  "src/web/markdown.tsx": [
-    "// A literal target can still exist when the fragment is not valid URI text."
-  ],
   "tests/mcp.test.ts": ["// Closing an incomplete request can reset the socket."],
   "tests/server.test.ts": ["// Destroying an incomplete request can reset its client socket."],
   "tests/tools.test.ts": ["// Shutdown can reset an incomplete HTTP request."]

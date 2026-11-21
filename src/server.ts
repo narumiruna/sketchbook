@@ -113,7 +113,6 @@ export class ViewerServer {
       this.assertOpen()
       const hosts = viewerHosts()
       const server = createServer((request, response) => {
-        // This is the HTTP error boundary. Never expose paths, credentials, or request data.
         void this.handle(request, response).catch(() => {
           if (response.destroyed) return
           if (response.headersSent) response.destroy()
@@ -158,9 +157,7 @@ export class ViewerServer {
     if (this.starting) {
       try {
         await this.starting
-      } catch {
-        // open() receives the startup error. There might still be a listener to clean up.
-      }
+      } catch {}
     }
     const server = this.server
     if (!server) return

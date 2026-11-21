@@ -34,7 +34,6 @@ async function main(): Promise<void> {
     return stopping
   }
   const reportFailure = (): void => {
-    // Do not log protocol payloads, document content, or viewer capability URLs.
     process.stderr.write("Sketchbook MCP server failed.\n")
     process.exitCode = 1
     void stop().catch(() => {})
