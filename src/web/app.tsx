@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react"
 import type { Chapter, StoredBook } from "../book.js"
 import type { CodeBlock, DiagramDeck, StoredDocument } from "../document.js"
-import { BookContents, ChapterOrder, useBookLocation } from "./chapter-navigation"
+import { BookContents, ChapterOrder, chapterNumber, useBookLocation } from "./chapter-navigation"
 import { Diagram } from "./diagram"
 import { Markdown } from "./markdown"
 
@@ -327,30 +327,42 @@ function Reader({ stored, token }: { stored: ViewerDocument; token: string }) {
   }, [chapter.title])
 
   const revisionRecord = index > 0 && book ? book : { revision, updatedAt }
+  const hasContents = chapters.length > 1 || chapter.sections.length > 0
   return (
-    <main>
-      <h1 id={chapterHeadingId} tabIndex={-1}>
-        {chapter.title}
-      </h1>
-      <p className="revision">
-        {index > 0 ? "Book revision" : "Revision"} {revisionRecord.revision} ·{" "}
-        <time dateTime={revisionRecord.updatedAt}>
-          {new Date(revisionRecord.updatedAt).toLocaleString()}
-        </time>
-      </p>
-      {notice && <p role="status">{notice}</p>}
-      <BookContents chapters={chapters} chapter={chapter} section={section} links={links} />
-      <Blocks key={chapter.id} blocks={chapter.blocks} />
-      {chapter.sections.map(({ id, title, blocks }) => (
-        <section key={`${chapter.id}/${id}`} className="chapter-section">
-          <h2 id={sectionHeadingId(id)} tabIndex={-1}>
-            {title}
-          </h2>
-          <Blocks blocks={blocks} inSection />
-        </section>
-      ))}
-      <ChapterOrder previous={chapters[index - 1]} next={chapters[index + 1]} links={links} />
-    </main>
+    <div className={hasContents ? "book-layout" : undefined}>
+      {hasContents && (
+        <BookContents chapters={chapters} chapter={chapter} section={section} links={links} />
+      )}
+      <main>
+        <header className={chapters.length > 1 ? "book-chapter-header" : undefined}>
+          {chapters.length > 1 && (
+            <p className="chapter-position">
+              Chapter {chapterNumber(index)} / {chapterNumber(chapters.length - 1)}
+            </p>
+          )}
+          <h1 id={chapterHeadingId} tabIndex={-1}>
+            {chapter.title}
+          </h1>
+          <p className="revision">
+            {index > 0 ? "Book revision" : "Revision"} {revisionRecord.revision} ·{" "}
+            <time dateTime={revisionRecord.updatedAt}>
+              {new Date(revisionRecord.updatedAt).toLocaleString()}
+            </time>
+          </p>
+        </header>
+        {notice && <p role="status">{notice}</p>}
+        <Blocks key={chapter.id} blocks={chapter.blocks} />
+        {chapter.sections.map(({ id, title, blocks }) => (
+          <section key={`${chapter.id}/${id}`} className="chapter-section">
+            <h2 id={sectionHeadingId(id)} tabIndex={-1}>
+              {title}
+            </h2>
+            <Blocks blocks={blocks} inSection />
+          </section>
+        ))}
+        <ChapterOrder previous={chapters[index - 1]} next={chapters[index + 1]} links={links} />
+      </main>
+    </div>
   )
 }
 

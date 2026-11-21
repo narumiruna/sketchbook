@@ -58,7 +58,7 @@ function chapterURL(fixture: Fixture, chapter: string, section?: string) {
 }
 
 const bookContents = (page: Page) => page.getByRole("navigation", { name: "Book contents" })
-const chapterContents = (page: Page) => page.getByRole("navigation", { name: "Chapter contents" })
+const chapterContents = (page: Page) => page.getByRole("list", { name: "Chapter contents" })
 const chapterOrder = (page: Page) => page.getByRole("navigation", { name: "Chapter order" })
 const title = (page: Page) => page.getByRole("heading", { level: 1 })
 
@@ -82,6 +82,7 @@ test("a quick overview still opens without book navigation", async ({
   await expect(title(page)).toHaveText(codebaseOverview.title)
   await expect(page.getByText("Write and read", { exact: true })).toBeVisible()
   await expect(page.getByRole("navigation")).toHaveCount(0)
+  await expect(page.getByRole("complementary", { name: "Contents" })).toHaveCount(0)
   await capture(page, testInfo.outputPath("standalone.png"))
   await page.setViewportSize({ width: 390, height: 850 })
   await capture(page, testInfo.outputPath("standalone-390.png"))
@@ -102,7 +103,9 @@ test("the original link gains sections and promotes live without losing its intr
     type: "add-section",
     section: chatFirstSection,
   })
-  const sectionLink = chapterContents(page).getByRole("link", { name: chatFirstSection.title })
+  const sectionLink = page
+    .getByRole("navigation", { name: "Chapter contents" })
+    .getByRole("link", { name: chatFirstSection.title })
   await expect(sectionLink).toBeVisible()
   await expect(bookContents(page)).toHaveCount(0)
   await expect(chapterOrder(page)).toHaveCount(0)
@@ -163,17 +166,40 @@ for (const width of [390, 1440]) {
     page.on("request", (sent) => methods.push(sent.method()))
     await page.goto(fixture.url)
     await expect(title(page)).toHaveText(chatOverview.title)
-    await expect(bookContents(page).getByRole("link")).toHaveText([
-      chatOverview.title,
-      architecture.title,
-      api.title,
-      database.title,
+    await expect(bookContents(page).locator(".contents-chapter")).toHaveText([
+      `01${chatOverview.title}`,
+      `02${architecture.title}`,
+      `03${api.title}`,
+      `04${database.title}`,
     ])
+    await expect(page.locator(".chapter-position")).toHaveText("Chapter 01 / 04")
+    const sidebar = page.getByRole("complementary", { name: "Contents" })
+    await expect(sidebar.getByRole("navigation")).toHaveCount(1)
+    await expect(
+      sidebar
+        .locator("li")
+        .filter({ has: page.locator('[aria-current="page"]') })
+        .getByRole("list", { name: "Chapter contents" }),
+    ).toBeVisible()
+    const sidebarBox = await sidebar.boundingBox()
+    const articleBox = await page.getByRole("main").boundingBox()
+    if (!sidebarBox || !articleBox) throw new Error("Missing book layout")
+    if (width === 390) {
+      expect(sidebarBox.y + sidebarBox.height).toBeLessThanOrEqual(articleBox.y)
+      await expect(sidebar).toHaveCSS("position", "static")
+    } else {
+      expect(sidebarBox.x + sidebarBox.width).toBeLessThan(articleBox.x)
+      await expect(sidebar).toHaveCSS("position", "sticky")
+    }
     const defaultLink = bookContents(page).getByRole("link", { name: chatOverview.title })
     checkLocation((await defaultLink.getAttribute("href")) ?? "", fixture)
     await capture(page, testInfo.outputPath("01-message.png"))
     await page.keyboard.press("Tab")
     await expect(defaultLink).toBeFocused()
+    await page.keyboard.press("Tab")
+    await expect(
+      chapterContents(page).getByRole("link", { name: chatFirstSection.title }),
+    ).toBeFocused()
     await page.keyboard.press("Tab")
     await expect(bookContents(page).getByRole("link", { name: architecture.title })).toBeFocused()
     await page.keyboard.press("Tab")
@@ -195,6 +221,12 @@ for (const width of [390, 1440]) {
       .getByRole("link", { name: `Next chapter: ${api.title}` })
       .press("Enter")
     await expect(title(page)).toHaveText(api.title)
+
+    if (width !== 390) {
+      await page.evaluate(() => window.scrollTo(0, 400))
+      await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(200)
+      await expect.poll(async () => (await sidebar.boundingBox())?.y).toBeCloseTo(16, 0)
+    }
 
     const retryLink = chapterContents(page).getByRole("link", { name: retry.title })
     const retryURL = checkLocation(
@@ -287,13 +319,14 @@ test("renaming, moving, and appending chapters keeps existing links stable", asy
     chapter: chatExtraChapter,
   })
   await expect(title(page)).toHaveText("Message API")
-  await expect(bookContents(page).getByRole("link")).toHaveText([
-    chatOverview.title,
-    "Message API",
-    architecture.title,
-    database.title,
-    chatExtraChapter.title,
+  await expect(bookContents(page).locator(".contents-chapter")).toHaveText([
+    `01${chatOverview.title}`,
+    "02Message API",
+    `03${architecture.title}`,
+    `04${database.title}`,
+    `05${chatExtraChapter.title}`,
   ])
+  await expect(page.locator(".chapter-position")).toHaveText("Chapter 02 / 05")
   await expect(
     chapterOrder(page).getByRole("link", { name: `Previous chapter: ${chatOverview.title}` }),
   ).toBeVisible()

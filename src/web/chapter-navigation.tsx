@@ -51,6 +51,10 @@ export function useBookLocation(documentId: string, token: string) {
   return { location, links }
 }
 
+export function chapterNumber(index: number): string {
+  return String(index + 1).padStart(2, "0")
+}
+
 export function BookContents({
   chapters,
   chapter,
@@ -62,48 +66,51 @@ export function BookContents({
   section?: Section
   links: ChapterLinks
 }) {
-  const bookLabel = useId()
-  const chapterLabel = useId()
-  if (chapters.length < 2 && !chapter.sections.length) return null
+  const label = useId()
+  const isBook = chapters.length > 1
+  const sections = chapter.sections.length > 0 && (
+    <ol className="contents-sections" aria-label={isBook ? "Chapter contents" : undefined}>
+      {chapter.sections.map(({ id, title }) => (
+        <li key={id}>
+          <a
+            href={links.href(chapter.id, id)}
+            onClick={links.follow}
+            aria-current={id === section?.id ? "location" : undefined}
+          >
+            {title}
+          </a>
+        </li>
+      ))}
+    </ol>
+  )
   return (
-    <div className="book-contents">
-      {chapters.length > 1 && (
-        <nav aria-labelledby={bookLabel}>
-          <h2 id={bookLabel}>Book contents</h2>
-          <ol>
-            {chapters.map(({ id, title }) => (
+    <aside className="book-contents" aria-label="Contents">
+      <nav aria-labelledby={label}>
+        <p id={label} className="contents-label">
+          {isBook ? "Book contents" : "Chapter contents"}
+        </p>
+        {isBook ? (
+          <ol className="contents-chapters">
+            {chapters.map(({ id, title }, index) => (
               <li key={id}>
                 <a
+                  className="contents-chapter"
                   href={links.href(id)}
                   onClick={links.follow}
                   aria-current={id === chapter.id ? "page" : undefined}
                 >
+                  <span aria-hidden="true">{chapterNumber(index)}</span>
                   {title}
                 </a>
+                {id === chapter.id && sections}
               </li>
             ))}
           </ol>
-        </nav>
-      )}
-      {chapter.sections.length > 0 && (
-        <nav aria-labelledby={chapterLabel}>
-          <h2 id={chapterLabel}>Chapter contents</h2>
-          <ol>
-            {chapter.sections.map(({ id, title }) => (
-              <li key={id}>
-                <a
-                  href={links.href(chapter.id, id)}
-                  onClick={links.follow}
-                  aria-current={id === section?.id ? "location" : undefined}
-                >
-                  {title}
-                </a>
-              </li>
-            ))}
-          </ol>
-        </nav>
-      )}
-    </div>
+        ) : (
+          sections
+        )}
+      </nav>
+    </aside>
   )
 }
 
