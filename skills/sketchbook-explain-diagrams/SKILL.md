@@ -1,12 +1,14 @@
 ---
 name: sketchbook-explain-diagrams
-description: Explain architecture, processes, and message order with Mermaid in Pi Sketchbook when a user asks for a walkthrough, or when a diagram would clarify an interaction.
+description: Explain architecture, processes, and message order with Mermaid in Pi Sketchbook and open the Viewer when a user invokes this skill or asks for a diagram or walkthrough that would benefit from it.
 ---
 
 # Explain with Pi Sketchbook
 
-Suggest a diagram when it makes an interaction, decision, or handoff easier to understand. For a simple answer, reply directly without creating or opening a Sketchbook document.
-If the user wants a Sketchbook article, build decks that answer distinct questions in a clear reading order.
+Use this skill when the user invokes it explicitly or when a diagram makes an interaction, decision, or handoff easier to understand.
+Do not select it automatically for a simple answer that does not benefit from a diagram.
+Every diagram task using this skill delivers a saved Sketchbook article and a Viewer link unless the user opts out.
+Use one compact deck for a quick diagram.
 
 1. Identify the audience, main question, important execution or trust boundaries, and source-supported facts.
    - Mark assumptions instead of presenting invented components or behavior as verified facts.
@@ -23,13 +25,15 @@ If the user wants a Sketchbook article, build decks that answer distinct questio
    - Complete this review before checking each slide's contribution and continuity with adjacent slides.
    - Apply the source, decision, and cross-deck contribution checks in the diagram patterns.
    - Correct gaps, redundant sections, and disconnected slides, then keep the compact review record before calling `sketchbook_write`.
-5. Use `sketchbook_write` only for an agreed saved document. Use `sketchbook_open` only when a viewer link is wanted.
+5. Use `sketchbook_write` to save the article, then use `sketchbook_open` to open the Viewer.
+   - Do not wait for a separate request to save or open it.
    - For an update, use `sketchbook_read`, change the complete document, and write with its ID and returned revision.
    - Correct validation errors before retrying.
    - On a revision conflict, read again and apply the intended change to the current document instead of blindly resubmitting.
 6. Before claiming visual review, inspect the full rendered article and every slide at desktop and 390px widths.
    - Follow the visual checks in the diagram patterns, or explicitly report which viewport, article, or slide coverage remains unverified.
-7. Return the saved document ID, revision, and available evidence. If a viewer link was requested, return it or state why opening is unavailable.
+7. Return the Viewer link, saved document ID, revision, and available evidence.
+   - If opening is unavailable, return the saved ID and revision and explain why.
    - Report saved, rendered, readable, content-correct, and human acceptance as separate results using the document format's evidence rules.
 
 Do not edit storage JSON directly or include secrets, credentials, or unnecessary personal data.

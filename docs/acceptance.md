@@ -24,14 +24,14 @@ Run each prompt in a fresh session on the target Pi client and model. Start with
 > Explain the order of messages when a client sends a request through a gateway to an inventory service and receives the result. I need to see who sends what and what happens first.
 
 - [ ] Record whether the skill loaded. If it did not, repeat with `/skill:sketchbook-explain-diagrams` in a fresh session and record that result separately.
-- [ ] The response suggests a diagram because the order and direction of messages matter. A sequence diagram can make both visible.
-- [ ] No `sketchbook_write` or `sketchbook_open` call occurs without a request for a saved article or Viewer link.
+- [ ] After the skill loads, it uses a sequence diagram to show the message order and direction.
+- [ ] The skill calls `sketchbook_write` and then `sketchbook_open` without a separate request for a saved article or Viewer link.
 
 **Simple near-miss:**
 
 > What does HTTP status 204 mean? Answer in one sentence.
 
-- [ ] Record whether the skill loaded.
+- [ ] The skill does not load automatically.
 - [ ] The answer is direct. It does not suggest a diagram, save a document, or open a Viewer.
 
 Mechanical Pi skill discovery and explicit command expansion do not require a model call. Without the target client and model traces, automatic selection and near-miss behavior remain unverified.
