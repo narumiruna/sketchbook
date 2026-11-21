@@ -38,8 +38,37 @@ Git-source installation is not supported in this release.
 The release workflow creates version tags and GitHub Releases. It does not publish npm packages.
 Review package code before installation and project declarations before granting Pi project trust.
 
+### Claude Code and Codex plugins
+
+Install the plugin to get `sketchbook-explain-diagrams` and its MCP tools together. The plugins are for local clients; they use the same `sketchbook-mcp` executable.
+
+Build and install the npm tarball from this checkout with Node.js 26.0.0 or later. This keeps the skill and MCP server on the same version. Run these commands at the repository root:
+
+```sh
+npm ci
+npm run build
+archive=$(npm pack --quiet --ignore-scripts)
+npm install --global "./$archive"
+plugin_root="$(npm root --global)/@narumitw/sketchbook"
+```
+
+Make sure `sketchbook-mcp --help` works in the shell that starts your client. Register the plugin for either client using the `plugin_root` value above:
+
+```sh
+# Claude Code
+claude plugin marketplace add "$plugin_root"
+claude plugin install sketchbook@narumi-sketchbook
+
+# Codex CLI
+codex plugin marketplace add "$plugin_root"
+codex plugin add sketchbook@narumi-sketchbook
+```
+
+Start a new client session from the workspace where you want to keep your documents. Claude Code uses the project root; Codex uses the server's working directory, inherited from the CLI session in the tested local setup. Both save to that workspace's `.pi/sketchbook/` directory. If you already configured the standalone MCP server, remove the duplicate entry before using the plugin.
+
 ### MCP
 
+For a server without the bundled skill, configure MCP directly.
 The stdio MCP server exposes `sketchbook_write`, `sketchbook_read`, and `sketchbook_open` to clients such as Claude Desktop and Cursor. It does not require Pi.
 Run the published package from your workspace:
 

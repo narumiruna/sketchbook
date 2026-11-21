@@ -342,7 +342,16 @@ try {
   assert.ok(files.includes("dist/mcp-cli.js") && files.includes("dist/mcp.js"))
   assert.ok(files.includes("dist/web/index.html"))
   assert.ok(files.includes("dist/web/THIRD_PARTY_LICENSES.md"))
-  assert.ok(files.includes("skills/sketchbook-explain-diagrams/SKILL.md"))
+  for (const path of [
+    "skills/sketchbook-explain-diagrams/SKILL.md",
+    ".claude-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
+    ".codex-plugin/plugin.json",
+    ".codex-plugin/mcp.json",
+    ".agents/plugins/marketplace.json",
+  ]) {
+    assert.ok(files.includes(path), `Packed file missing: ${path}`)
+  }
   assert.ok(files.includes("README.md") && files.includes("LICENSE"))
   assert.ok(files.includes("docs/compatibility.md") && files.includes("docs/acceptance.md"))
   assert.ok(!files.some((file) => file.startsWith("docs/plans/")))

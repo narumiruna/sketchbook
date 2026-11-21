@@ -1,0 +1,13 @@
+{
+  "name": "narumi-sketchbook",
+  "description": "The Sketchbook skill and local MCP server.",
+  "owner": {
+    "name": "narumiruna"
+  },
+  "plugins": [
+    {
+      "name": "sketchbook",
+      "source": "./"
+    }
+  ]
+}

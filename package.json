@@ -21,6 +21,9 @@
     "diagrams"
   ],
   "files": [
+    ".agents/plugins/marketplace.json",
+    ".claude-plugin",
+    ".codex-plugin",
     "dist",
     "skills",
     "docs/compatibility.md",

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "sketchbook": {
+      "type": "stdio",
+      "command": "sketchbook-mcp"
+    }
+  }
+}
