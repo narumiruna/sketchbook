@@ -64,8 +64,10 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   assert.equal(loaded.extensions.length, 1)
   const extension = loaded.extensions[0]
   assert.deepEqual([...extension.tools.keys()].sort(), [
+    "sketchbook_edit",
     "sketchbook_open",
     "sketchbook_read",
+    "sketchbook_read_book",
     "sketchbook_write",
   ])
   assert.equal(extension.flags.size, 0, "The viewer must not require host flags")
@@ -156,6 +158,15 @@ async function smoke(packagePath: string, label: string): Promise<void> {
     assert.equal(response.status, 200)
     const stored = (await response.json()) as { revision: number }
     assert.equal(stored.revision, 1)
+    const section = { id: "details", title: "Details", blocks: [] }
+    const added = await call("sketchbook_edit", {
+      documentId: created.documentId,
+      expectedRevision: 0,
+      operation: { type: "add-section", section },
+    })
+    assert.equal(added.record, "book")
+    const book = await call("sketchbook_read_book", { documentId: created.documentId })
+    assert.deepEqual((book.book as { sections: unknown }).sections, [section])
     const browser = await chromium.launch({ headless: true })
     try {
       const page = await browser.newPage()
@@ -241,8 +252,10 @@ async function smokeMcp(tarball: string): Promise<void> {
     await client.connect(transport)
     const listed = await client.listTools()
     assert.deepEqual(listed.tools.map((tool) => tool.name).sort(), [
+      "sketchbook_edit",
       "sketchbook_open",
       "sketchbook_read",
+      "sketchbook_read_book",
       "sketchbook_write",
     ])
     const document: SketchbookDocument = {
@@ -287,6 +300,15 @@ async function smokeMcp(tarball: string): Promise<void> {
       arguments: { document, documentId: created.documentId, expectedRevision: 1 },
     })
     assert.equal(conflict.isError, true)
+    const chapter = { id: "details", title: "Details", blocks: [], sections: [] }
+    const added = await call("sketchbook_edit", {
+      documentId: created.documentId,
+      expectedRevision: 0,
+      operation: { type: "add-chapter", chapter },
+    })
+    assert.equal(added.record, "book")
+    const book = await call("sketchbook_read_book", { documentId: created.documentId })
+    assert.deepEqual((book.book as { chapters: unknown }).chapters, [chapter])
     const opened = await call("sketchbook_open", { documentId: created.documentId })
     assert.equal(opened.renderingVerified, false)
     const url = new URL(String(opened.url))

@@ -12,20 +12,20 @@ Source inspection and automated tests do not establish human visual acceptance o
 
 ## Support matrix
 
-| Area                            | Status             | Evidence or remaining check                                                                                                                         |
-| ------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node.js                         | Automated          | Minimum `>=26.0.0` in `package.json`; see [Node.js 26 validation](#nodejs-26-validation).                                                           |
-| Pi host                         | Automated          | Pi `1.6.0` and TypeBox `1.4.7`; actual `DefaultResourceLoader` discovery, skill-command expansion, and tool execution pass the package smoke tests. |
-| MCP stdio                       | Automated          | Official SDK client and subprocess tests cover all three tools, cancellation, viewer cleanup, and an installed tarball without Pi.                  |
-| Mermaid                         | Declared           | Version `12.3.0`; see the [accepted headers](../README.md#supported-mermaid-diagrams) and [family validation](#mermaid-1230-family-validation).     |
-| Hand-drawn output               | Source + Automated | Rough.js `4.6.6`; source trace below plus real rough paths, fixed-seed redraws, markers, styles, and isolated SVG IDs checked in Chromium.          |
-| KaTeX                           | Automated          | Version `0.19.1` with nested copies overridden; browser math/security checks pass and `npm audit` reports zero vulnerabilities.                     |
-| Skill resources                 | Automated          | Frontmatter, relative local links, strict schema fixtures, allowlist, and connected walkthrough checks pass `tests/skill.test.ts`.                  |
-| Built local and tarball loading | Automated          | `npm run test:package` loads actual local and extracted npm-tarball resources and viewer assets without external browser requests.                  |
-| Human visual acceptance         | Unverified         | Text size, hand-drawn style, responsive layout, and explanation clarity require user review.                                                        |
-| Trusted LAN IPv4                | Source + Automated | Tests and same-host private-interface Chromium smoke pass on macOS; physical second-device access remains unverified.                               |
-| Remote access                   | Unverified         | SSH forwarding, containers, and WSLg/Windows browser routing need environment-specific checks.                                                      |
-| Active-agent authoring          | Authoring trial    | Two fresh cases use the revised skill and separate document IDs; automatic skill selection and broader model reliability remain unverified.         |
+| Area                            | Status             | Evidence or remaining check                                                                                                                                   |
+| ------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node.js                         | Automated          | Minimum `>=26.0.0` in `package.json`; see [Node.js 26 validation](#nodejs-26-validation).                                                                     |
+| Pi host                         | Automated          | Pi `1.6.0` and TypeBox `1.4.7`; actual `DefaultResourceLoader` discovery, skill-command expansion, and tool execution pass the package smoke tests.           |
+| MCP stdio                       | Automated          | Official SDK client and subprocess tests cover the standalone tools, book edits and reads, cancellation, viewer cleanup, and an installed tarball without Pi. |
+| Mermaid                         | Declared           | Version `12.3.0`; see the [accepted headers](../README.md#supported-mermaid-diagrams) and [family validation](#mermaid-1230-family-validation).               |
+| Hand-drawn output               | Source + Automated | Rough.js `4.6.6`; source trace below plus real rough paths, fixed-seed redraws, markers, styles, and isolated SVG IDs checked in Chromium.                    |
+| KaTeX                           | Automated          | Version `0.19.1` with nested copies overridden; browser math/security checks pass and `npm audit` reports zero vulnerabilities.                               |
+| Skill resources                 | Automated          | Frontmatter, relative local links, strict schema fixtures, allowlist, and connected walkthrough checks pass `tests/skill.test.ts`.                            |
+| Built local and tarball loading | Automated          | `npm run test:package` loads actual local and extracted npm-tarball resources and viewer assets without external browser requests.                            |
+| Human visual acceptance         | Unverified         | Text size, hand-drawn style, responsive layout, and explanation clarity require user review.                                                                  |
+| Trusted LAN IPv4                | Source + Automated | Tests and same-host private-interface Chromium smoke pass on macOS; physical second-device access remains unverified.                                         |
+| Remote access                   | Unverified         | SSH forwarding, containers, and WSLg/Windows browser routing need environment-specific checks.                                                                |
+| Active-agent authoring          | Authoring trial    | Two fresh cases use the revised skill and separate document IDs; automatic skill selection and broader model reliability remain unverified.                   |
 
 ## Mermaid 12.3.0 family validation
 
@@ -301,7 +301,7 @@ The CI matrix at the time still included Node.js `22.19.0`, the former minimum. 
 Verification on Node.js `22.19.0` and `26.11.1` on 2026-11-12 produced these results:
 
 - `npm run ci` passed formatting/lint, TypeScript checks, all 257 Vitest tests across 13 files, and production builds.
-- MCP protocol tests cover the three shared schemas, JSON text and structured output, revisions, conflicts, invalid input, Mermaid policy, complete large reads, authentication, cancellation, and disconnect cleanup.
+- MCP protocol tests cover the shared tool schemas, JSON text and structured output, document and book revisions, conflicts, invalid input, Mermaid policy, complete reads, authentication, cancellation, and disconnect cleanup.
   - The adapter handles numeric-zero and empty-string request IDs explicitly because SDK `1.32.2` ignores those cancellation IDs.
   - Calls and cancellation notifications in one stdio chunk are checked before storage entry. Tests cover creates, replacements, numeric and string IDs, unknown IDs, and independent requests in one batch.
   - Cancelled requests cannot bypass storage cancellation checks before the atomic commit point.

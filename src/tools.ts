@@ -6,7 +6,7 @@ export type { OpenInput, ReadInput } from "./sketchbook.js"
 /** Register contracts now; allocate workspace resources only when a tool executes. */
 export function registerSketchbookTools(pi: ExtensionAPI): () => Promise<void> {
   const tools = createSketchbookTools(withFileMutationQueue)
-  for (const tool of [tools.write, tools.read, tools.open]) {
+  for (const tool of [tools.write, tools.read, tools.open, tools.readBook, tools.edit]) {
     pi.registerTool({
       ...tool,
       description:

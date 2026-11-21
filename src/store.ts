@@ -3,6 +3,17 @@ import { constants } from "node:fs"
 import { lstat, mkdir, open, realpath, rename, unlink } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import {
+  applyBookEdit,
+  applyContentEdit,
+  type BookEditInput,
+  BookEditInputSchema,
+  isDocumentEdit,
+  MAX_BOOK_BYTES,
+  type StoredBook,
+  validateStoredBook,
+} from "./book.js"
+import {
+  assertSchema,
   MAX_DOCUMENT_BYTES,
   type StoredDocument,
   validateDocumentId,
@@ -16,6 +27,46 @@ const MAX_STORED_BYTES = MAX_DOCUMENT_BYTES + 4096
 
 function hasCode(error: unknown, code: string): boolean {
   return error instanceof Error && "code" in error && error.code === code
+}
+
+function nextRevision(expected: number, current: number, readTool: string): number {
+  if (expected !== current) {
+    throw new Error(
+      `Revision conflict: expected ${expected}, current ${current}; use ${readTool} before retrying`,
+    )
+  }
+  if (current === Number.MAX_SAFE_INTEGER) throw new Error("Sketchbook revision limit reached")
+  return current + 1
+}
+
+async function readRecord(
+  path: string,
+  maxBytes: number,
+  label: string,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  signal?.throwIfAborted()
+  const info = await lstat(path)
+  if (!info.isFile() || info.isSymbolicLink()) {
+    throw new Error(`Sketchbook ${label} must be a regular file, not a symlink`)
+  }
+  const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
+  try {
+    if (!(await file.stat()).isFile()) throw new Error(`Sketchbook ${label} must be a regular file`)
+    const buffer = Buffer.alloc(maxBytes + 1)
+    let length = 0
+    while (length < buffer.length) {
+      signal?.throwIfAborted()
+      const { bytesRead } = await file.read(buffer, length, buffer.length - length, null)
+      if (bytesRead === 0) break
+      length += bytesRead
+    }
+    if (length > maxBytes) throw new Error(`Stored sketchbook ${label} exceeds the size limit`)
+    signal?.throwIfAborted()
+    return JSON.parse(buffer.toString("utf8", 0, length))
+  } finally {
+    await file.close()
+  }
 }
 
 export class DocumentStore {
@@ -87,36 +138,121 @@ export class DocumentStore {
     }
   }
 
+  private async checkDirectory(directory: string): Promise<void> {
+    if ((await this.directory(false)) !== directory) {
+      throw new Error("Sketchbook storage directory changed during the write")
+    }
+  }
+
+  private async readDocument(
+    directory: string,
+    documentId: string,
+    signal?: AbortSignal,
+  ): Promise<StoredDocument> {
+    const data = await readRecord(
+      join(directory, `${documentId}.json`),
+      MAX_STORED_BYTES,
+      "document",
+      signal,
+    )
+    signal?.throwIfAborted()
+    const stored = validateStoredDocument(data)
+    if (stored.documentId !== documentId)
+      throw new Error("Stored sketchbook document ID does not match its file")
+    return stored
+  }
+
+  private async readSidecar(
+    directory: string,
+    documentId: string,
+    signal?: AbortSignal,
+  ): Promise<StoredBook | undefined> {
+    try {
+      const data = await readRecord(
+        join(directory, `${documentId}.book.json`),
+        MAX_BOOK_BYTES,
+        "book",
+        signal,
+      )
+      signal?.throwIfAborted()
+      const stored = validateStoredBook(data)
+      if (stored.documentId !== documentId)
+        throw new Error("Stored sketchbook book ID does not match its file")
+      return stored
+    } catch (error) {
+      signal?.throwIfAborted()
+      if (!hasCode(error, "ENOENT")) throw error
+    }
+  }
+
   async read(documentId: string, signal?: AbortSignal): Promise<StoredDocument> {
     validateDocumentId(documentId)
     signal?.throwIfAborted()
+    return this.readDocument(await this.directory(false), documentId, signal)
+  }
+
+  async readBook(documentId: string, signal?: AbortSignal): Promise<StoredBook | undefined> {
+    validateDocumentId(documentId)
+    signal?.throwIfAborted()
     const directory = await this.directory(false)
-    const path = join(directory, `${documentId}.json`)
-    const info = await lstat(path)
-    if (!info.isFile() || info.isSymbolicLink()) {
-      throw new Error("Sketchbook document must be a regular file, not a symlink")
-    }
-    const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
+    await this.readDocument(directory, documentId, signal)
+    return this.readSidecar(directory, documentId, signal)
+  }
+
+  async readViewer(
+    documentId: string,
+    signal?: AbortSignal,
+  ): Promise<StoredDocument & { book?: StoredBook }> {
+    validateDocumentId(documentId)
+    signal?.throwIfAborted()
+    const directory = await this.directory(false)
+    const stored = await this.readDocument(directory, documentId, signal)
+    const book = await this.readSidecar(directory, documentId, signal)
+    return book ? { ...stored, book } : stored
+  }
+
+  private async commit(
+    directory: string,
+    path: string,
+    stored: StoredDocument | StoredBook,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    signal?.throwIfAborted()
+    const source = `${JSON.stringify(stored)}\n`
+    if ("chapters" in stored && Buffer.byteLength(source, "utf8") > MAX_BOOK_BYTES)
+      throw new Error(`Sketchbook book exceeds ${MAX_BOOK_BYTES} bytes`)
+    const temporary = join(directory, `.${stored.documentId}.${randomUUID()}.tmp`)
+    let created = false
     try {
-      if (!(await file.stat()).isFile())
-        throw new Error("Sketchbook document must be a regular file")
-      const buffer = Buffer.alloc(MAX_STORED_BYTES + 1)
-      let length = 0
-      while (length < buffer.length) {
-        signal?.throwIfAborted()
-        const { bytesRead } = await file.read(buffer, length, buffer.length - length, null)
-        if (bytesRead === 0) break
-        length += bytesRead
+      const file = await open(
+        temporary,
+        constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY,
+        0o600,
+      )
+      created = true
+      try {
+        await file.writeFile(source, { encoding: "utf8", signal })
+        await file.sync()
+      } finally {
+        await file.close()
       }
-      if (length > MAX_STORED_BYTES)
-        throw new Error("Stored sketchbook document exceeds the size limit")
+      await this.checkDirectory(directory)
       signal?.throwIfAborted()
-      const stored = validateStoredDocument(JSON.parse(buffer.toString("utf8", 0, length)))
-      if (stored.documentId !== documentId)
-        throw new Error("Stored sketchbook document ID does not match its file")
-      return stored
-    } finally {
-      await file.close()
+      await rename(temporary, path)
+    } catch (error) {
+      if (created) {
+        try {
+          await unlink(temporary)
+        } catch (cleanupError) {
+          if (!hasCode(cleanupError, "ENOENT")) {
+            throw new AggregateError(
+              [error, cleanupError],
+              "Sketchbook write and temporary cleanup failed",
+            )
+          }
+        }
+      }
+      throw error
     }
   }
 
@@ -134,18 +270,11 @@ export class DocumentStore {
     const path = join(directory, `${documentId}.json`)
     return mutate(path, async () => {
       signal?.throwIfAborted()
-      await this.directory(false)
+      await this.checkDirectory(directory)
       let revision = 1
-      if (snapshot.documentId !== undefined) {
-        const current = await this.read(documentId, signal)
-        if (current.revision !== snapshot.expectedRevision) {
-          throw new Error(
-            `Revision conflict: expected ${snapshot.expectedRevision}, current ${current.revision}; use sketchbook_read before retrying`,
-          )
-        }
-        if (current.revision === Number.MAX_SAFE_INTEGER)
-          throw new Error("Sketchbook revision limit reached")
-        revision = current.revision + 1
+      if (snapshot.expectedRevision !== undefined) {
+        const current = await this.readDocument(directory, documentId, signal)
+        revision = nextRevision(snapshot.expectedRevision, current.revision, "sketchbook_read")
       } else {
         try {
           await lstat(path)
@@ -160,36 +289,57 @@ export class DocumentStore {
         updatedAt: new Date().toISOString(),
         document: snapshot.document,
       }
-      const temporary = join(directory, `.${documentId}.${randomUUID()}.tmp`)
-      try {
-        const file = await open(
-          temporary,
-          constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY,
-          0o600,
-        )
-        try {
-          await file.writeFile(`${JSON.stringify(stored)}\n`, { encoding: "utf8", signal })
-          await file.sync()
-        } finally {
-          await file.close()
-        }
-        await this.directory(false)
-        signal?.throwIfAborted()
-        await rename(temporary, path)
-      } catch (error) {
-        try {
-          await unlink(temporary)
-        } catch (cleanupError) {
-          if (!hasCode(cleanupError, "ENOENT")) {
-            throw new AggregateError(
-              [error, cleanupError],
-              "Sketchbook write and temporary cleanup failed",
-            )
-          }
-        }
-        throw error
-      }
+      await this.commit(directory, path, stored, signal)
       return { stored, path }
+    })
+  }
+
+  async editBook(
+    input: BookEditInput,
+    signal?: AbortSignal,
+  ): Promise<{ revision: number; record: "document" | "book" }> {
+    signal?.throwIfAborted()
+    const snapshot: unknown = structuredClone(input)
+    assertSchema(BookEditInputSchema, snapshot)
+    const { documentId, expectedRevision, operation } = snapshot
+    const documentEdit = isDocumentEdit(operation)
+    const record = documentEdit ? "document" : "book"
+    const directory = await this.directory(false)
+    const path = join(directory, `${documentId}${documentEdit ? "" : ".book"}.json`)
+    const mutate = this.mutationQueue ?? withFileMutationQueue
+    await mutate(join(directory, ".gitignore"), () => {
+      signal?.throwIfAborted()
+      return this.ensureIgnore(directory)
+    })
+    return mutate(path, async () => {
+      signal?.throwIfAborted()
+      await this.checkDirectory(directory)
+      const document = await this.readDocument(directory, documentId, signal)
+      const updatedAt = new Date().toISOString()
+      let stored: StoredDocument | StoredBook
+      if (documentEdit) {
+        const revision = nextRevision(expectedRevision, document.revision, "sketchbook_read")
+        applyContentEdit(document.document.blocks, operation)
+        stored = validateStoredDocument({ ...document, revision, updatedAt })
+      } else {
+        const current = await this.readSidecar(directory, documentId, signal)
+        const revision = nextRevision(
+          expectedRevision,
+          current?.revision ?? 0,
+          "sketchbook_read_book",
+        )
+        const book: StoredBook = {
+          documentId,
+          revision,
+          updatedAt,
+          sections: current?.sections ?? [],
+          chapters: current?.chapters ?? [],
+        }
+        applyBookEdit(book, operation)
+        stored = validateStoredBook(book)
+      }
+      await this.commit(directory, path, stored, signal)
+      return { revision: stored.revision, record }
     })
   }
 }

@@ -205,7 +205,7 @@ describe("Sketchbook MCP protocol", () => {
     return output
   }
 
-  it("initializes and lists exactly three object-root tools without files or listeners", async () => {
+  it("initializes and lists exactly five object-root tools without files or listeners", async () => {
     const listen = vi.spyOn(HttpServer.prototype, "listen")
     const storeWrite = vi.spyOn(DocumentStore.prototype, "write")
     const storeRead = vi.spyOn(DocumentStore.prototype, "read")
@@ -216,6 +216,8 @@ describe("Sketchbook MCP protocol", () => {
       "sketchbook_write",
       "sketchbook_read",
       "sketchbook_open",
+      "sketchbook_read_book",
+      "sketchbook_edit",
     ])
     for (const tool of catalog.tools) {
       expect(tool.title).toEqual(expect.any(String))
@@ -225,12 +227,12 @@ describe("Sketchbook MCP protocol", () => {
       expect(tool.outputSchema?.type).toBe("object")
       expect(tool.outputSchema?.anyOf).toHaveLength(2)
       expect(tool.annotations).toEqual({
-        readOnlyHint: tool.name !== "sketchbook_write",
+        readOnlyHint: tool.name !== "sketchbook_write" && tool.name !== "sketchbook_edit",
         openWorldHint: false,
       })
     }
     expect(catalog.tools[0].inputSchema).toEqual(WriteInputSchema)
-    for (const tool of catalog.tools.slice(1)) {
+    for (const tool of catalog.tools.slice(1, 4)) {
       expect(tool.inputSchema.properties).toEqual({ documentId: DocumentIdSchema })
       expect(tool.inputSchema.required).toEqual(["documentId"])
     }
@@ -243,8 +245,9 @@ describe("Sketchbook MCP protocol", () => {
       "Decks can mix types, but focusNodes is flowchart-only",
       "Do not use Mermaid directives, frontmatter, HTML, images, icons, links, click actions, or node metadata",
       "Create documents without documentId or expectedRevision",
-      "Read before updates",
-      "current expectedRevision",
+      "Read the target revision first",
+      "deliberate full-page replacement",
+      "Use sketchbook_edit",
       "On conflict, read again",
       "Saving does not verify rendering",
       "private capabilities",
@@ -262,6 +265,62 @@ describe("Sketchbook MCP protocol", () => {
     await closing
     expect(await readdir(cwd)).toEqual([])
     expect(listen).not.toHaveBeenCalled()
+  })
+
+  it("uses a distinct book revision for scoped MCP edits and preserves the original payload", async () => {
+    const { client } = await session()
+    const { documentId } = await write(client)
+    const readBook = () =>
+      client.callTool({
+        name: "sketchbook_read_book",
+        arguments: { documentId },
+      })
+    expect((await readBook()).structuredContent).toEqual({
+      ok: true,
+      book: null,
+      contentTruncated: false,
+    })
+    const chapter = { id: "api", title: "API", blocks: [], sections: [] }
+    const edit = (expectedRevision: number) =>
+      client.callTool({
+        name: "sketchbook_edit",
+        arguments: { documentId, expectedRevision, operation: { type: "add-chapter", chapter } },
+      })
+    expect((await edit(0)).structuredContent).toMatchObject({
+      ok: true,
+      documentId,
+      revision: 1,
+      record: "book",
+      renderingVerified: false,
+    })
+    failure(await edit(0), /revision conflict.*sketchbook_read_book/i)
+    const section = { id: "retry", title: "Retry", blocks: [] }
+    const bookEdit = (expectedRevision: number, operation: object) =>
+      client.callTool({
+        name: "sketchbook_edit",
+        arguments: { documentId, expectedRevision, operation },
+      })
+    expect(
+      (await bookEdit(1, { type: "add-section", chapterId: chapter.id, section })).isError,
+    ).not.toBe(true)
+    const block = document.blocks.find((item) => item.type === "diagram-deck")
+    if (!block) throw new Error("Expected a diagram deck fixture")
+    const appended = await bookEdit(2, {
+      type: "append-block",
+      chapterId: chapter.id,
+      sectionId: section.id,
+      block,
+    })
+    expect(appended.structuredContent).toMatchObject({ ok: true, record: "book", revision: 3 })
+    expect((await readBook()).structuredContent).toMatchObject({
+      ok: true,
+      book: {
+        documentId,
+        revision: 3,
+        chapters: [{ ...chapter, sections: [{ ...section, blocks: [block] }] }],
+      },
+    })
+    expect((await read(client, documentId)).stored).toMatchObject({ document, revision: 1 })
   })
 
   it("round-trips exact source for all supported Mermaid headers through MCP", async () => {

@@ -116,7 +116,7 @@ describe("MCP stdio executable", () => {
           `${JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" })}\n`,
         )
         const listed = await request("tools/list", {})
-        expect(listed.tools).toHaveLength(3)
+        expect(listed.tools).toHaveLength(5)
         await expect(access(join(workspace, ".pi"))).rejects.toThrow()
         const created = await request("tools/call", {
           name: "sketchbook_write",

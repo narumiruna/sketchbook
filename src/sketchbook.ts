@@ -1,5 +1,6 @@
 import { resolve } from "node:path"
 import { type Static, Type } from "typebox"
+import { BookEditInputSchema, StoredBookSchema } from "./book.js"
 import {
   assertSchema,
   DocumentIdSchema,
@@ -40,6 +41,24 @@ const ReadOutputSchema = Type.Union([
   }),
   ErrorSchema,
 ])
+const ReadBookOutputSchema = Type.Union([
+  Type.Object({
+    ok: Type.Literal(true),
+    book: Type.Union([StoredBookSchema, Type.Null()]),
+    contentTruncated: Type.Boolean(),
+  }),
+  ErrorSchema,
+])
+const EditOutputSchema = Type.Union([
+  Type.Object({
+    ok: Type.Literal(true),
+    documentId: DocumentIdSchema,
+    revision: Type.Integer(),
+    record: Type.Union([Type.Literal("document"), Type.Literal("book")]),
+    renderingVerified: Type.Literal(false),
+  }),
+  ErrorSchema,
+])
 const OpenOutputSchema = Type.Union([
   Type.Object({
     ok: Type.Literal(true),
@@ -70,7 +89,11 @@ export function failed(error: unknown) {
   return { ...result(data, message), isError: true }
 }
 
-function sourceContent(source: string, path: string): { text: string; truncated: boolean } {
+function sourceContent(
+  source: string,
+  path: string,
+  field = "stored",
+): { text: string; truncated: boolean } {
   const lines = source.split("\n")
   const head = lines.slice(0, 1900).join("\n")
   const bytes = Buffer.from(head)
@@ -81,7 +104,7 @@ function sourceContent(source: string, path: string): { text: string; truncated:
       : head
   return {
     text: truncated
-      ? `${text}\n[Content truncated at 48,000 bytes or 1,900 lines. Full document: ${path}. Full data remains in structuredContent.stored.]`
+      ? `${text}\n[Content truncated at 48,000 bytes or 1,900 lines. Full ${field === "book" ? "book" : "document"}: ${path}. Full data remains in structuredContent.${field}.]`
       : text,
     truncated,
   }
@@ -179,6 +202,66 @@ export function createSketchbookTools(mutationQueue?: FileMutationQueue) {
     },
   }
 
+  const readBook = {
+    name: "sketchbook_read_book" as const,
+    label: "Sketchbook Read Book",
+    promptSnippet: "Read a page’s sections, additional chapters, and their shared revision",
+    description:
+      "Read the sections and additional chapters attached to an existing Sketchbook page. Null book means no structured content and expected revision 0. The original page’s intro and title are returned by sketchbook_read, not this tool. Full book data is in structuredContent.book even if the text preview is truncated.",
+    parameters: IdInputSchema,
+    outputSchema: ReadBookOutputSchema,
+    async execute(input: unknown, cwd: string, signal?: AbortSignal) {
+      try {
+        const active = signalFor(signal)
+        active.throwIfAborted()
+        assertSchema(IdInputSchema, input)
+        const book = (await workspace(cwd).store.readBook(input.documentId, active)) ?? null
+        active.throwIfAborted()
+        const path = resolve(cwd, ".pi/sketchbook", `${input.documentId}.book.json`)
+        const content = sourceContent(JSON.stringify(book, null, 2), path, "book")
+        const data: Static<typeof ReadBookOutputSchema> = {
+          ok: true,
+          book,
+          contentTruncated: content.truncated,
+        }
+        return result(data, content.text)
+      } catch (error) {
+        return failed(error)
+      }
+    },
+  }
+
+  const edit = {
+    name: "sketchbook_edit" as const,
+    label: "Sketchbook Edit",
+    promptSnippet:
+      "Add or edit one Sketchbook chapter, section, block, or slide with a revision check",
+    description:
+      "Make one revision-checked change without resending unrelated content. Omit chapterId to target the original page. Block and slide edits with neither chapterId nor sectionId use the original document revision from sketchbook_read; all other operations use the book revision from sketchbook_read_book (0 if null). Adding a chapter puts the original page first; adding a section does not require a book. Use append for new content and replace-block only for a deliberate replacement. On conflict or uncertain result, read the changed record before retrying. Saving does not verify browser rendering.",
+    parameters: BookEditInputSchema,
+    outputSchema: EditOutputSchema,
+    async execute(input: unknown, cwd: string, signal?: AbortSignal) {
+      try {
+        const active = signalFor(signal)
+        active.throwIfAborted()
+        assertSchema(BookEditInputSchema, input)
+        const mutation = await workspace(cwd).store.editBook(input, active)
+        const data: Static<typeof EditOutputSchema> = {
+          ok: true,
+          documentId: input.documentId,
+          ...mutation,
+          renderingVerified: false,
+        }
+        return result(
+          data,
+          `Updated ${data.record} for ${data.documentId}, revision ${data.revision}. Browser rendering is not verified.`,
+        )
+      } catch (error) {
+        return failed(error)
+      }
+    },
+  }
+
   const open = {
     name: "sketchbook_open" as const,
     label: "Sketchbook Open",
@@ -220,5 +303,5 @@ export function createSketchbookTools(mutationQueue?: FileMutationQueue) {
     return closing
   }
 
-  return { write, read, open, close }
+  return { write, read, open, readBook, edit, close }
 }

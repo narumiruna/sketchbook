@@ -260,9 +260,9 @@ export class ViewerServer {
       reply(response, 400, "Invalid document ID.")
       return
     }
-    let stored: Awaited<ReturnType<DocumentStore["read"]>>
+    let stored: Awaited<ReturnType<DocumentStore["readViewer"]>>
     try {
-      stored = await this.store.read(id, signal)
+      stored = await this.store.readViewer(id, signal)
     } catch (error) {
       if (!missing(error)) throw error
       reply(response, 404, "Document not found.")

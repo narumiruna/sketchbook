@@ -139,7 +139,7 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
     return data<Written>(result)
   }
 
-  it("factory registers exactly three typed tools and cleanup without sockets, timers, or files", async () => {
+  it("factory registers exactly five typed tools and cleanup without sockets, timers, or files", async () => {
     const listen = vi.spyOn(Server.prototype, "listen")
     const interval = vi.spyOn(globalThis, "setInterval")
     const timeout = vi.spyOn(globalThis, "setTimeout")
@@ -149,6 +149,8 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
       "sketchbook_write",
       "sketchbook_read",
       "sketchbook_open",
+      "sketchbook_read_book",
+      "sketchbook_edit",
     ])
     expect(networkInterfaces).not.toHaveBeenCalled()
     for (const tool of fresh.tools.values()) {
@@ -200,6 +202,62 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
       expect(listen).not.toHaveBeenCalled()
     },
   )
+
+  it("adds a section and chapter through Pi without replacing the first document", async () => {
+    const written = await write()
+    const documentId = written.documentId
+    const readBook = () => host.call("sketchbook_read_book", { documentId }, cwd)
+    expect((await readBook()).structuredContent).toEqual({
+      ok: true,
+      book: null,
+      contentTruncated: false,
+    })
+    const section = { id: "details", title: "Details", blocks: [] }
+    const added = await host.call(
+      "sketchbook_edit",
+      {
+        documentId,
+        expectedRevision: 0,
+        operation: { type: "add-section", section },
+      },
+      cwd,
+    )
+    expect(added.structuredContent).toMatchObject({ ok: true, record: "book", revision: 1 })
+    const chapter = { id: "second", title: "Second chapter", blocks: [], sections: [] }
+    const edit = (expectedRevision: number) =>
+      host.call(
+        "sketchbook_edit",
+        {
+          documentId,
+          expectedRevision,
+          operation: { type: "add-chapter", chapter },
+        },
+        cwd,
+      )
+    expect((await edit(0)).isError).toBe(true)
+    expect((await edit(1)).structuredContent).toMatchObject({
+      ok: true,
+      record: "book",
+      revision: 2,
+    })
+    const block = document.blocks.find((item) => item.type === "diagram-deck")
+    if (!block) throw new Error("Expected a diagram deck fixture")
+    const append = await host.call(
+      "sketchbook_edit",
+      {
+        documentId,
+        expectedRevision: 2,
+        operation: { type: "append-block", sectionId: section.id, block },
+      },
+      cwd,
+    )
+    expect(append.structuredContent).toMatchObject({ ok: true, record: "book", revision: 3 })
+    expect((await readBook()).structuredContent).toMatchObject({
+      book: { sections: [{ ...section, blocks: [block] }], chapters: [chapter] },
+    })
+    const info = data<Read>(await host.call("sketchbook_read", { documentId }, cwd))
+    expect(info.stored).toMatchObject({ document, revision: 1 })
+  })
 
   it("round-trips exact source for all supported Mermaid headers through Pi", async () => {
     const document = mermaidTypesDocument()

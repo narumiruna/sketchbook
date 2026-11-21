@@ -131,6 +131,36 @@ describe("ViewerServer", () => {
     expect(networkInterfaces).toHaveBeenCalledTimes(1)
   })
 
+  it("publishes book content to the original authenticated endpoint with a fresh ETag", async () => {
+    const { url, auth, api } = await opened()
+    const before = await get(url, api, auth)
+    expect(JSON.parse(before.text)).toEqual(stored)
+    const chapter = { id: "api", title: "API design", blocks: [], sections: [] }
+    await store.editBook({
+      documentId: stored.documentId,
+      expectedRevision: 0,
+      operation: { type: "add-chapter", chapter },
+    })
+    const updated = await get(url, api, { ...auth, "If-None-Match": before.headers.etag })
+    expect(updated.status).toBe(200)
+    expect(updated.headers.etag).not.toBe(before.headers.etag)
+    expect(JSON.parse(updated.text)).toEqual({
+      ...stored,
+      book: {
+        documentId: stored.documentId,
+        revision: 1,
+        updatedAt: expect.any(String),
+        sections: [],
+        chapters: [chapter],
+      },
+    })
+    expect((await get(url, api, { ...auth, "If-None-Match": updated.headers.etag })).status).toBe(
+      304,
+    )
+    expect((await get(url, api)).status).toBe(401)
+    expect((await get(url, api, auth, "POST")).status).toBe(405)
+  })
+
   it.each(["10.0.0.5", "172.16.0.5", "172.31.255.254", "192.168.1.5"])(
     "binds to wildcard IPv4 and advertises detected private address %s",
     async (host) => {
@@ -417,7 +447,7 @@ describe("ViewerServer", () => {
       (await get(url, "/api/documents/00000000-0000-4000-8000-000000000000", auth)).status,
     ).toBe(404)
     expect((await get(url, "/api/other", auth)).status).toBe(404)
-    vi.spyOn(store, "read").mockRejectedValue(new Error("private filesystem failure"))
+    vi.spyOn(store, "readViewer").mockRejectedValue(new Error("private filesystem failure"))
     const failed = await get(url, api, auth)
     expect(failed.status).toBe(500)
     expect(failed.text).not.toContain("private filesystem")
@@ -512,7 +542,7 @@ describe("ViewerServer", () => {
     const reading = new Promise<AbortSignal>((accept) => {
       started = accept
     })
-    vi.spyOn(store, "read").mockImplementationOnce((_id, signal) => {
+    vi.spyOn(store, "readViewer").mockImplementationOnce((_id, signal) => {
       if (!signal) throw new Error("HTTP reads must have an abort signal")
       started(signal)
       return new Promise((accept) => {
