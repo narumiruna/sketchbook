@@ -1,5 +1,7 @@
-import { useEffect, useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
+import type { Chapter, StoredBook } from "../book.js"
 import type { CodeBlock, DiagramDeck, StoredDocument } from "../document.js"
+import { BookContents, ChapterOrder, chapterNumber, useBookLocation } from "./chapter-navigation"
 import { Diagram } from "./diagram"
 import { Markdown } from "./markdown"
 
@@ -8,8 +10,17 @@ interface Session {
   token: string
 }
 
+type ViewerDocument = StoredDocument & { book?: StoredBook }
+
+function mergeDocument(current: ViewerDocument | null, next: ViewerDocument): ViewerDocument {
+  if (!current) return next
+  const document = next.revision > current.revision ? next : current
+  const book = (next.book?.revision ?? 0) > (current.book?.revision ?? 0) ? next.book : current.book
+  return document.book === book ? document : { ...document, book }
+}
+
 function useDocument({ documentId, token }: Session) {
-  const [stored, setStored] = useState<StoredDocument | null>(null)
+  const [stored, setStored] = useState<ViewerDocument | null>(null)
   const [status, setStatus] = useState("Loading document…")
 
   useEffect(() => {
@@ -18,6 +29,7 @@ function useDocument({ documentId, token }: Session) {
       return
     }
     let stopped = false
+    let current: ViewerDocument | null = null
     let etag = ""
     let timer: ReturnType<typeof setTimeout> | undefined
     let pending = false
@@ -37,26 +49,33 @@ function useDocument({ documentId, token }: Session) {
           referrerPolicy: "no-referrer",
           signal: controller.signal,
         })
-        if (response.status === 304) {
-          setStatus("Connected")
-        } else {
+        if (stopped) return
+        if (response.status !== 304) {
           if (!response.ok) throw new Error(`Document request failed (${response.status})`)
-          const next = (await response.json()) as StoredDocument
+          const next = (await response.json()) as ViewerDocument
+          if (stopped) return
           if (
-            next.documentId !== documentId ||
-            !Number.isInteger(next.revision) ||
-            !next.document
+            next?.documentId !== documentId ||
+            !Number.isSafeInteger(next.revision) ||
+            next.revision < 1 ||
+            !Array.isArray(next.document?.blocks) ||
+            (next.book !== undefined &&
+              (next.book?.documentId !== documentId ||
+                !Number.isSafeInteger(next.book.revision) ||
+                next.book.revision < 1 ||
+                !Array.isArray(next.book.sections) ||
+                !Array.isArray(next.book.chapters)))
           ) {
             throw new Error("Invalid document response")
           }
-          if (!stopped) {
-            setStored((previous) =>
-              !previous || next.revision > previous.revision ? next : previous,
-            )
-            etag = response.headers.get("ETag") ?? ""
-            setStatus("Connected")
-          }
+          current = mergeDocument(current, next)
+          setStored(current)
+          etag =
+            current.revision === next.revision && current.book?.revision === next.book?.revision
+              ? (response.headers.get("ETag") ?? "")
+              : ""
         }
+        setStatus("Connected")
       } catch (error) {
         if (!stopped) {
           setStatus(
@@ -102,7 +121,9 @@ function currentSlide(deck: DiagramDeck, selection: Selection) {
   return deck.slides[Math.min(oldIndex, deck.slides.length - 1)]
 }
 
-function Deck({ deck }: { deck: DiagramDeck }) {
+function Deck({ deck, inSection }: { deck: DiagramDeck; inSection: boolean }) {
+  const DeckTitle = inSection ? "h3" : "h2"
+  const SlideTitle = inSection ? "h4" : "h3"
   const titleId = useId()
   const viewportId = useId()
   const [selection, setSelection] = useState<Selection>(() => ({
@@ -143,10 +164,12 @@ function Deck({ deck }: { deck: DiagramDeck }) {
     >
       <header className="deck-heading">
         <div>
-          <h2 id={titleId}>{deck.title}</h2>
-          <h3 className={deck.title === active.title ? "visually-hidden" : undefined}>
+          <DeckTitle id={titleId} className="deck-title">
+            {deck.title}
+          </DeckTitle>
+          <SlideTitle className={deck.title === active.title ? "visually-hidden" : "slide-title"}>
             {active.title}
-          </h3>
+          </SlideTitle>
         </div>
         <span className="deck-kind">Mermaid</span>
       </header>
@@ -213,7 +236,7 @@ function Deck({ deck }: { deck: DiagramDeck }) {
           <Markdown
             markdown={active.explanationMarkdown}
             context={`Block ${deck.id}, slide ${active.id}`}
-            scope="explanation"
+            headingLevel={inSection ? 5 : 4}
           />
         </div>
       </div>
@@ -238,11 +261,113 @@ function CodeSnippet({ block }: { block: CodeBlock }) {
   )
 }
 
+function Blocks({ blocks, inSection = false }: { blocks: Chapter["blocks"]; inSection?: boolean }) {
+  return blocks.map((block) => {
+    switch (block.type) {
+      case "markdown":
+        return (
+          <section key={block.id} data-block-id={block.id} aria-label={`Text block ${block.id}`}>
+            <Markdown
+              markdown={block.markdown}
+              context={`Block ${block.id}`}
+              headingLevel={inSection ? 3 : undefined}
+            />
+          </section>
+        )
+      case "code":
+        return <CodeSnippet key={block.id} block={block} />
+      default:
+        return <Deck key={block.id} deck={block} inSection={inSection} />
+    }
+  })
+}
+
+const sectionHeadingId = (sectionId: string) => `sketchbook-section-${sectionId}`
+const chapterHeadingId = "sketchbook-chapter"
+
+function Reader({ stored, token }: { stored: ViewerDocument; token: string }) {
+  const { documentId, revision, updatedAt, document: original, book } = stored
+  const first: Chapter = {
+    id: documentId,
+    title: original.title,
+    blocks: original.blocks,
+    sections: book?.sections ?? [],
+  }
+  const chapters = [first, ...(book?.chapters ?? [])]
+  const { location, links } = useBookLocation(documentId, token)
+  const query = new URLSearchParams(location.search)
+  const chapterId = query.get("chapter")
+  const sectionId = query.get("section")
+  const requested = chapters.find((chapter) => chapter.id === (chapterId ?? documentId))
+  const chapter = requested ?? first
+  const section = requested?.sections.find((section) => section.id === sectionId)
+  const index = chapters.indexOf(chapter)
+  const notice = !requested
+    ? "Chapter not found. Showing the first chapter."
+    : sectionId !== null && !section
+      ? "Section not found. Showing the chapter introduction."
+      : null
+  const lastFocus = useRef<{ location: typeof location; target: string } | null>(null)
+  const focusId = section ? sectionHeadingId(section.id) : chapterHeadingId
+  const focusTarget = `${chapter.id}/${focusId}`
+  const shouldFocus = location.focus || chapterId !== null || sectionId !== null
+  useEffect(() => {
+    if (
+      !shouldFocus ||
+      (lastFocus.current?.location === location && lastFocus.current.target === focusTarget)
+    )
+      return
+    lastFocus.current = { location, target: focusTarget }
+    const heading = document.getElementById(focusId)
+    heading?.scrollIntoView({ block: "start" })
+    heading?.focus({ preventScroll: true })
+  }, [location, focusId, focusTarget, shouldFocus])
+  useEffect(() => {
+    document.title = `${chapter.title} — Pi Sketchbook`
+  }, [chapter.title])
+
+  const revisionRecord = index > 0 && book ? book : { revision, updatedAt }
+  const hasContents = chapters.length > 1 || chapter.sections.length > 0
+  return (
+    <div className={hasContents ? "book-layout" : undefined}>
+      {hasContents && (
+        <BookContents chapters={chapters} chapter={chapter} section={section} links={links} />
+      )}
+      <main>
+        <header className={chapters.length > 1 ? "book-chapter-header" : undefined}>
+          {chapters.length > 1 && (
+            <p className="chapter-position">
+              Chapter {chapterNumber(index)} / {chapterNumber(chapters.length - 1)}
+            </p>
+          )}
+          <h1 id={chapterHeadingId} tabIndex={-1}>
+            {chapter.title}
+          </h1>
+          <p className="revision">
+            {index > 0 ? "Book revision" : "Revision"} {revisionRecord.revision} ·{" "}
+            <time dateTime={revisionRecord.updatedAt}>
+              {new Date(revisionRecord.updatedAt).toLocaleString()}
+            </time>
+          </p>
+        </header>
+        {notice && <p role="status">{notice}</p>}
+        <Blocks key={chapter.id} blocks={chapter.blocks} />
+        {chapter.sections.map(({ id, title, blocks }) => (
+          <section key={`${chapter.id}/${id}`} className="chapter-section">
+            <h2 id={sectionHeadingId(id)} tabIndex={-1}>
+              {title}
+            </h2>
+            <Blocks blocks={blocks} inSection />
+          </section>
+        ))}
+        <ChapterOrder previous={chapters[index - 1]} next={chapters[index + 1]} links={links} />
+      </main>
+    </div>
+  )
+}
+
 export function App({ session }: { session: Session }) {
   const { stored, status } = useDocument(session)
-  useEffect(() => {
-    document.title = stored ? `${stored.document.title} — Pi Sketchbook` : "Pi Sketchbook"
-  }, [stored])
   return (
     <div className="viewer">
       <header className="viewer-header">
@@ -251,33 +376,7 @@ export function App({ session }: { session: Session }) {
           {status}
         </p>
       </header>
-      {stored && (
-        <main>
-          <h1>{stored.document.title}</h1>
-          <p className="revision">
-            Revision {stored.revision} ·{" "}
-            <time dateTime={stored.updatedAt}>{new Date(stored.updatedAt).toLocaleString()}</time>
-          </p>
-          {stored.document.blocks.map((block) => {
-            switch (block.type) {
-              case "markdown":
-                return (
-                  <section
-                    key={block.id}
-                    data-block-id={block.id}
-                    aria-label={`Text block ${block.id}`}
-                  >
-                    <Markdown markdown={block.markdown} context={`Block ${block.id}`} />
-                  </section>
-                )
-              case "code":
-                return <CodeSnippet key={block.id} block={block} />
-              default:
-                return <Deck key={block.id} deck={block} />
-            }
-          })}
-        </main>
-      )}
+      {stored && <Reader stored={stored} token={session.token} />}
     </div>
   )
 }

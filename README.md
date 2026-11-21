@@ -1,14 +1,14 @@
 # Pi Sketchbook
 
-Pi Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Mermaid diagram decks. Flowcharts use a hand-drawn style.
-Each deck shows one diagram and its explanation at a time.
+Pi Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Mermaid diagram decks. Start with one page and add sections or chapters when readers need more detail. Flowcharts use a hand-drawn style.
+Each deck shows one diagram and its explanation at a time, independently of chapter navigation.
 Review the complete article outline before reviewing its decks.
 Build each deck around one question: each slide must connect to the established context and add useful information.
 Define required terms before use, remove repeated prose, and conclude each main topic.
 Keep repeated component names and meanings consistent; put independent questions in separate decks.
 Use the bottom Previous/Next buttons or labelled position dots to change slides; focused decks also support Left/Right keyboard keys.
 On wide screens, explanations appear beside their diagrams; narrower screens use one reading column.
-The document title is the page H1, each deck has a stable H2 chapter title, and its current slide uses H3.
+The page title is H1. Outside named sections, deck titles are H2 and current slide titles are H3. Inside a named section, they are H3 and H4.
 Matching deck and slide titles appear once visually.
 
 ## Installation
@@ -69,7 +69,7 @@ Start a new client session from the workspace where you want to keep your docume
 ### MCP
 
 For a server without the bundled skill, configure MCP directly.
-The stdio MCP server exposes `sketchbook_write`, `sketchbook_read`, and `sketchbook_open` to clients such as Claude Desktop and Cursor. It does not require Pi.
+The stdio MCP server exposes the same Sketchbook tools as Pi to clients such as Claude Desktop and Cursor. It does not require Pi. The installed package version determines which tools are available.
 Run the published package from your workspace:
 
 ```sh
@@ -104,8 +104,8 @@ To run the MCP server from this checkout, use Node.js 26.0.0 or later, run `npm 
   - Do not write the same document from different Pi or MCP processes at the same time.
 - The server uses stdio only; stdout is reserved for MCP messages and diagnostics use stderr.
   - Each tool returns JSON text and `structuredContent`; failures also set `isError: true`.
-  - Unlike Pi's bounded read text, MCP read results include the complete stored document in both result channels.
-  - Create without `documentId` and `expectedRevision`. For updates, read first and submit both fields with the complete document.
+  - Unlike Pi's bounded read text, MCP's `sketchbook_read` includes the complete stored document in both result channels.
+  - Create without `documentId` and `expectedRevision`. For a full-page replacement, read first and submit both fields with the complete document. For a local edit, use `sketchbook_edit`.
 - `sketchbook_open` starts the existing read-only HTTP viewer, not an HTTP MCP endpoint.
   - It returns a URL without opening a browser. Saving and opening do not verify browser rendering.
   - The viewer binds to all IPv4 interfaces and requires a trusted network; the [LAN rules](#lan-access) also apply to MCP.
@@ -138,22 +138,23 @@ Load the bundled skill explicitly:
 /skill:sketchbook-create-diagrams Explain this system with an overview, API detail, and storage detail.
 ```
 
-When the skill handles a diagram request, it saves the article, opens the local Viewer, and returns its link by default.
-You do not need to ask separately for a link.
+For a quick overview, answer in chat first: state what the subject does and list its main features. Save a page only when requested or when a visual helps.
+When the skill handles a diagram request, it saves the page, opens the local Viewer, and returns its link by default. You do not need to ask separately for a link.
 The skill chooses from the [supported diagram families](#supported-mermaid-diagrams) based on the question: for example, a state diagram for lifecycle changes or an XY chart for numeric trends.
 Simple questions that do not benefit from diagrams should not trigger the skill automatically.
 Automatic skill selection remains unverified.
 The skill includes complete [architecture](skills/sketchbook-create-diagrams/assets/architecture-walkthrough.json), [process](skills/sketchbook-create-diagrams/assets/process-walkthrough.json), and [sequence](skills/sketchbook-create-diagrams/assets/sequence-walkthrough.json) examples.
 
-| Tool               | Input and result                                                                                                      |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `sketchbook_write` | `{document}` creates a document and returns its ID, revision, storage path, summary, and rendering-unverified status. |
-| `sketchbook_read`  | `{documentId}` returns `{documentId, revision, updatedAt, document}` in `structuredContent.stored`.                   |
-| `sketchbook_write` | `{document, documentId, expectedRevision}` replaces the full document if the revision matches.                        |
-| `sketchbook_open`  | `{documentId}` returns an ephemeral local viewer URL; it does not launch a browser.                                   |
+| Tool                   | Input and result                                                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sketchbook_write`     | `{document}` creates a document and returns its ID, revision, storage path, summary, and rendering-unverified status.                           |
+| `sketchbook_read`      | `{documentId}` returns `{documentId, revision, updatedAt, document}` in `structuredContent.stored`.                                             |
+| `sketchbook_write`     | `{document, documentId, expectedRevision}` replaces the full original document if the revision matches.                                         |
+| `sketchbook_open`      | `{documentId}` returns an ephemeral local Viewer URL; it does not launch a browser.                                                             |
+| `sketchbook_read_book` | `{documentId}` returns `{ok: true, book: StoredBook \| null, contentTruncated}`. `null` means no sidecar; its initial revision is `0`.          |
+| `sketchbook_edit`      | `{documentId, expectedRevision, operation}` returns `{ok: true, documentId, revision, record: 'document' \| 'book', renderingVerified: false}`. |
 
-For updates, read first and use the returned revision.
-On conflict, read again and apply the change to the current document.
+For edits, read the record you intend to change and use its revision. On conflict or an uncertain result, read that same record again before deciding whether to retry.
 A successful write confirms validation and storage, not browser rendering.
 Pi and MCP apply the same Mermaid header and source checks and preserve the exact source. The Viewer parses the diagram body in the browser.
 The [document format](skills/sketchbook-create-diagrams/references/document-format.md) defines fields, IDs, limits, heading roles, and tool details.
@@ -168,6 +169,16 @@ Omit `language` to hide the label.
 The viewer displays the code as text without executing it.
 Focus the block with Tab and use the arrow keys to scroll long lines.
 Use Markdown fences instead for snippets inside prose or slide explanations.
+
+### Grow a page into a book
+
+A standalone page needs no cover or contents list. Add a section to give readers a named position on that page. Add a chapter when a topic needs its own scrollable page. Only adding another chapter turns the original page into the first chapter of a book. The original title, content, ID, and open link stay in place.
+
+1. Use `sketchbook_read_book` before `add-section` or `add-chapter`. If `book` is `null`, pass `expectedRevision: 0` to the first edit. Read the book again or use its returned revision for the next book edit.
+2. Use `sketchbook_edit` to append a block or slide to its target without resending unrelated content. Use `replace-block` for an explicit replacement. Without `chapterId`, the edit addresses the first chapter. A block or slide edit with neither `chapterId` nor `sectionId` changes the original document and uses the revision from `sketchbook_read`. Every other operation changes the book sidecar and uses its revision. The two revisions are independent; neither is a snapshot of both records.
+3. Use the Viewer’s numbered book contents to switch chapters, or Previous/Next to read in order. Section links appear under the current chapter; select one to jump within that page. For a page with sections but no other chapters, the contents list only those sections. On wide screens the contents stay visible in a left sidebar; on narrow screens they appear above the reading page. A chapter or section link uses `chapter` and/or `section` query parameters with stable IDs. Keep the original token in the URL fragment, after the query. An unqualified link still opens the first chapter; renaming or reordering a chapter does not change its ID. Links remain private and valid only for the running Viewer session.
+
+See [edit operations and targeting](skills/sketchbook-create-diagrams/references/document-format.md#edit-operations) for exact fields and [progressive acceptance](docs/acceptance.md#progressive-sketchbook-handoff) for the verification handoff.
 
 ### LAN access
 
@@ -199,9 +210,9 @@ Stop the Pi session to close the listener and invalidate its capability; no docu
 
 ### Article review
 
-- Start article Markdown headings at H2; do not repeat the document title.
-  - Legacy Markdown blocks with H1 are shifted down one heading level when rendered; saved JSON is unchanged.
-  - Explanation headings are placed below the slide H3, starting at H4.
+- Start chapter introduction Markdown headings at H2 and section Markdown headings at H3. Do not repeat the page or section title in Markdown.
+  - Legacy Markdown blocks with H1 are shifted down when rendered; saved JSON is unchanged.
+  - Keep explanation headings subordinate to their slide.
 - Review the complete heading outline, concept order, first definitions, repeated text, and conclusion before checking slide transitions.
   - Check every arrow's sender, receiver, action, direction, and required order against sources or explicit teaching facts.
   - Make important decision inputs, outcomes, and write/no-write effects visible in the graph.
@@ -239,7 +250,7 @@ Use a `diagram-deck` even for one diagram. Slides in one deck can use different 
 | XY chart            | `xychart`                                                              |
 | C4                  | `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` |
 
-Flowcharts, including subgraphs, keep the hand-drawn Rough.js style with a fixed nonzero seed and a muted blue-gray default palette. Other families use Mermaid's normal style. Only flowchart detail slides can use `focusNodes`.
+Flowcharts, including subgraphs, keep the hand-drawn Rough.js style with a fixed nonzero seed and a muted blue-gray default palette. Other families use Mermaid's normal style. The diagram skill omits `focusNodes` by default. Use it only on a flowchart detail slide that needs to zoom into a region of the overview.
 
 Not supported:
 
@@ -250,7 +261,7 @@ Not supported:
 
 ### Downgrade without losing source
 
-Schema version 1 and revisions are unchanged. Older versions that accept only `flowchart` still open existing flowchart-only documents, but reject a document that contains a newly accepted header, including `graph`. Before downgrading, back up your documents and leave the originals unchanged. Use the newer reader to copy Mermaid source for use elsewhere. Do not rewrite diagrams as flowcharts or migrate files in place to make them open in an older reader.
+The original page stays schema version 1. A version without book support can still open a compatible original page, but will not show its sidecar content. Keep both files to recover that content in a book-aware build. Older versions that accept only `flowchart` reject a page that uses a newer header, including `graph`. Back up both records, leave the source unchanged, and use a compatible reader to copy Mermaid source if needed.
 
 ## Rendering and security
 
@@ -300,13 +311,12 @@ Changing slides restores the diagram view.
 
 ## Files and lifecycle
 
-Documents are stored in the Pi working directory at `.pi/sketchbook/<documentId>.json`.
+The workspace stores the original page at `.pi/sketchbook/<documentId>.json` and, if present, its sections and additional chapters at `.pi/sketchbook/<documentId>.book.json`. No migration is needed. A legacy full replacement changes only the original page; it leaves the sidecar intact.
 Only `.pi/sketchbook/.gitignore` is created for local artifact exclusions; the root `.gitignore` is not changed.
-Writes use complete replacement, revision checks, a same-process mutation queue, and atomic rename.
-Do not write the same document from multiple Pi or MCP processes.
+Writes use revision checks, a same-process mutation queue per record, and atomic rename. There is no cross-process lock or transaction spanning both records. Do not write the same document from multiple Pi or MCP processes.
 
 Only `sketchbook_open` starts the viewer server.
-Pi TUI and RPC sessions can open it; Pi print and JSON modes support write/read only.
+Pi TUI and RPC sessions can open it; Pi print and JSON modes can read and write records but cannot open the Viewer.
 The MCP server can keep the viewer running until the client disconnects or the process stops.
 Shutdown closes the server but does not remove documents.
 After reload, new, resume, or fork, open again for a current URL.
@@ -342,5 +352,5 @@ Automated checks do not establish visual acceptance or reliable automatic skill 
 
 ## Scope and license
 
-This release does not provide cloud sharing, accounts, collaboration, browser editing, autoplay, export, partial updates, or HTTP MCP transport.
+Sketchbook does not provide cloud sharing, accounts, live collaboration, browser editing, nested chapters or sections, version history, restore, autoplay, export, or HTTP MCP transport.
 See [LICENSE](LICENSE) for the GNU Affero General Public License, version 3.

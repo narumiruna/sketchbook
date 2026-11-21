@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import type { BookEditInput } from "../src/book.js"
 import type { SketchbookDocument } from "../src/document.js"
 import { ViewerServer } from "../src/server.js"
 import { DocumentStore } from "../src/store.js"
@@ -32,7 +33,7 @@ const coordinator = createServer((request, response) => {
       )
       return
     }
-    if (request.method !== "POST" || path !== "/documents") {
+    if (request.method !== "POST" || !["/documents", "/books"].includes(path)) {
       response.writeHead(404).end()
       return
     }
@@ -40,6 +41,10 @@ const coordinator = createServer((request, response) => {
     for await (const chunk of request) {
       body += chunk
       if (Buffer.byteLength(body) > 2 * 1024 * 1024) throw new Error("Test fixture too large")
+    }
+    if (path === "/books") {
+      response.end(JSON.stringify(await store.editBook(JSON.parse(body) as BookEditInput)))
+      return
     }
     const input = JSON.parse(body) as {
       document: SketchbookDocument

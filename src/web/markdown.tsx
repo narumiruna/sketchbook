@@ -8,10 +8,10 @@ import remarkMath from "remark-math"
 interface Props {
   markdown: string
   context: string
-  scope?: "article" | "explanation"
+  headingLevel?: 3 | 4 | 5
 }
 
-function rehypeHeadings({ scope }: { scope: Props["scope"] }) {
+function rehypeHeadings({ headingLevel }: Pick<Props, "headingLevel">) {
   return (tree: Root) => {
     const headings: Element[] = []
     const collect = (parent: Root | Element) => {
@@ -24,7 +24,7 @@ function rehypeHeadings({ scope }: { scope: Props["scope"] }) {
     collect(tree)
     if (!headings.length) return
     const minimum = Math.min(...headings.map((heading) => Number(heading.tagName.slice(1))))
-    const offset = scope === "explanation" ? 4 - minimum : minimum === 1 ? 1 : 0
+    const offset = (headingLevel ?? Math.max(2, minimum)) - minimum
     for (const heading of headings) {
       heading.tagName = `h${Math.min(6, Number(heading.tagName.slice(1)) + offset)}`
     }
@@ -150,7 +150,7 @@ class MarkdownBoundary extends Component<
   }
 }
 
-export function Markdown({ markdown, context, scope = "article" }: Props) {
+export function Markdown({ markdown, context, headingLevel }: Props) {
   const prefix = `user-content-${useId()}-`
   return (
     <MarkdownBoundary key={markdown} markdown={markdown} context={context}>
@@ -161,7 +161,7 @@ export function Markdown({ markdown, context, scope = "article" }: Props) {
           remarkRehypeOptions={{ clobberPrefix: prefix }}
           rehypePlugins={[
             [rehypeFootnoteLabel, { id: `${prefix}footnote-label` }],
-            [rehypeHeadings, { scope }],
+            [rehypeHeadings, { headingLevel }],
             [rehypeSafeKatex, { context }],
           ]}
           urlTransform={safeUrl}

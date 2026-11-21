@@ -45,6 +45,29 @@ Pass the source directly, without adding Markdown fences. The viewer displays it
 If provided, the `language` label must contain a non-whitespace character and be at most 64 characters long.
 Use a `diagram-deck` even for one diagram. Slides can use different supported families in the same deck; neither a Mermaid Markdown fence nor a `code` block renders a diagram.
 
+## Book content
+
+Create the original page as a schema-v1 document. Add sections when you need named positions in a page. Add a chapter when a topic needs a separate scrollable page. Neither a cover nor a contents field is needed. Deck slides remain local to their deck and do not become chapters or sections.
+
+```typescript
+type Block = SketchbookDocument["blocks"][number]
+type Slide = Extract<Block, { type: "diagram-deck" }>["slides"][number]
+type Section = { id: string; title: string; blocks: Block[] }
+type Chapter = { id: string; title: string; blocks: Block[]; sections: Section[] }
+type StoredBook = {
+  documentId: string
+  revision: number
+  updatedAt: string
+  sections: Section[]
+  chapters: Chapter[]
+}
+```
+
+- The first chapter takes its title and introductory blocks from the original document. `book.sections` lists that chapter's sections, which follow its introductory blocks. `book.chapters` lists only the additional chapters, in reading order.
+- Keep titles, IDs, blocks, and slides within the document format rules. A chapter or section block list can be empty and may contain at most 100 blocks. Each deck still needs 1–20 slides.
+  - Use at most 32 additional chapters, 32 sections per chapter, and 4 MiB of UTF-8 JSON for the sidecar.
+  - Keep chapter IDs unique within the book (do not use the original document ID), section IDs unique within each chapter, block IDs unique within each block list, and slide IDs unique within each deck. Use stable IDs for links and edits.
+
 ## Slide focus
 
 - Leave `focusNodes` absent on the first slide of every deck and on all non-flowchart slides. Only `flowchart` and `graph` can use it on detail slides. Neither participant IDs nor other Mermaid identifiers can select a flowchart focus region.
@@ -54,15 +77,15 @@ Use a `diagram-deck` even for one diagram. Slides can use different supported fa
 - The viewer shows one hatched attention frame and starts zoomed in on its region. The frame replaces any previous frame.
   - **Fit to screen** shows the complete diagram with the current frame. **Reset to slide focus** returns to the detail view.
   - If any focus ID cannot be resolved, the viewer shows the full diagram without a frame and reports the missing focus. Correct the IDs rather than relying on the fallback.
-- Focused architecture detail slides use this mechanism. Unfocused slides can use different Mermaid for different stages.
+- Focus is optional. A deck can leave it out entirely; unfocused slides can use different Mermaid source and different supported families.
 
 ## Article headings and emphasis
 
-- `document.title` owns the page H1; do not repeat it as a Markdown H1 or an opening subject heading.
-- Start article Markdown headings at H2 and use lower levels for subsections.
-- `deck.title` becomes a stable H2 chapter heading.
-  - The active slide title becomes H3 and changes with slide navigation.
-  - Use no headings in short slide explanations; if needed, start at H4 so they cannot compete with chapter or slide headings.
+- `document.title` owns the page H1 on the first page. On an additional chapter page, use its `chapter.title` as the page title. Do not repeat the page title as a Markdown H1 or opening subject heading.
+- Start article Markdown headings at H2 in the chapter introduction. Use lower levels for subsections. In a named section, let the Viewer show its H2 title and start Markdown headings at H3.
+- Outside named sections, `deck.title` becomes a stable H2 heading.
+  - The active slide title becomes H3 and changes with slide navigation. Inside named sections, deck and slide titles use H3 and H4.
+  - Use no headings in short slide explanations; if needed, start at H4 so they cannot compete with the deck or slide headings. Inside a named section, start at H5.
 - Put CJK punctuation outside Markdown emphasis delimiters when adjacent text can prevent parsing.
   - Use `**資料範圍**：依` rather than `**資料範圍：**依` and check that no literal emphasis delimiters appear in the viewer.
 
@@ -117,7 +140,7 @@ Keep these evidence states separate in the handoff:
 - **Content-correct**: source checks and article review support arrow recipients, actions, order, decision inputs and outcomes, slide contributions, concept order, and caveats.
 - **Human acceptance**: a person explicitly accepted the result; agent checks do not establish this state.
 
-Name the checked revision, viewport widths, and slide coverage, and mark missing evidence as unverified.
+Name the checked document ID, record revisions, viewport widths, chapters, sections, and slide coverage, and mark missing evidence as unverified.
 Include the compact review record defined in the diagram patterns with the available evidence.
 Do not infer one state from another; saving, rendering, and minimum label sizes do not establish readability or content correctness.
 
@@ -140,6 +163,33 @@ Read text is limited to 48,000 bytes or 1,900 lines; the complete envelope remai
 Use the revision from the latest read as `expectedRevision`.
 A conflict leaves the current document unchanged and requires another read before retrying.
 After an interrupted response, read to check whether the write already committed.
+A full replacement changes only the original document. It does not remove or replace its sections or additional chapters.
+
+### Read book
+
+`sketchbook_read_book({ documentId })` returns `{ ok: true, book: StoredBook | null, contentTruncated: boolean }`. `null` means there is no sidecar; use revision `0` for its first edit. It does not include the original page title or introductory blocks; get those with `sketchbook_read`.
+In Pi, use the complete `structuredContent.book` or `details.book` if the 48,000-byte or 1,900-line text preview is truncated. MCP returns full book data in both text and structured content and sets `contentTruncated: false`.
+
+### Edit operations
+
+`sketchbook_edit({ documentId, expectedRevision, operation })` applies one revision-checked edit. Success returns `{ ok: true, documentId, revision, record: 'document' | 'book', renderingVerified: false }`. `record` tells you which revision changed.
+
+```typescript
+type Operation =
+  | { type: "add-chapter"; chapter: Chapter }
+  | { type: "add-section"; chapterId?: string; section: Section }
+  | { type: "rename-chapter"; chapterId: string; title: string }
+  | { type: "reorder-chapters"; chapterIds: string[] }
+  | { type: "rename-section"; chapterId?: string; sectionId: string; title: string }
+  | { type: "append-block" | "replace-block"; chapterId?: string; sectionId?: string; block: Block }
+  | { type: "append-slide"; chapterId?: string; sectionId?: string; deckId: string; slide: Slide }
+```
+
+- Omit `chapterId` to address the first chapter in operations with an optional `chapterId`. Give `sectionId` to target a section's block list. Otherwise block and slide operations target the chapter's introductory block list.
+- For `append-block`, `replace-block`, or `append-slide` with neither `chapterId` nor `sectionId`, use the original document revision from `sketchbook_read`. For all other operations, use the sidecar revision from `sketchbook_read_book`, or `0` if `book` is `null`.
+- `replace-block` selects an existing block by `block.id` in the target list. `append-slide` selects a diagram deck by `deckId` in that list. Appends must use new IDs in their scope; they do not replace content.
+- `rename-chapter` addresses an additional chapter. Use a full document replacement to change the first chapter's title. `reorder-chapters` takes every additional chapter ID exactly once, in the desired order; the original stays first. Renaming preserves IDs.
+- Before saving, Sketchbook validates the complete resulting record. A rejected or failed commit leaves that record and revision unchanged. If the result is uncertain or conflicts with a newer edit, read the destination, compare its revision and the target content, and apply only the change still needed. The two revisions do not guarantee a transaction or a joint snapshot.
 
 ### Open
 
@@ -152,6 +202,7 @@ Accepted Host values are detected private IPv4 addresses in `10/8`, `172.16/12`,
 An Origin header must match that request's allowed Host; public, wildcard, hostname, unassigned, and mismatched-origin requests are rejected.
 A tool argument does not select the host.
 Use the returned URL and keep its capability token private.
+The default link opens the original page. Add `chapter=<chapterId>` to the query for an additional chapter, and `section=<sectionId>` for a named position. For a first-page section, omit `chapter`. Keep the original `documentId` query field and `#token=…` fragment; never move the token into the query. Chapter and section links require the same read-only access and expire with the same session.
 VPN or virtual interfaces can affect automatic selection; network changes require a reload and a fresh URL.
 LAN HTTP is unencrypted, and the token permits document reads within that viewer's workspace, not only the linked document.
 Opening does not launch an operating-system browser.
@@ -160,12 +211,12 @@ If opening is unavailable, return the saved ID and revision and explain this lim
 
 ## Storage and lifecycle
 
-Files are workspace artifacts at `.pi/sketchbook/<documentId>.json`.
+The original document lives at `.pi/sketchbook/<documentId>.json`. The optional sidecar lives at `.pi/sketchbook/<documentId>.book.json`. Use the tools, not direct edits to these files.
 The package creates only a local ignore file at `.pi/sketchbook/.gitignore`, not a workspace-root ignore rule.
-Do not write the same document from multiple Pi processes.
+Writes are queued by destination within one process and use atomic rename. All sidecar sections and chapters share a revision, so edits to different sections can still conflict. There is no cross-process lock: do not write the same document from multiple Pi or MCP processes.
 Tree navigation, resume, and fork do not undo disk writes; create a new ID for a separate document branch.
-Shutdown closes the viewer server, but preserves saved documents.
+Shutdown closes the viewer server, but preserves saved files.
 After reload, new, resume, or fork, open again for a current URL.
 Physical second-device LAN access, remote host forwarding, and a user's browser access require separate verification.
 
-Schema version 1 and revisions are unchanged. An older reader that accepts only `flowchart` cannot open a document with a newly accepted header. Back up the original before downgrading. Keep the source intact and use the newer reader to copy it if needed.
+The original page stays schema version 1. A compatible older build can still open it but does not show sidecar content. Back up and keep both records before downgrading; reopen with a book-aware build to see the extra content. An older reader that accepts only `flowchart` cannot open a page containing a newer header. Keep the original source intact.

@@ -6,6 +6,30 @@ The bundled examples and static skill checks do not prove that a model will sele
 Paid model evaluations, npm publication, version tags, and release-workflow dispatch require separate authorization.
 Human visual acceptance and remote forwarding remain unverified.
 
+## Progressive Sketchbook handoff
+
+Follow the [progressive Sketchbook PRD](https://github.com/narumiruna/sketchbook/blob/main/docs/prd/progressive-sketchbook.md) (R1–R6) and [original-page storage decision](https://github.com/narumiruna/sketchbook/blob/main/docs/decisions/0004-keep-original-page-as-first-chapter.md). Use a disposable workspace and the `tests/fixtures/progressive-book.ts` inputs from this checkout. The chat app is a teaching example, not a claim about a deployed service.
+
+Evidence for the documentation and fixture:
+
+- **Schema and policy:** The two schema-v1 pages and a sidecar with the first-page section and four additional chapters (including the optional append case) passed local validation. All five Mermaid sources passed the sequence, flowchart, or entity relationship family and source-policy checks. `npm test -- tests/skill.test.ts` passed 61 static skill tests.
+- **Rendering and navigation:** `tests/browser/book.spec.ts` exercises the real Viewer with the standalone overview and all four chapters, including all five slides at 390px and 1440px. It checks live promotion, previous/next, keyboard focus, history, deep links, and read-only access. Its full-page captures and metrics contain no Viewer URLs.
+- **Readability and acceptance:** Agent review checked both widths, including the chapter and section contents, heading order, diagrams, explanations, and code. The two sequence diagrams measured about 11.8 CSS px at their smallest fitted text at 390px, just below the 12px teaching target. The narrow SQL example scrolls within its code block. Human readability and product acceptance remain unverified. Record integration results against the exact checkout tested.
+
+### Tool and Viewer checks
+
+- [ ] **R1 — Start small.** Use `codebaseOverview` as the one-page save case. Open it directly with no book navigation or required structure. In a separately authorized model trial, first ask “What does this codebase do?” and confirm the answer gives its purpose and main features in chat without a tool call. Ask for one feature's implementation and confirm the follow-up cites verified source locations without displacing the overview.
+- [ ] **R2 — Grow the original page.** Save `chatOverview` and retain its open link privately. Read the absent sidecar (`book: null`), then add `chatFirstSection` with expected revision `0`. Check that the section follows the original blocks and there is no Book contents list yet. Add `chatChapters` in fixture order. In the same running Viewer session, the original link still opens **How a message travels** with its original text and sequence diagram.
+- [ ] **R3/R4 — Navigate the book.** Confirm the four entries are **How a message travels**, **System architecture**, **API design**, and **Database design**, in order. From Book contents, open chapter three; use Previous chapter and Next chapter, and use the section links nested under the active API chapter to jump within it. In Retry, change slides without changing the section or chapter. Open its link in a fresh tab; it has `chapter=api` and `section=retry` in the query and the original access token only in the fragment. Rename and reorder the API chapter, and check the same link opens Retry. Repeat with keyboard input at 390px and 1440px; check focus and the full scrollable chapter, including code, diagrams, and every slide.
+- [ ] **R5 — Edit without replacing siblings.** In Pi and MCP, append a new diagram-deck block to Retry, append a slide to a specific deck, and add `chatExtraChapter`. Compare before/after reads: existing sections, blocks, slides, and other chapters stay unchanged except at the selected target. Test explicit block replacement, an original-page edit guarded by `sketchbook_read`, and sidecar edits guarded by `sketchbook_read_book`. Submit a stale edit and an invalid target and check that the destination remains unchanged. After an interrupted response, read that destination to determine whether it committed; do not infer one record's state from the other.
+- [ ] **R6 — Preserve compatibility and access.** Read and open the schema-v1 document with the existing tools. Replace the full original page and verify that the sidecar is unchanged. Check that a deep link cannot load protected content without valid Viewer access, that the Viewer has no write route, and that shutdown invalidates all links in that session while preserving both records.
+
+### Package and evidence handoff
+
+1. Build and test a clean checkout with `npm run ci`, `npm run test:browser`, `npm pack --dry-run`, and `npm run test:package` (install Playwright Chromium first if needed). Use the package smoke test for built local and extracted npm-tarball Pi loading and standalone MCP installation. Verify the five-tool catalog and the read/edit round trip in the packaged hosts, not only in source-level tests.
+2. Record the exact commit, Node/Pi/browser versions, commands and results, document ID, separate record revisions, and viewport, chapter, section, and slide coverage. Keep save and read-back, render success, readability, content correctness, and human acceptance separate. Automated navigation and rendering checks do not establish human reading comfort or comprehension. Do not retain private links, tokens, or user content.
+3. Have a person review the complete walkthrough at both widths and record acceptance or issues. Automatic skill selection, real-model authoring of the quick-to-book workflow, UI behavior in third-party MCP clients, physical devices, and remote forwarding need separate evidence. Follow the authorization rules below for model or release operations.
+
 ## Future authorized model checks
 
 The provider or account owner must authorize API usage before running these checks.
@@ -113,8 +137,7 @@ Use the [Mermaid 12.3.0 header table](../README.md#supported-mermaid-diagrams) a
 
 Review the complete article before checking individual deck transitions.
 Check its heading outline, prerequisite concepts, first definitions, repeated text, and conclusion coverage.
-The document title owns H1, deck titles remain H2 during navigation, and current slide titles use H3.
-Markdown explanations must not introduce competing chapter headings.
+The current page title owns H1, and named sections use H2. Deck and current slide titles use H2 and H3 outside named sections, or H3 and H4 within them. Markdown explanations must not introduce competing headings.
 
 `tests/browser/mermaid-types.spec.ts` checks that the sequence walkthrough shows the two participants and both messages in order, fits the diagram, and stays within the page at 390px and 1440px.
 `tests/browser/article-review.spec.ts` covers the bundled flowchart examples, the source-linked Agent Substrate regression, and the two active-agent authoring cases in `tests/fixtures/viewer-handoff.json` and `tests/fixtures/receipt-check.json`.
@@ -204,7 +227,7 @@ Do not claim release readiness from the agent evidence or perform release operat
 Run a built package in a persistent Pi TUI or RPC session.
 Use `sketchbook_write` to save each bundled asset, then `sketchbook_open` to obtain current URLs.
 
-- [ ] Review the entire article outline and confirm one page H1, stable H2 chapter names, and H3 slide titles.
+- [ ] Review the entire article outline and confirm one page H1, stable H2 deck titles outside named sections, and subordinate slide titles.
 - [ ] Confirm all architecture, process, sequence, and Agent Substrate slides render with their explanations.
 - [ ] Confirm that flowcharts keep readable default labels, arrows, Chinese text where used, and a hand-drawn style.
 - [ ] Confirm that the sequence diagram uses Mermaid's normal style, shows Request above Response with arrows to the correct participants, and has no focus frame.
@@ -262,8 +285,8 @@ Configure `npx -y @narumitw/sketchbook` as shown in the README. For local develo
 The current code defaults to the client-selected process working directory. Add `--cwd` when a fixed workspace is required.
 Published version `0.2.2` is from `188aef2` and still requires `--cwd`. Use `--cwd .` with that version.
 The package owner must publish a newer version to distribute the current-directory default and the early-cancellation fix.
-Restart the client, confirm the three Sketchbook tools are available, then create, read, replace, and open a document.
-The expected result is a revision-checked saved document and a private viewer URL that works while the MCP process runs.
+Restart the client and confirm `sketchbook_write`, `sketchbook_read`, and `sketchbook_open` are available. On a build with book support, also confirm `sketchbook_read_book` and `sketchbook_edit`.
+Create, read, replace, and open a document. With book support, read the absent sidecar, add a section at revision `0`, and read it back. The expected result is revision-checked saved content and a private Viewer URL that works while the MCP process runs.
 Stop the client and confirm that the viewer can no longer fetch data; previously loaded content can remain visible.
 The same trusted-network and single-writer restrictions apply to Pi and MCP.
 

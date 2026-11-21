@@ -7,10 +7,11 @@ export const MAX_DOCUMENT_BYTES = 1024 * 1024
 export const MAX_BLOCKS = 100
 export const MAX_SLIDES = 20
 
-const IdSchema = Type.String({ pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$" })
+export const IdSchema = Type.String({ pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$" })
 const TextSchema = Type.String({ minLength: 1, maxLength: MAX_DOCUMENT_BYTES, pattern: "\\S" })
-const TitleSchema = Type.String({ minLength: 1, maxLength: 512, pattern: "\\S" })
-const RevisionSchema = Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER })
+export const TitleSchema = Type.String({ minLength: 1, maxLength: 512, pattern: "\\S" })
+export const RevisionSchema = Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER })
+export const UpdatedAtSchema = Type.String({ minLength: 1, maxLength: 32 })
 
 export const DocumentIdSchema = Type.String({
   pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
@@ -32,41 +33,42 @@ export const CodeBlockSchema = Type.Object(
   { additionalProperties: false },
 )
 
-export const DiagramDeckSchema = Type.Object(
+export const SlideSchema = Type.Object(
   {
     id: IdSchema,
-    type: Type.Literal("diagram-deck"),
     title: TitleSchema,
-    slides: Type.Array(
-      Type.Object(
-        {
-          id: IdSchema,
-          title: TitleSchema,
-          mermaid: Type.String({ minLength: 1, maxLength: MAX_MERMAID_BYTES }),
-          explanationMarkdown: TextSchema,
-          focusNodes: Type.Optional(
-            Type.Array(IdSchema, {
-              minItems: 1,
-              maxItems: 12,
-              uniqueItems: true,
-              description:
-                "Flowchart node IDs for one focus region on the unchanged first slide diagram.",
-            }),
-          ),
-        },
-        { additionalProperties: false },
-      ),
-      { minItems: 1, maxItems: MAX_SLIDES },
+    mermaid: Type.String({ minLength: 1, maxLength: MAX_MERMAID_BYTES }),
+    explanationMarkdown: TextSchema,
+    focusNodes: Type.Optional(
+      Type.Array(IdSchema, {
+        minItems: 1,
+        maxItems: 12,
+        uniqueItems: true,
+        description:
+          "Flowchart node IDs for one focus region on the unchanged first slide diagram.",
+      }),
     ),
   },
   { additionalProperties: false },
 )
 
+export const DiagramDeckSchema = Type.Object(
+  {
+    id: IdSchema,
+    type: Type.Literal("diagram-deck"),
+    title: TitleSchema,
+    slides: Type.Array(SlideSchema, { minItems: 1, maxItems: MAX_SLIDES }),
+  },
+  { additionalProperties: false },
+)
+
+export const BlockSchema = Type.Union([MarkdownBlockSchema, CodeBlockSchema, DiagramDeckSchema])
+
 export const SketchbookDocumentSchema = Type.Object(
   {
     schemaVersion: Type.Literal(1),
     title: TitleSchema,
-    blocks: Type.Array(Type.Union([MarkdownBlockSchema, CodeBlockSchema, DiagramDeckSchema]), {
+    blocks: Type.Array(BlockSchema, {
       minItems: 1,
       maxItems: MAX_BLOCKS,
     }),
@@ -87,7 +89,7 @@ export const StoredDocumentSchema = Type.Object(
   {
     documentId: DocumentIdSchema,
     revision: RevisionSchema,
-    updatedAt: Type.String({ minLength: 1, maxLength: 32 }),
+    updatedAt: UpdatedAtSchema,
     document: SketchbookDocumentSchema,
   },
   { additionalProperties: false },
@@ -97,6 +99,7 @@ export type SketchbookDocument = Static<typeof SketchbookDocumentSchema>
 export type MarkdownBlock = Static<typeof MarkdownBlockSchema>
 export type CodeBlock = Static<typeof CodeBlockSchema>
 export type DiagramDeck = Static<typeof DiagramDeckSchema>
+export type Block = Static<typeof BlockSchema>
 export type WriteInput = Static<typeof WriteInputSchema>
 export type StoredDocument = Static<typeof StoredDocumentSchema>
 
@@ -126,13 +129,9 @@ function validateMermaid(slide: DiagramDeck["slides"][number], location: string)
   }
 }
 
-export function validateDocument(value: unknown): SketchbookDocument {
-  assertSchema(SketchbookDocumentSchema, value)
-  if (Buffer.byteLength(JSON.stringify(value), "utf8") > MAX_DOCUMENT_BYTES) {
-    throw new Error(`Sketchbook document exceeds ${MAX_DOCUMENT_BYTES} bytes`)
-  }
+export function validateBlocks(blocks: Block[]): void {
   const blockIds = new Set<string>()
-  for (const block of value.blocks) {
+  for (const block of blocks) {
     if (blockIds.has(block.id)) throw new Error(`Duplicate block ID: ${block.id}`)
     blockIds.add(block.id)
     if (block.type !== "diagram-deck") continue
@@ -150,6 +149,14 @@ export function validateDocument(value: unknown): SketchbookDocument {
       validateMermaid(slide, location)
     }
   }
+}
+
+export function validateDocument(value: unknown): SketchbookDocument {
+  assertSchema(SketchbookDocumentSchema, value)
+  if (Buffer.byteLength(JSON.stringify(value), "utf8") > MAX_DOCUMENT_BYTES) {
+    throw new Error(`Sketchbook document exceeds ${MAX_DOCUMENT_BYTES} bytes`)
+  }
+  validateBlocks(value.blocks)
   return value
 }
 
