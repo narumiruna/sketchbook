@@ -301,7 +301,7 @@ The CI matrix at the time still included Node.js `22.19.0`, the former minimum. 
 Verification on Node.js `22.19.0` and `26.11.1` on 2026-11-12 produced these results:
 
 - `npm run ci` passed formatting/lint, TypeScript checks, all 257 Vitest tests across 13 files, and production builds.
-- MCP protocol tests cover the shared tool schemas, JSON text and structured output, document and book revisions, conflicts, invalid input, Mermaid policy, complete reads, authentication, cancellation, and disconnect cleanup.
+- MCP protocol tests cover the three shared schemas, JSON text and structured output, revisions, conflicts, invalid input, Mermaid policy, complete large reads, authentication, cancellation, and disconnect cleanup.
   - The adapter handles numeric-zero and empty-string request IDs explicitly because SDK `1.32.2` ignores those cancellation IDs.
   - Calls and cancellation notifications in one stdio chunk are checked before storage entry. Tests cover creates, replacements, numeric and string IDs, unknown IDs, and independent requests in one batch.
   - Cancelled requests cannot bypass storage cancellation checks before the atomic commit point.
@@ -315,6 +315,13 @@ Verification on Node.js `22.19.0` and `26.11.1` on 2026-11-12 produced these res
 
 The viewer and document format are unchanged. Pi still injects its host mutation queue; MCP uses a local process-wide queue.
 Claude Desktop and Cursor UI behavior, physical LAN access, and human acceptance remain unverified; see the [MCP client handoff](acceptance.md#mcp-client-handoff).
+
+## Progressive Sketchbook book tools
+
+Verification on checkout `9940695b24a820205fc536c621a3ae44ad0ca849` with Node.js `26.11.1` on 2026-11-21 produced these results:
+
+- All 35 tests in `tests/mcp.test.ts` and `tests/mcp-cli.test.ts` passed. The MCP protocol test checks that `sketchbook_read_book` returns no book before the first edit, scoped `sketchbook_edit` calls advance the book revision, a stale revision is rejected, and the original document stays unchanged.
+- `npm run test:package` passed the book read and edit smoke checks for Pi and the standalone MCP executable.
 
 ## Fixture coverage
 
