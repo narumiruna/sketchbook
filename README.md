@@ -11,12 +11,18 @@ On wide screens, explanations appear beside their diagrams; narrower screens use
 The document title is the page H1, each deck has a stable H2 chapter title, and its current slide uses H3.
 Matching deck and slide titles appear once visually.
 
-## Install
+## Installation
 
-Use Node.js 26.0.0 or later. Sketchbook tests against Pi 1.6.0; see
-[compatibility evidence](docs/compatibility.md).
+### Pi
 
-Build and install this checkout:
+Install the published Pi package from npm:
+
+```sh
+pi install npm:@narumitw/sketchbook
+```
+
+This installs the published version, which can lag behind this repository.
+To use the latest changes from this checkout, use Node.js 26.0.0 or later and run:
 
 ```sh
 npm ci
@@ -24,35 +30,31 @@ npm run build
 pi install ./
 ```
 
+Sketchbook tests against Pi 1.6.0; see [compatibility evidence](docs/compatibility.md).
+
 Local installation requires the built `dist` assets and installed dependencies.
 Git-source installation is not supported in this release.
 
 The release workflow creates version tags and GitHub Releases. It does not publish npm packages.
-Use the published npm package for MCP, or build this checkout for local Pi installation.
 Review package code before installation and project declarations before granting Pi project trust.
 
-## MCP server
+### MCP
 
-The stdio MCP server exposes `sketchbook_write`, `sketchbook_read`, and `sketchbook_open` to clients such as Claude Desktop and Cursor.
-It does not require Pi. This version of Sketchbook requires Node.js 26.0.0 or later.
+The stdio MCP server exposes `sketchbook_write`, `sketchbook_read`, and `sketchbook_open` to clients such as Claude Desktop and Cursor. It does not require Pi.
 Run the published package from your workspace:
 
 ```sh
-npx -y @narumitw/sketchbook
+npx -y @narumitw/sketchbook --cwd .
 ```
 
-The current code uses its process working directory by default.
-Published version `0.2.2` predates this change and requires `npx -y @narumitw/sketchbook --cwd .`.
-Until a newer package release includes the default, add `"--cwd", "."` after the package name in the MCP config below.
-
-Add this server to your client's MCP configuration:
+Or add the server to your client's MCP configuration. Replace `/absolute/path/to/workspace` with the workspace where Sketchbook should save documents:
 
 ```json
 {
   "mcpServers": {
     "sketchbook": {
       "command": "npx",
-      "args": ["-y", "@narumitw/sketchbook"]
+      "args": ["-y", "@narumitw/sketchbook", "--cwd", "/absolute/path/to/workspace"]
     }
   }
 }
@@ -61,12 +63,13 @@ Add this server to your client's MCP configuration:
 Use the client's MCP settings file, such as Claude Desktop's `claude_desktop_config.json` or Cursor's `.cursor/mcp.json`.
 Restart the client after changing its configuration.
 To use a fixed package version, replace `@narumitw/sketchbook` with `@narumitw/sketchbook@<version>`.
-For local development, run `npm ci` and `npm run build` in this checkout, then use `node /absolute/path/to/sketchbook/dist/mcp-cli.js` instead of `npx`.
+To run the MCP server from this checkout, use Node.js 26.0.0 or later, run `npm ci` and `npm run build`, then launch `node /absolute/path/to/sketchbook/dist/mcp-cli.js --cwd /absolute/path/to/workspace`.
 
-- `--cwd` is optional and overrides the process working directory; its path must name an existing directory.
+#### MCP workspace and behavior
+
+- `--cwd` names an existing workspace directory. Published version `0.2.2` requires it; the current checkout defaults to the server process's working directory when it is omitted.
   - Relative paths are resolved from the process working directory.
   - In a terminal, the default is the shell's current directory. An MCP client chooses the directory when it starts the server; this is not necessarily the project open in the client.
-  - For a fixed workspace, add `"--cwd", "/absolute/path/to/workspace"` after the package name in `args`.
   - Documents stay in that workspace's `.pi/sketchbook/` directory, using the same format as Pi.
   - Tool inputs cannot change the workspace. Use a separate server configuration for another workspace.
   - Do not write the same document from different Pi or MCP processes at the same time.
