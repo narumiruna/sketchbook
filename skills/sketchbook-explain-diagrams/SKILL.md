@@ -1,11 +1,11 @@
 ---
 name: sketchbook-explain-diagrams
-description: Explain architecture, processes, and message order with Mermaid in Pi Sketchbook and open the Viewer when a user invokes this skill or asks for a diagram or walkthrough that would benefit from it.
+description: Create Mermaid diagrams and charts in Pi Sketchbook and open the Viewer when a user invokes this skill or asks to visualize a topic, such as architecture, processes, message order, state changes, data relationships, timelines, or quantitative comparisons.
 ---
 
 # Explain with Pi Sketchbook
 
-Use this skill when the user invokes it explicitly or when a diagram makes an interaction, decision, or handoff easier to understand.
+Use this skill when the user invokes it explicitly or when a visual explanation would clarify the topic.
 Do not select it automatically for a simple answer that does not benefit from a diagram.
 Every diagram task using this skill delivers a saved Sketchbook article and a Viewer link unless the user opts out.
 Use one compact deck for a quick diagram.
@@ -13,12 +13,13 @@ Use one compact deck for a quick diagram.
 1. Identify the audience, main question, important execution or trust boundaries, and source-supported facts.
    - Mark assumptions instead of presenting invented components or behavior as verified facts.
 2. Read [document format](references/document-format.md) before building a payload.
-   - Use [diagram patterns](references/diagram-patterns.md) to plan each diagram's visible claim and check its meaning, contribution, and composition.
-   - Choose among the complete [architecture](assets/architecture-walkthrough.json), [process](assets/process-walkthrough.json), and [sequence](assets/sequence-walkthrough.json) examples.
+   - Use [diagram patterns](references/diagram-patterns.md) to match the family to the reader's question and plan each diagram's visible claim.
+   - Honor a requested family if the Viewer supports it.
+   - Use the complete [architecture](assets/architecture-walkthrough.json), [process](assets/process-walkthrough.json), and [sequence](assets/sequence-walkthrough.json) examples as references, not as a limit on the families you can use.
 3. Outline the article, then write its context, decks, and conclusion.
-   - Use flowcharts for component maps and decisions. Start a focused architecture walkthrough with one complete overview and no attention frame.
+   - Start a focused flowchart walkthrough with one complete overview and no attention frame.
    - Copy the exact same Mermaid on each focused detail slide and use `focusNodes` to frame one small region for a distinct explanation. Only flowchart slides support this field.
-   - Use `sequenceDiagram` when the reader needs to follow who sends each message and in what order. Read the messages from top to bottom. Omit `focusNodes` on all non-flowchart slides.
+   - Omit `focusNodes` on all non-flowchart slides.
    - Use different diagrams for different stages when doing so helps the reader. Keep IDs, short labels, and meanings stable across slides.
    - Put detailed explanations, formulas, and code in Markdown rather than node labels.
 4. Before saving, review the whole article's outline, concept order, first definitions, repetition, and conclusion.

@@ -433,6 +433,23 @@ describe("bundled Sketchbook skill", () => {
     expect(skill).toContain("Omit `focusNodes` on all non-flowchart slides")
   })
 
+  test("gives selection guidance for every supported Mermaid family", async () => {
+    const patterns = await readFile(resolve(skillRoot, "references/diagram-patterns.md"), "utf8")
+    const rows = patterns.split("\n").filter((line) => /^\| .+ \| .*`/.test(line))
+    const renderers = new Map<string, string>(Object.entries(MERMAID_RENDERERS))
+    const selected = rows.map((row) => {
+      const headers = [...row.matchAll(/`([^`]+)`/g)].map((match) => match[1])
+      const family = renderers.get(headers[0])
+      expect(family, row).toBeDefined()
+      expect(
+        headers.map((header) => renderers.get(header)),
+        row,
+      ).toEqual(headers.map(() => family))
+      return family
+    })
+    expect(selected.sort()).toEqual([...new Set(renderers.values())].sort())
+  })
+
   test("publishes the same Mermaid family matrix in the README and skill format", async () => {
     const documents = await Promise.all([
       readFile(new URL("../README.md", import.meta.url), "utf8"),
