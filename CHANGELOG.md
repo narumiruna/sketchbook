@@ -1,5 +1,17 @@
 # @narumitw/sketchbook
 
+## 0.4.0
+
+### Minor Changes
+
+- 7260136: Add local Claude Code and Codex plugins that pair the bundled diagram skill with the Sketchbook MCP tools. Install the package built from the same checkout to keep the skill and server compatible.
+- 3498eac: Support 18 Mermaid diagram families in Pi and MCP, including mixed diagram decks and a bundled sequence walkthrough. Flowcharts keep hand-drawn rendering and slide focus. Schema version 1 and revisions are unchanged; older readers reject newly supported headers. Diagrams still render locally without document-controlled configuration, active links, HTML labels, or external assets.
+- 2bb012a: Add standalone code blocks to Pi and MCP documents. The viewer preserves the source text and supports keyboard scrolling of long lines.
+
+### Patch Changes
+
+- a3a7e68: Share the zoom and pan controls with diagram-viewer while preserving Sketchbook's slide focus, toolbar, full-screen view, and local Mermaid rendering.
+
 ## 0.3.0
 
 ### Minor Changes
