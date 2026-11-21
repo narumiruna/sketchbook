@@ -33,12 +33,10 @@ export function createSketchbookMcpServer(cwd: string) {
         ? "Read a saved Sketchbook document and its current revision before editing. The complete stored document is returned as JSON text and in structuredContent.stored."
         : tool.description,
     inputSchema: { ...tool.parameters, type: "object" },
-    // MCP requires an object root; the shared union defines success and failure shapes.
     outputSchema: { ...tool.outputSchema, type: "object" },
     annotations: { readOnlyHint: tool.name !== "sketchbook_write", openWorldHint: false },
   }))
 
-  // SDK 1.32.2 ignores cancellation for falsy IDs. Track all valid tool request IDs.
   const activeCalls = new Map<RequestId, AbortController>()
   const earlyCancellations = new Map<RequestId, AbortController>()
   server.setNotificationHandler(CancelledNotificationSchema, (notification) => {
@@ -49,8 +47,6 @@ export function createSketchbookMcpServer(cwd: string) {
     controller.abort(new Error("Sketchbook tool request was cancelled."))
     if (!active) {
       earlyCancellations.set(requestId, controller)
-      // A same-chunk notification can run before the queued tool handler.
-      // Keep its signal for that handler, then discard unknown request IDs.
       queueMicrotask(() => {
         if (earlyCancellations.get(requestId) === controller) earlyCancellations.delete(requestId)
       })
@@ -66,7 +62,6 @@ export function createSketchbookMcpServer(cwd: string) {
     try {
       const signal = AbortSignal.any([extra.signal, controller.signal])
       const result = await tool.execute(request.params.arguments, cwd, signal)
-      // MCP returns the complete JSON, not the bounded text preview used by Pi.
       const structuredContent =
         "contentTruncated" in result.structuredContent
           ? { ...result.structuredContent, contentTruncated: false }
@@ -83,7 +78,6 @@ export function createSketchbookMcpServer(cwd: string) {
 
   let closing: Promise<void> | undefined
   const close = (): Promise<void> => {
-    // Defer transport closure so onclose cannot reenter before closing is assigned.
     closing ??= Promise.resolve().then(async () => {
       await Promise.all([tools.close(), server.close()])
     })

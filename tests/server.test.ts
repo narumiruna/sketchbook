@@ -526,7 +526,7 @@ describe("ViewerServer", () => {
       headers: auth,
       agent: false,
     })
-    req.on("error", () => {}) // This test intentionally disconnects the request.
+    req.on("error", () => {})
     req.end()
     const signal = await reading
     const aborted = new Promise<void>((accept) =>
@@ -537,7 +537,6 @@ describe("ViewerServer", () => {
     expect(signal.aborted).toBe(true)
     release(stored)
     await new Promise<void>((accept) => setImmediate(accept))
-    // An aborted request does not poison the server for later reads.
     expect((await get(url, api, auth)).status).toBe(200)
   })
 

@@ -1,6 +1,5 @@
 export type FileMutationQueue = <T>(key: string, operation: () => Promise<T>) => Promise<T>
 
-// Callers supply canonical paths so all stores share the same queue keys.
 const mutationQueues = new Map<string, Promise<void>>()
 
 export async function withFileMutationQueue<T>(
@@ -9,7 +8,6 @@ export async function withFileMutationQueue<T>(
 ): Promise<T> {
   const previous = mutationQueues.get(key) ?? Promise.resolve()
   const result = previous.then(operation)
-  // A failed operation must not block the next operation for this key.
   const tail = result.then(
     () => {},
     () => {},
@@ -18,7 +16,6 @@ export async function withFileMutationQueue<T>(
   try {
     return await result
   } finally {
-    // An older operation must not remove a newer operation's queue entry.
     if (mutationQueues.get(key) === tail) mutationQueues.delete(key)
   }
 }

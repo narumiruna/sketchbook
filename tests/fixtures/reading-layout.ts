@@ -1,7 +1,5 @@
 import type { DiagramDeck, SketchbookDocument } from "../../src/document.js"
 
-// Teaching-model facts: a client submits input, a check accepts it, then output
-// is saved. These diagrams test layout, not a source-verified production system.
 export function readingFixture(): SketchbookDocument {
   return {
     schemaVersion: 1,

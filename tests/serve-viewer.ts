@@ -6,8 +6,6 @@ import type { SketchbookDocument } from "../src/document.js"
 import { ViewerServer } from "../src/server.js"
 import { DocumentStore } from "../src/store.js"
 
-// This coordinator is test-only. The production viewer remains read-only and
-// serves real stored documents and built assets on its own random IPv4 port.
 const workspace = await mkdtemp(join(tmpdir(), "pi-sketchbook-browser-"))
 const store = new DocumentStore(workspace)
 const viewer = new ViewerServer(store, new URL("../dist/web/", import.meta.url))

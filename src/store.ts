@@ -126,7 +126,6 @@ export class DocumentStore {
   ): Promise<{ stored: StoredDocument; path: string }> {
     signal?.throwIfAborted()
     validateWriteInput(input)
-    // Snapshot before the first await so callers cannot change a pending transaction.
     const snapshot: WriteInput = JSON.parse(JSON.stringify(input))
     const directory = await this.directory(true)
     const mutate = this.mutationQueue ?? withFileMutationQueue
@@ -176,7 +175,6 @@ export class DocumentStore {
         }
         await this.directory(false)
         signal?.throwIfAborted()
-        // The atomic rename is the commit point. Do not report cancellation after it.
         await rename(temporary, path)
       } catch (error) {
         try {

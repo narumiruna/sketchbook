@@ -1,7 +1,5 @@
 export const MAX_MERMAID_BYTES = 32 * 1024
 
-// Match authoring headers, not Mermaid's more permissive detector prefixes.
-// The registry coverage test classifies every renderer in the pinned package.
 export const MERMAID_RENDERERS = {
   flowchart: "flowchart-v2",
   graph: "flowchart-v2",
@@ -31,8 +29,6 @@ export const MERMAID_RENDERERS = {
 
 type MermaidRenderer = (typeof MERMAID_RENDERERS)[keyof typeof MERMAID_RENDERERS]
 
-// Mermaid interpolates some style statements into a live stylesheet before
-// cleanup. Allow simple declarations, not arbitrary selectors or CSS blocks.
 const styleStatement = /(?:^|[;\r\n{}])\s*(?:classDef|linkStyle|style)[ \t]+([^;\r\n]+)/gi
 const styleTarget = /^[\w.-]+(?:\s*,\s*[\w.-]+)*[ \t]+(?=[\w-]+\s*:)/
 const safeStyle = /^(?:[\w\s%#.,:+!-]|\\,|(?:rgb|rgba|hsl|hsla)\([\d\s.,%+-]+\))*$/i
@@ -53,8 +49,6 @@ export function assertMermaidPolicy(source: string): MermaidRenderer {
     throw new Error("Mermaid diagram type is not supported")
   }
   const renderer = MERMAID_RENDERERS[header as keyof typeof MERMAID_RENDERERS]
-  // Metadata is YAML: quoted and escaped keys can select image/icon renderers.
-  // Reject the whole optional syntax instead of trying to recognize those keys.
   if (/@\s*\{/.test(source) || /!\s*\[/.test(source)) {
     throw new Error("Mermaid node metadata and image labels are not supported")
   }

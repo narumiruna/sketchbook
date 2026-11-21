@@ -158,7 +158,6 @@ for (const width of [390, 1440]) {
     await expectDiagram(deck, wideSequence)
     await expect(zoom(deck)).toHaveText(fitted)
 
-    // Moving to another renderer discards the old source view and camera.
     await control(deck, "Zoom in").click()
     await control(deck, "Show source").click()
     await selectSlide(deck, chart.id)
@@ -305,7 +304,6 @@ test("rapid cross-renderer changes and a live revision cannot display a stale di
   const model = deckFixture("rapid", flowchart, sequence, chart, pie)
   const content = documentFixture(model)
   const saved = await save(request, content)
-  // Delay the real lazy-loaded sequence renderer until the newer revision arrives.
   const pendingChunk = "**/assets/sequenceDiagram-*.js"
   const gate = Promise.withResolvers<void>()
   await page.route(pendingChunk, async (route) => {

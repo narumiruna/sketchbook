@@ -8,7 +8,6 @@ test("bundled Markdown, math, code, Chinese subgraphs, sanitized styles and nati
   request,
 }, testInfo) => {
   const fixture = await save(request, documentFixture())
-  // Spy on the actual bundled Rough.js renderer without substituting its output.
   await page.route("**/assets/rough.esm-*.js", async (route) => {
     const response = await route.fetch()
     const script = await response.text()
@@ -78,7 +77,6 @@ test("bundled Markdown, math, code, Chinese subgraphs, sanitized styles and nati
   expect(styling).toBeTruthy()
   await expect(first.locator("svg foreignObject, svg image, svg script, svg a")).toHaveCount(0)
 
-  // Trace the shipped Mermaid implementation, not only its visual appearance.
   const root = new URL("../../node_modules/mermaid/", import.meta.url)
   const pkg = JSON.parse(await readFile(new URL("package.json", root), "utf8"))
   expect(pkg.version).toBe("12.3.0")
@@ -352,7 +350,6 @@ for (const width of [390, 1280]) {
       (response) => response.url().includes("/api/documents/") && response.status() === 200,
     )
     await page.goto(fixture.url)
-    // Rendering must not change the authored Markdown in the stored response.
     expect((await (await loaded).json()).document).toEqual(document)
     const first = page.locator('[data-block-id="first"]')
     await rendered(first)
@@ -466,7 +463,6 @@ test("conditional polling keeps stable selection and chooses the nearest old sli
   expect(conditional.length).toBeGreaterThan(0)
   deck.slides = deck.slides.filter((slide) => slide.id !== "detail")
   await save(request, document, fixture.stored)
-  // In the last stored order, overview is the closest surviving old neighbor.
   await expect(first).toHaveAttribute("data-slide-id", "overview")
   await expect(page.locator('[data-block-id="second"]')).toHaveAttribute(
     "data-slide-id",
@@ -511,7 +507,6 @@ test("rapid switching and revision updates cannot commit stale Mermaid output", 
   const deck = getDeck(document, "first")
   deck.slides[1].mermaid = `flowchart LR\n${Array.from({ length: 65 }, (_, i) => `N${i}["Slow ${i}"] --> N${i + 1}`).join("\n")}`
   let fixture = await save(request, document)
-  // Keep an old render pending while user events and revisions arrive.
   await page.route("**/assets/flowDiagram-*.js", async (route) => {
     const response = await route.fetch()
     const script = await response.text()

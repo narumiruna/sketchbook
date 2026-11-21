@@ -93,7 +93,6 @@ function currentSlide(deck: DiagramDeck, selection: Selection) {
   const selected = deck.slides.find((slide) => slide.id === selection.id)
   if (selected) return selected
   const oldIndex = Math.max(0, selection.ids.indexOf(selection.id))
-  // Prefer the next old neighbor, then the previous one at the same distance.
   for (let distance = 1; distance < selection.ids.length; distance++) {
     for (const index of [oldIndex + distance, oldIndex - distance]) {
       const neighbor = deck.slides.find((slide) => slide.id === selection.ids[index])

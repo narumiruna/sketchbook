@@ -24,8 +24,6 @@ function rehypeHeadings({ scope }: { scope: Props["scope"] }) {
     collect(tree)
     if (!headings.length) return
     const minimum = Math.min(...headings.map((heading) => Number(heading.tagName.slice(1))))
-    // Keep article H2+ unchanged. Legacy H1 blocks move down as one outline.
-    // Explanation headings belong below the slide H3, not in the article outline.
     const offset = scope === "explanation" ? 4 - minimum : minimum === 1 ? 1 : 0
     for (const heading of headings) {
       heading.tagName = `h${Math.min(6, Number(heading.tagName.slice(1)) + offset)}`
@@ -37,8 +35,6 @@ function rehypeSafeKatex({ context }: { context: string }) {
   const render = rehypeKatex({ trust: false, maxExpand: 1000, maxSize: 20, strict: "error" })
   return (...[tree, file]: Parameters<typeof render>) => {
     render(tree, file)
-    // KaTeX can return colored fallback markup instead of a katex-error span.
-    // Preserve every parser diagnostic independently of that markup shape.
     for (const message of file.messages) {
       if (message.source !== "rehype-katex") continue
       const place = message.place
@@ -104,11 +100,9 @@ function followFragment(event: MouseEvent<HTMLAnchorElement>, href: string | und
     event.shiftKey
   )
     return
-  // In-page navigation must not replace the viewer's fragment capability.
   event.preventDefault()
   const fragment = href.slice(1)
   let id = fragment
-  // Generated footnote IDs contain their encoded identifiers literally.
   if (!event.currentTarget.matches("[data-footnote-ref], [data-footnote-backref]")) {
     try {
       id = decodeURIComponent(fragment)

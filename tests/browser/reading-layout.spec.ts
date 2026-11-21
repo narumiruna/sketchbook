@@ -72,8 +72,6 @@ const baseline = JSON.parse(
   }>
 }
 
-// Historical layout constants from 348c400, independent of current Viewer CSS.
-// Only system-font glyph metrics and the unchanged source SVG are browser-specific.
 async function historicalCompactBaseline(
   deck: Locator,
   before: (typeof baseline.measurements)[number],
@@ -83,8 +81,6 @@ async function historicalCompactBaseline(
       const current = element.querySelector<HTMLElement>(".deck-heading")
       const svg = element.querySelector<SVGSVGElement>(".diagram-svg > svg")
       if (!current || !svg) throw new Error("Missing baseline inputs")
-      // A shadow root prevents current heading/descendant rules from changing
-      // the reference. Construct historical markup rather than cloning styles.
       const host = document.createElement("div")
       host.setAttribute("aria-hidden", "true")
       host.style.cssText = `all: initial; display: block; position: absolute; visibility: hidden; width: ${previous.width}px;`
@@ -141,12 +137,9 @@ async function historicalCompactBaseline(
       expectedGap: rootPx * (innerWidth <= 600 ? 0.25 : 0.4),
     }
   })
-  // Calibrating toolbar height must not hide extra padding or row spacing.
   expect(spacing.paddingTop).toBeCloseTo(spacing.expectedPadding, 2)
   expect(spacing.paddingBottom).toBeCloseTo(spacing.expectedPadding, 2)
   expect(spacing.rowGap).toBeCloseTo(spacing.expectedGap, 2)
-  // Normalize only the controls restoration, not the compact toolbar's earlier
-  // mobile padding reduction from 0.6rem to 0.35rem at the baseline's 16px root.
   const compactToolbarHeightPx = before.toolbar.height + 2 * (spacing.expectedPadding - 0.6 * 16)
   const toolbarHeightChangePx = toolbar.height - compactToolbarHeightPx
   return {
@@ -172,7 +165,6 @@ test("historical comparison detects added heading padding and frame whitespace",
   const before = baseline.measurements.find((item) => item.width === 390 && !item.touch)
   if (!before) throw new Error("Missing mobile reference")
   const reference = await historicalCompactBaseline(deck, before)
-  // Keep the earlier 8px mobile padding saving in the historical comparison.
   expect(reference.compactToolbarHeightPx).toBeCloseTo(before.toolbar.height - 8, 2)
   const { toolbar } = await readingMetrics(deck)
   if (!toolbar) throw new Error("Missing diagram controls")
@@ -307,12 +299,8 @@ for (const viewport of [
         let sameFontBaselineOffsetPx: number | null = null
         if (slide.id === "compact") {
           expect(metrics.minFontPx).toBeGreaterThanOrEqual(12)
-          // The same authored content must improve composition, not shrink labels.
           expect(metrics.minFontPx).toBeGreaterThanOrEqual(before.minFontPx - 0.05)
           if (viewport.width === 390) {
-            // The camera/source is unchanged, but system-font SVG geometry is not
-            // identical on macOS and Linux. Compare the same content/font, not
-            // Linux output against an absolute macOS pixel coordinate.
             expect(frame.width).toBe(before.frame.width)
             sameFontBaselineOffsetPx = reference.firstParagraphY
             expect(firstParagraph.y).toBeLessThanOrEqual(

@@ -6,7 +6,6 @@ import {
 } from "@narumitw/diagram-viewer/core"
 import { measureDiagramFocus } from "./diagram-focus.js"
 
-// Match the padding on .diagram-viewport. The core reads it from CSS.
 const inset = 16
 const contentHeightProperty = "--diagram-content-height"
 const viewportControlSelector =
@@ -85,8 +84,6 @@ export function createDiagramView(
 
   function updateInlineHeight(): void {
     const width = viewport.clientWidth - inset * 2
-    // CSS bounds the natural, width-fitted height. Do not feed zoom or the
-    // observed height back into this calculation.
     const height =
       diagram && width > 0
         ? `${naturalHeight * Math.min(1, width / naturalWidth) + inset * 2}px`
@@ -102,8 +99,6 @@ export function createDiagramView(
   }
 
   function onWheel(event: WheelEvent): void {
-    // Override only the zoom-out step in diagram-viewer 0.4.0. Leave zoom-in
-    // and unmodified scrolling to the core and the browser, respectively.
     if (
       !camera ||
       event.defaultPrevented ||
@@ -126,8 +121,6 @@ export function createDiagramView(
     const { display, visibility } = getComputedStyle(stage)
     if (display === "none" || visibility === "hidden" || visibility === "collapse") return
 
-    // The core skips canceled events. For non-cancelable wheel events, stop
-    // dispatch here so the other listener cannot apply a second zoom step.
     if (event.cancelable) event.preventDefault()
     else event.stopImmediatePropagation()
     camera.zoomBy(1 / 1.1, { x: event.clientX, y: event.clientY })
@@ -165,8 +158,6 @@ export function createDiagramView(
     report()
   }
 
-  // Schedule the host's layout pass before the core's observer schedules its
-  // fit. Use an animation frame so height writes do not reenter resize delivery.
   let resizeFrame: number | undefined
   const resizeObserver =
     typeof ResizeObserver === "function"
@@ -200,7 +191,6 @@ export function createDiagramView(
       cropped = value
       ready = true
       if (pendingCamera) {
-        // Clear this before setting the region or mode; those publish again.
         pendingCamera = false
         const region = focusNodes && measureDiagramFocus(diagram, focusNodes)
         focus = region ? "ready" : focusNodes ? "missing" : undefined
@@ -211,7 +201,6 @@ export function createDiagramView(
           stage.append(frame)
         }
         camera.setFocusRegion(region ?? undefined)
-        // The region can compare equal when two slides focus the same nodes.
         camera.setCameraMode(region ? "focus" : "overview")
       }
       report()

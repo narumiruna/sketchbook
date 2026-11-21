@@ -10,7 +10,6 @@ export function measureDiagramFocus(
   diagram: SVGSVGElement,
   ids: readonly string[],
 ): DiagramRegion | null {
-  // Mermaid's generated IDs include a render prefix and a numeric suffix.
   const nodes = new Map<string, SVGGElement>()
   for (const node of diagram.querySelectorAll<SVGGElement>("g.nodes > g[id]")) {
     const id = node.id.match(/(?:^|-)flowchart-(.+)-\d+$/)?.[1]

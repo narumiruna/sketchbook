@@ -110,7 +110,6 @@ async function snapshot(directory: string): Promise<unknown[]> {
   )
 }
 
-// Use loopback even when the capability URL advertises a private LAN address.
 function get(url: URL, path: string, authorization?: string, method = "GET") {
   return new Promise<{ status: number; text: string }>((accept, reject) => {
     const req = request(
@@ -156,7 +155,6 @@ describe("Sketchbook MCP protocol", () => {
   const sessions: Array<ReturnType<typeof createSketchbookMcpServer> & { client: Client }> = []
 
   beforeEach(async () => {
-    // macOS temporary directories can contain a /var -> /private/var alias.
     cwd = await realpath(await mkdtemp(join(tmpdir(), "sketchbook-mcp-")))
   })
 
@@ -176,7 +174,6 @@ describe("Sketchbook MCP protocol", () => {
     sessions.push({ ...adapter, client })
     await adapter.server.connect(serverTransport)
     await client.connect(clientTransport)
-    // The official client compiles output schemas and validates subsequent tool results.
     const catalog = await client.listTools()
     return { ...adapter, client, catalog }
   }

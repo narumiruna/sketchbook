@@ -1,7 +1,5 @@
 import type { SketchbookDocument } from "../../src/document.js"
 
-// One benign example for every supported header, including aliases. Renderer
-// names are the registry IDs reported by Sketchbook's pinned Mermaid version.
 export const mermaidTypeFixtures = [
   {
     id: "flowchart",
@@ -148,7 +146,6 @@ export function mermaidTypesDocument(): SketchbookDocument {
       slides: fixtures.map(({ id, source, label }) => ({
         id,
         title: id,
-        // Exercise exact source preservation as well as acceptance.
         mermaid: `%% Fixture ${id}\r\n${source}\n`,
         explanationMarkdown: label,
       })),

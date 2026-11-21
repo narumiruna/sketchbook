@@ -87,14 +87,11 @@ export function sanitizeDiagramSvg(markup: string, id: string): SVGSVGElement {
   if (svg.localName !== "svg" || svg.namespaceURI !== svgNamespace || svg.id !== id) {
     throw new Error("Invalid sanitized diagram SVG")
   }
-  // Fragment references resolve against the document's IDs. Give each SVG's
-  // definitions their own names even if a renderer emits fixed IDs.
   const definitions = new Map<string, string>()
   for (const [index, node] of [
     ...svg.querySelectorAll(`defs :is(${definitionTags})[id]`),
   ].entries()) {
     const original = node.id
-    // Mermaid styles some sequence markers by ID suffix.
     const suffix = /^[\w:.-]+$/.test(original) ? `-${original}` : ""
     node.id = `${id}-definition-${index}${suffix}`
     if (!definitions.has(original)) definitions.set(original, node.id)
@@ -103,8 +100,6 @@ export function sanitizeDiagramSvg(markup: string, id: string): SVGSVGElement {
   for (const style of svg.querySelectorAll("style")) {
     const sheet = new CSSStyleSheet()
     sheet.replaceSync(style.textContent ?? "")
-    // Keep flat style rules. Intersect the entire selector (including selector
-    // lists) with the SVG subtree, rather than prefixing only its first branch.
     style.textContent = Array.from(sheet.cssRules)
       .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
       .map(

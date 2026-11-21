@@ -178,7 +178,6 @@ test("a live source replacement preserves toolbar focus and does not steal outsi
   await control(deck, "Reset zoom").focus()
   getDeck(content, "first").slides[0].mermaid = "flowchart LR\n New[Updated input] --> Saved"
   const updated = await save(request, content, fixture.stored)
-  // SVG line wrapping can split words into tspans without separator whitespace.
   await expect(
     deck.locator(".diagram-svg > svg .rough-node").filter({ hasText: /Updated\s*input/ }),
   ).toHaveCount(1)
@@ -385,7 +384,7 @@ for (const width of [390, 1280]) {
     await expect.poll(height).toBe(576)
     await expectGraphInsideViewport(deck)
     const largerText = await page.addStyleTag({ content: ":root { font-size: 20px; }" })
-    await expect.poll(height).toBe(672) // 70vh, now below the rem-based cap.
+    await expect.poll(height).toBe(672)
     await expectGraphInsideViewport(deck)
     await largerText.evaluate((style) => style.parentNode?.removeChild(style))
     await selectSlide(deck, "overview")
@@ -397,7 +396,6 @@ for (const width of [390, 1280]) {
     await page.setViewportSize({ width: width === 390 ? 1280 : 390, height: 960 })
     await expect.poll(height).not.toBe(responsiveHeight)
     await expectGraphInsideViewport(deck)
-    // Let ResizeObserver settle after replacing and resizing the graphs.
     await page.evaluate(
       () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
     )
@@ -522,7 +520,6 @@ test("drag and modified wheel control the camera; normal wheel scrolls and sourc
   const increased = await percentage(deck)
   await page.keyboard.press("-")
   expect(await percentage(deck)).toBeLessThan(increased)
-  // Unmodified arrows still belong to the parent deck, not the camera.
   await page.keyboard.press("ArrowRight")
   await rendered(deck)
   await expect(deck).toHaveAttribute("data-slide-id", "detail")
@@ -589,7 +586,6 @@ test("Shift+arrows pan only the focused camera without changing deck slides", as
   await expect(other.locator(".diagram-svg")).toHaveAttribute("style", otherCamera ?? "")
   await page.keyboard.press("0")
   await expectGraphInsideViewport(deck)
-  // Ordinary arrows still change slides after the local camera command.
   await page.keyboard.press("ArrowRight")
   await expect(deck).toHaveAttribute("data-slide-id", "detail")
 })

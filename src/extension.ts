@@ -5,7 +5,6 @@ import { registerSketchbookTools } from "./tools.js"
 export default function sketchbookExtension(pi: ExtensionAPI): void {
   const close = registerSketchbookTools(pi)
   pi.on("session_shutdown", async () => {
-    // Pi also emits shutdown before reload, new, resume, and fork replacement.
     await close()
   })
 }

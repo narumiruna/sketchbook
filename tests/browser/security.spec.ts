@@ -187,8 +187,6 @@ test("browser defense rejects config overrides and sanitizes encoded labels and 
 }) => {
   const document = documentFixture()
   const fixture = await save(request, document)
-  // Simulate a compromised response after a valid disk-backed request. This tests
-  // the independent browser boundary, not an alternate production write API.
   getDeck(document, "first").slides[0].mermaid =
     '%%{init: {"look":"classic"}}%%\nflowchart LR\n A-->B'
   getDeck(document, "second").slides[0].mermaid = [
@@ -205,7 +203,6 @@ test("browser defense rejects config overrides and sanitizes encoded labels and 
     const stored = await response.json()
     await route.fulfill({ response, json: { ...stored, document } })
   })
-  // Inject hostile renderer output before the app's SVG boundary.
   await page.route("**/assets/flowDiagram-*.js", async (route) => {
     const response = await route.fetch()
     const script = await response.text()

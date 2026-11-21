@@ -37,7 +37,6 @@ function cancel(requestId: RequestId): JSONRPCMessage {
   return { jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId } }
 }
 
-/** Send each batch in one stdio chunk, before the SDK runs its queued tool handlers. */
 async function stdioSession(cwd: string) {
   const adapter = createSketchbookMcpServer(cwd)
   const input = new PassThrough()

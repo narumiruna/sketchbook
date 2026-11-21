@@ -21,7 +21,6 @@ function expectCompleteEgressPaths(source: string) {
   expect(source).toContain("Inject --> External")
 }
 
-// These assertions protect this reviewed article, not arbitrary explanatory prose.
 describe("Agent Substrate article regression", () => {
   test("defines the minimal model before two stable chapters and closes both main questions", async () => {
     const document = await fixture()

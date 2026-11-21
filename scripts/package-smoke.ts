@@ -33,7 +33,6 @@ const sequenceSlide: DiagramDeck["slides"][number] = {
 
 async function checkSequence(deck: Locator): Promise<void> {
   await deck.locator(`button[data-slide-id="${sequenceSlide.id}"]`).click()
-  // A visible message in the rendered SVG cannot come from the preceding flowchart.
   await deck
     .locator(".diagram-svg > svg text")
     .filter({ hasText: sequenceMessage })
@@ -80,7 +79,6 @@ async function smoke(packagePath: string, label: string): Promise<void> {
     "Pi must discover the skill from the package being tested",
   )
 
-  // Queue expansion exercises Pi's public skill command path without requesting a model turn.
   const modelRuntime = await ModelRuntime.create({
     authPath: join(agentDir, "auth.json"),
     modelsPath: null,
@@ -173,7 +171,6 @@ async function smoke(packagePath: string, label: string): Promise<void> {
       assert.equal(await page.title(), `${document.title} — Pi Sketchbook`)
       assert.equal(await page.locator(".brand").textContent(), "Pi Sketchbook")
       await checkSequence(page.locator(`[data-block-id="${sequenceDeck.id}"]`))
-      // Math belongs to its explanatory slide, not necessarily the first view.
       const mathDeck = document.blocks.find(
         (block) =>
           block.type === "diagram-deck" &&
@@ -212,7 +209,6 @@ async function smoke(packagePath: string, label: string): Promise<void> {
 }
 
 async function smokeMcp(tarball: string): Promise<void> {
-  // npm notices are not server diagnostics. The SDK does not inherit npm config variables.
   const npmEnvironment = { npm_config_update_notifier: "false" }
   const install = join(temporary, "mcp-install")
   const workspace = join(install, "workspace")

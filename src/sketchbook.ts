@@ -75,7 +75,6 @@ function sourceContent(source: string, path: string): { text: string; truncated:
   const head = lines.slice(0, 1900).join("\n")
   const bytes = Buffer.from(head)
   const truncated = lines.length > 1900 || bytes.length > 48_000
-  // A streaming decoder omits an incomplete UTF-8 character at the byte boundary.
   const text =
     bytes.length > 48_000
       ? new TextDecoder().decode(bytes.subarray(0, 48_000), { stream: true })

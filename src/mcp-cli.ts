@@ -48,7 +48,6 @@ async function main(): Promise<void> {
   const onInputError = (): void => reportFailure()
   const onOutputError = (): void => reportFailure()
   server.onerror = () => {
-    // Parse and request errors can be recovered by the client. Keep stdout protocol-only.
     process.stderr.write("Sketchbook MCP protocol error.\n")
   }
   process.stdin.once("end", onEnd)

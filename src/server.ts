@@ -135,7 +135,6 @@ export class ViewerServer {
         server.listen(0, "0.0.0.0", () => {
           server.off("error", onError)
           server.on("error", (error) => {
-            // Preserve runtime server failures for subsequent tool calls.
             this.failure = error
             for (const socket of this.sockets) socket.destroy()
           })
@@ -156,7 +155,6 @@ export class ViewerServer {
   }
 
   private async stop(): Promise<void> {
-    // A close racing startup must wait until listen settles before it closes the listener.
     if (this.starting) {
       try {
         await this.starting
@@ -183,7 +181,6 @@ export class ViewerServer {
       [
         "default-src 'none'",
         "script-src 'self'",
-        // Mermaid SVG and KaTeX require inline style declarations, but never inline scripts.
         "style-src 'self' 'unsafe-inline'",
         "font-src 'self'",
         "img-src 'self'",

@@ -14,7 +14,7 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   release:
-    if: github.repository != 'narumiruna/typescript-template' # Can be removed in repositories created from this template.
+    if: github.repository != 'narumiruna/typescript-template'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

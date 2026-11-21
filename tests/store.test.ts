@@ -56,7 +56,6 @@ describe("DocumentStore", () => {
     expect(result.stored.revision).toBe(2)
     expect((await store.read(stored.documentId)).document.title).toBe("Updated")
     expect((await fs.stat(path)).mode & 0o777).toBe(0o600)
-    // A new extension/store instance can read workspace artifacts after reload.
     expect(await new DocumentStore(cwd).read(stored.documentId)).toEqual(result.stored)
   })
 

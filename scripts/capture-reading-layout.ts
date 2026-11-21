@@ -6,7 +6,6 @@ import { ViewerServer } from "../src/server.js"
 import { DocumentStore } from "../src/store.js"
 import { readingFixture } from "../tests/fixtures/reading-layout.js"
 
-// Capture the same teaching content against the currently built Viewer.
 // Never store its temporary capability URL or use a user's document directory.
 const output = resolve("test-results/reading-layout", process.argv[2] ?? "after")
 await mkdir(output, { recursive: true })

@@ -93,7 +93,6 @@ function fixture(initialSize?: [number, number]) {
   vi.mocked(createCamera).mockImplementationOnce((_viewport, _stage, options) => {
     coreOptions = options ?? {}
     expect(coreOptions.isInteractionEnabled?.()).toBe(false)
-    // The real core may call back before the controller has been assigned.
     publish()
     return camera
   })
@@ -126,8 +125,6 @@ function fixture(initialSize?: [number, number]) {
   }
 }
 
-// Only the host contract is tested here. The shared camera's geometry and
-// gestures are tested upstream and through Sketchbook's browser integration.
 describe("diagram view adapter", () => {
   it("waits for a valid SVG before enabling interaction or camera controls", () => {
     const { camera, controller, coreOptions, setSvg, state } = fixture()

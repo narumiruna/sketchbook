@@ -23,8 +23,6 @@ const renderConfig = {
   fontFamily: "system-ui, sans-serif",
   htmlLabels: false,
   flowchart: { htmlLabels: false },
-  // Some built-in renderers measure labels in temporary HTML nodes. Do not
-  // let Mermaid's text sanitizer preserve resource or style attributes there.
   dompurifyConfig: { ALLOWED_TAGS: ["br", "b", "em", "i", "strong"], ALLOWED_ATTR: [] },
   suppressErrorRendering: true,
 } satisfies MermaidConfig
@@ -37,8 +35,6 @@ function checkSource(source: string) {
   }
 }
 
-// Mermaid has shared mutable state. Serialize all renders, including those from
-// different decks. Failed renders must not stop the queue.
 let queue: Promise<unknown> = Promise.resolve()
 let nextId = 0
 
@@ -53,8 +49,6 @@ type Result = { source: string; svg: SVGSVGElement } | { source: string; error: 
 
 type FrameMode = "native" | "fallback" | null
 
-// Keep one frame in the DOM. The fallback isolates its siblings instead of
-// copying SVG nodes, which would duplicate Mermaid IDs and local references.
 function useDiagramFullscreen(
   source: string,
   card: RefObject<HTMLElement | null>,
@@ -283,7 +277,6 @@ export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
     }
   }, [])
 
-  // Keep keyboard focus in the toolbar while a new source disables camera controls.
   // biome-ignore lint/correctness/useExhaustiveDependencies: A new slide or source starts with the diagram visible.
   useLayoutEffect(() => {
     if (
@@ -308,8 +301,6 @@ export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
           ...renderConfig,
           ...(renderer === "flowchart-v2" ? { look: "handDrawn", handDrawnSeed: 42 } : {}),
         })
-        // Some Mermaid detectors match beyond the first token. Fail closed
-        // before Mermaid stages a different renderer than the one checked.
         if (mermaid.detectType(source) !== renderer) {
           throw new Error("Mermaid diagram source does not match its supported header")
         }
@@ -337,7 +328,6 @@ export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
   useLayoutEffect(() => {
     const element = host.current
     if (!element) return
-    // Only sanitized SVG reaches this DOM boundary.
     if (!policyError && result?.source === source && "svg" in result) {
       element.replaceChildren(result.svg)
     } else {
@@ -476,7 +466,6 @@ export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
                 " ",
               ].includes(event.key)
             ) {
-              // Keep native source scrolling without changing the parent deck's slide.
               event.stopPropagation()
             }
           }}

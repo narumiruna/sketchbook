@@ -21,7 +21,6 @@ test("keeps automatic GitHub releases without npm publishing configuration", asy
   expect(workflow).not.toContain("id-token:")
 })
 
-// Use a repository without remotes and an unavailable registry, never the project repository.
 describe("GitHub-only release", () => {
   let temporary: string
   let output: string

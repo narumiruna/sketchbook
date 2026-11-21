@@ -48,7 +48,6 @@ const document: SketchbookDocument = {
   ],
 }
 
-// The fake host records real tool definitions; it never makes a model request.
 function fakeHost() {
   const tools = new Map<string, ToolDefinition>()
   type ShutdownHandler = (event: { type: "session_shutdown"; reason: string }) => Promise<void>

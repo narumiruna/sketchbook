@@ -45,7 +45,6 @@ function isWithinSkill(path: string) {
   return local !== ".." && !local.startsWith("../") && !isAbsolute(local)
 }
 
-// These assertions describe the bundled fixtures, not arbitrary Mermaid or narrative quality.
 function diagramNodes(source: string) {
   const nodes = source.replace(/^\s*subgraph[^\n]+/gm, "")
   return new Map(
@@ -333,7 +332,6 @@ function fixtureMarkdown(document: SketchbookDocument) {
   })
 }
 
-// A known article outline and its prerequisite terms are regression checks, not a prose evaluator.
 function expectArticleOutline(document: SketchbookDocument, name: (typeof assets)[number]) {
   const expected = articleOutlines[name]
   expect(document.blocks.map((block) => block.id)).toEqual(expected.blocks)
@@ -379,7 +377,6 @@ function expectCompactLabels(document: SketchbookDocument) {
         if (labels.has(id)) expect(label).toBe(labels.get(id))
         labels.set(id, label)
       }
-      // A fixture-specific label budget cannot measure rendered CSS pixels.
       for (const [, label] of slide.mermaid.matchAll(/"([^"]+)"/g)) {
         expect([...label].length).toBeLessThanOrEqual(16)
       }
@@ -746,7 +743,6 @@ describe("bundled Sketchbook skill", () => {
       for (const contribution of item.review.contributions) {
         expect(contribution.adds.trim()).not.toBe("")
       }
-      // Record completeness is not evidence that arbitrary claims are true.
       expectTeachingClaims(document, item.asset)
     }
   })
@@ -830,7 +826,6 @@ describe("bundled Sketchbook skill", () => {
     } else {
       slide.mermaid = updated
     }
-    // All mutations remain schema-valid; only these reviewed case claims reject them.
     expect(() => validateDocument(document)).not.toThrow()
     expect(() => expectTeachingClaims(document, asset)).toThrow()
   })
@@ -852,7 +847,6 @@ describe("bundled Sketchbook skill", () => {
       if (!first) throw new Error("Missing overview")
       const detail = deck(document, deckId).slides[index]
       const originalExplanation = detail.explanationMarkdown
-      // Reusing the full graph does not make a copied overview explanation useful.
       detail.explanationMarkdown = first.slides[0].explanationMarkdown
       expect(() => validateDocument(document)).not.toThrow()
       expect(() => expectTeachingClaims(document, asset)).toThrow()

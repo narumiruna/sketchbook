@@ -76,7 +76,6 @@ for (const width of [1280, 390]) {
     const focused = await zoom.textContent()
     await button("Fit to screen").click()
     await expect(zoom).toHaveText(fitted ?? "")
-    // A new slide selects focus, even when the SVG and the focus bounds match.
     await selectSlide(deck, repeated.id)
     await expect(zoom).toHaveText(focused ?? "")
     await expect(frame).toHaveCount(1)
