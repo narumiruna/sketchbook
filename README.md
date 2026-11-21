@@ -104,7 +104,10 @@ Load the bundled skill explicitly:
 /skill:sketchbook-explain-diagrams Explain this system with an overview, API detail, and storage detail.
 ```
 
-Automatic skill selection remains unverified. The skill recommends a diagram when it helps explain an interaction, not a saved document for every answer.
+When the skill handles a diagram request, it saves the article, opens the local Viewer, and returns its link by default.
+You do not need to ask separately for a link.
+Simple questions that do not benefit from diagrams should not trigger the skill automatically.
+Automatic skill selection remains unverified.
 The skill includes complete [architecture](skills/sketchbook-explain-diagrams/assets/architecture-walkthrough.json), [process](skills/sketchbook-explain-diagrams/assets/process-walkthrough.json), and [sequence](skills/sketchbook-explain-diagrams/assets/sequence-walkthrough.json) examples.
 
 | Tool               | Input and result                                                                                                      |

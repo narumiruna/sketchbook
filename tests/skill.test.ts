@@ -419,12 +419,17 @@ describe("bundled Sketchbook skill", () => {
     expect(skill.split("\n").length).toBeLessThan(100)
   })
 
-  test("suggests diagrams for useful interactions without saving or opening a simple answer", async () => {
+  test("opens the Viewer by default for diagram tasks without auto-selecting simple answers", async () => {
     const skill = await readFile(skillFile, "utf8")
-    expect(skill).toContain("Suggest a diagram when it makes an interaction")
-    expect(skill).toContain("For a simple answer, reply directly without creating or opening")
-    expect(skill).toContain("Use `sketchbook_write` only for an agreed saved document")
-    expect(skill).toContain("Use `sketchbook_open` only when a viewer link is wanted")
+    expect(skill).toContain("when the user invokes it explicitly")
+    expect(skill).toContain("Do not select it automatically for a simple answer")
+    expect(skill).toContain(
+      "Use `sketchbook_write` to save the article, then use `sketchbook_open`",
+    )
+    expect(skill).toContain("Do not wait for a separate request to save or open it")
+    expect(skill).toContain(
+      "Return the Viewer link, saved document ID, revision, and available evidence",
+    )
     expect(skill).toContain("Omit `focusNodes` on all non-flowchart slides")
   })
 
