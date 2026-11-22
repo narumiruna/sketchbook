@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>瀏覽器快取：同一個檔案，不一定要再下載</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;family=Noto+Sans+TC:wght@400;500;600&amp;family=Noto+Serif+TC:wght@400&amp;display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --color-paper: #f5f5f5;
+      --color-ink: #2d3142;
+      --color-muted: #4f5d75;
+      --font-sans: 'Geist', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
+      --font-serif: 'Instrument Serif', 'Noto Serif TC', 'Songti TC', serif;
+      --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { margin: 0; background: var(--color-paper); color: var(--color-ink); font: 1rem/1.7 var(--font-sans); }
+    main { width: min(calc(100% - 2rem), 960px); margin-inline: auto; padding-block: clamp(2rem, 6vw, 5rem); }
+    header { padding-block-end: 2.5rem; }
+    h1, h2 { font-family: var(--font-serif); font-weight: 400; line-height: 1.25; margin: 0; }
+    h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+    h2 { font-size: clamp(1.5rem, 3vw, 2.125rem); }
+    p { margin-block: 0.75rem 0; max-width: 46rem; }
+    section { border-block-start: 1px solid #bfc0c0; padding-block: 1.75rem 2.75rem; }
+    figure { margin: 0.75rem 0 0; }
+    figcaption { margin-block-start: 0.75rem; }
+    .eyebrow { color: var(--color-muted); font: 500 0.75rem/1.6 var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; margin: 0 0 0.65rem; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .diagram-container:focus-visible { outline: 2px solid var(--color-muted); outline-offset: 2px; }
+    svg { width: 100%; min-width: 960px; display: block; font-family: var(--font-sans); fill: var(--color-ink); }
+    .mono, code { font-family: var(--font-mono); }
+    .quiet { color: var(--color-muted); }
+    .scroll-tip { display: none; font-size: 0.875rem; }
+    @media (width < 992px) { .scroll-tip { display: block; } }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } figure { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Diagram Design · HTTP caching</p>
+      <h1>同一個檔案，不一定要再下載</h1>
+      <p>瀏覽器第一次取得 <code>/logo.svg</code> 時，可以把回應留在本機。下一次需要同一個標誌時，可能直接用副本、先問伺服器有沒有變，或下載完整內容。</p>
+      <p class="scroll-tip quiet">螢幕較窄時，可以左右滑動每張圖看完整內容。</p>
+    </header>
+
+    <section aria-labelledby="fresh-heading">
+      <p class="eyebrow">01 / Cache hit</p>
+      <h2 id="fresh-heading">先看最簡單的一次：直接用副本</h2>
+      <figure>
+        <div class="diagram-container">
+          <svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="http-cache-fresh-title http-cache-fresh-desc">
+            <title id="http-cache-fresh-title">快取仍新鮮時，直接重用副本</title>
+            <desc id="http-cache-fresh-desc">瀏覽器需要標誌檔，發現副本的年齡為 20 秒、有效期為 60 秒，所以直接重用，不聯絡伺服器。</desc>
+            <defs>
+              <marker id="fresh-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+              <marker id="fresh-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+              <marker id="fresh-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+            </defs>
+            <rect width="100%" height="100%" fill="#f5f5f5"/>
+            <line x1="216" y1="152" x2="216" y2="220" stroke="#4f5d75" stroke-width="1.4" marker-end="url(#fresh-arrow)"/>
+            <line x1="216" y1="352" x2="216" y2="420" stroke="#bf4520" stroke-width="1.6" marker-end="url(#fresh-accent)"/>
+
+            <text x="32" y="114" class="mono" font-size="10" fill="#4f5d75">01</text>
+            <rect x="80" y="72" width="272" height="80" rx="20" fill="#fff" stroke="#4f5d75"/>
+            <text x="216" y="106" text-anchor="middle" font-size="16" font-weight="600">瀏覽器需要標誌檔</text>
+            <text x="216" y="129" text-anchor="middle" class="mono" font-size="12">/logo.svg</text>
+
+            <text x="32" y="289" class="mono" font-size="10" fill="#4f5d75">02</text>
+            <rect x="80" y="220" width="272" height="132" rx="6" fill="#fff" stroke="#2d3142"/>
+            <text x="216" y="280" text-anchor="middle" font-size="18" font-weight="600">本機有新鮮副本</text>
+            <text x="216" y="309" text-anchor="middle" font-size="14">副本年齡還沒達到有效期</text>
+
+            <line x1="432" y1="220" x2="432" y2="352" stroke="#bfc0c0"/>
+            <text x="480" y="246" class="mono" font-size="10" letter-spacing="1.4">FRESHNESS · MAX-AGE=60</text>
+            <line x1="480" y1="292" x2="876" y2="292" stroke="#bfc0c0" stroke-width="2"/>
+            <line x1="480" y1="292" x2="612" y2="292" stroke="#4f5d75" stroke-width="2"/>
+            <circle cx="612" cy="292" r="4" fill="#4f5d75"/>
+            <text x="480" y="318" class="mono" font-size="11">0s</text>
+            <text x="612" y="318" text-anchor="middle" font-size="12">現在 · 20 秒</text>
+            <text x="876" y="318" text-anchor="end" font-size="12">到期 · 60 秒</text>
+
+            <text x="32" y="468" class="mono" font-size="10" fill="#4f5d75">03</text>
+            <rect x="80" y="420" width="272" height="88" rx="20" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+            <text x="216" y="457" text-anchor="middle" font-size="18" font-weight="600">直接用快取副本</text>
+            <text x="216" y="482" text-anchor="middle" font-size="14">這次不用聯絡伺服器</text>
+          </svg>
+        </div>
+        <figcaption><code>Cache-Control: max-age=60</code> 表示這個回應有 60 秒的有效期。圖中的副本年齡只有 20 秒，且沒有其他規則要求驗證。</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="validate-heading">
+      <p class="eyebrow">02 / Revalidation</p>
+      <h2 id="validate-heading">副本過期，不代表檔案已經變了</h2>
+      <figure>
+        <div class="diagram-container">
+          <svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="http-cache-validate-title http-cache-validate-desc">
+            <title id="http-cache-validate-title">用 ETag 驗證過期副本</title>
+            <desc id="http-cache-validate-desc">瀏覽器附上副本的 ETag 發送條件式請求；伺服器發現標記相符，回傳 304，不附檔案內容；瀏覽器使用原副本。</desc>
+            <defs>
+              <marker id="validate-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+              <marker id="validate-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+              <marker id="validate-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+            </defs>
+            <rect width="100%" height="100%" fill="#f5f5f5"/>
+            <line x1="232" y1="144" x2="232" y2="520" stroke="#4f5d75" stroke-opacity="0.45" stroke-dasharray="3,3"/>
+            <line x1="728" y1="144" x2="728" y2="520" stroke="#4f5d75" stroke-opacity="0.45" stroke-dasharray="3,3"/>
+            <rect x="724" y="256" width="8" height="136" fill="#ececec" stroke="#4f5d75" stroke-width="0.8"/>
+            <line x1="232" y1="256" x2="724" y2="256" stroke="#2e5aa8" stroke-width="1.5" marker-end="url(#validate-link)"/>
+            <line x1="724" y1="392" x2="232" y2="392" stroke="#bf4520" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#validate-accent)"/>
+
+            <rect x="408" y="216" width="144" height="32" rx="2" fill="#f5f5f5"/>
+            <text x="480" y="237" text-anchor="middle" class="mono" font-size="13" font-weight="600">GET /logo.svg</text>
+            <text x="480" y="286" text-anchor="middle" class="mono" font-size="12">If-None-Match: "v1"</text>
+            <rect x="396" y="352" width="168" height="32" rx="2" fill="#f5f5f5"/>
+            <text x="480" y="373" text-anchor="middle" class="mono" font-size="13" font-weight="600" fill="#bf4520">304 NOT MODIFIED</text>
+            <text x="480" y="420" text-anchor="middle" font-size="13">只回傳回應標頭，不附檔案內容</text>
+
+            <rect x="112" y="64" width="240" height="80" rx="6" fill="#fff" stroke="#2d3142"/>
+            <text x="232" y="112" text-anchor="middle" font-size="18" font-weight="600">瀏覽器</text>
+            <rect x="608" y="64" width="240" height="80" rx="6" fill="#fff" stroke="#2d3142"/>
+            <text x="728" y="112" text-anchor="middle" font-size="18" font-weight="600">伺服器</text>
+            <text x="252" y="182" font-size="13">手上有過期副本</text>
+            <text x="748" y="326" font-size="13">比對目前的標記</text>
+            <circle cx="232" cy="472" r="4" fill="#4f5d75"/>
+            <text x="252" y="477" font-size="14" font-weight="600">繼續使用原副本</text>
+          </svg>
+        </div>
+        <figcaption><code>ETag</code> 是伺服器給回應的驗證標記。瀏覽器在 <code>If-None-Match</code> 裡送回原標記；收到 <code>304</code>，代表這次問了伺服器，但不用重傳檔案。</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="decide-heading">
+      <p class="eyebrow">03 / Decision tree</p>
+      <h2 id="decide-heading">把三種結果放回同一張圖</h2>
+      <figure>
+        <div class="diagram-container">
+          <svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="http-cache-decide-title http-cache-decide-desc">
+            <title id="http-cache-decide-title">快取重用、驗證與重新下載的決策</title>
+            <desc id="http-cache-decide-desc">可直接用副本就不發請求；否則，有可驗證的副本就發條件式請求，收到 304 時重用副本，收到 200 時用完整回應；沒有驗證標記則直接請求完整回應。</desc>
+            <defs>
+              <marker id="decide-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+              <marker id="decide-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+              <marker id="decide-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+            </defs>
+            <rect width="100%" height="100%" fill="#f5f5f5"/>
+            <line x1="240" y1="84" x2="240" y2="112" stroke="#4f5d75" marker-end="url(#decide-arrow)"/>
+            <line x1="356" y1="156" x2="632" y2="156" stroke="#bf4520" stroke-width="1.4" marker-end="url(#decide-accent)"/>
+            <line x1="240" y1="200" x2="240" y2="236" stroke="#4f5d75" marker-end="url(#decide-arrow)"/>
+            <line x1="356" y1="280" x2="632" y2="280" stroke="#4f5d75" marker-end="url(#decide-arrow)"/>
+            <line x1="240" y1="324" x2="240" y2="372" stroke="#4f5d75" marker-end="url(#decide-arrow)"/>
+            <line x1="356" y1="416" x2="632" y2="416" stroke="#4f5d75" marker-end="url(#decide-arrow)"/>
+            <line x1="240" y1="460" x2="240" y2="508" stroke="#4f5d75" marker-end="url(#decide-arrow)"/>
+
+            <rect x="468" y="132" width="52" height="16" rx="2" fill="#f5f5f5"/>
+            <text x="494" y="144" text-anchor="middle" font-size="12" font-weight="500">是</text>
+            <rect x="248" y="212" width="28" height="16" rx="2" fill="#f5f5f5"/>
+            <text x="255" y="224" font-size="12" font-weight="500">否</text>
+            <rect x="468" y="256" width="52" height="16" rx="2" fill="#f5f5f5"/>
+            <text x="494" y="268" text-anchor="middle" font-size="12" font-weight="500">沒有</text>
+            <rect x="248" y="340" width="136" height="16" rx="2" fill="#f5f5f5"/>
+            <text x="255" y="352" font-size="12" font-weight="500">有 · 送條件式請求</text>
+            <rect x="460" y="392" width="68" height="16" rx="2" fill="#f5f5f5"/>
+            <text x="494" y="404" text-anchor="middle" class="mono" font-size="12">304</text>
+            <rect x="248" y="476" width="52" height="16" rx="2" fill="#f5f5f5"/>
+            <text x="255" y="488" class="mono" font-size="12">200</text>
+
+            <rect x="120" y="32" width="240" height="52" rx="20" fill="#fff" stroke="#4f5d75"/>
+            <text x="240" y="64" text-anchor="middle" font-size="15" font-weight="600">需要讀取標誌檔</text>
+            <path d="M240 112 L356 156 L240 200 L124 156 Z" fill="#fff" stroke="#2d3142"/>
+            <text x="240" y="161" text-anchor="middle" font-size="14" font-weight="600">可直接重用？</text>
+            <path d="M240 236 L356 280 L240 324 L124 280 Z" fill="#fff" stroke="#2d3142"/>
+            <text x="240" y="285" text-anchor="middle" font-size="14" font-weight="600">副本有驗證標記？</text>
+            <path d="M240 372 L356 416 L240 460 L124 416 Z" fill="#fff" stroke="#2d3142"/>
+            <text x="240" y="421" text-anchor="middle" font-size="14" font-weight="600">伺服器回什麼？</text>
+
+            <rect x="632" y="120" width="240" height="72" rx="20" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+            <text x="752" y="151" text-anchor="middle" font-size="15" font-weight="600">直接用副本</text>
+            <text x="752" y="173" text-anchor="middle" font-size="12">不發網路請求</text>
+            <rect x="632" y="244" width="240" height="72" rx="20" fill="#fff" stroke="#4f5d75"/>
+            <text x="752" y="275" text-anchor="middle" font-size="15" font-weight="600">請求完整回應</text>
+            <text x="752" y="297" text-anchor="middle" font-size="12">沒有可拿去比對的標記</text>
+            <rect x="632" y="380" width="240" height="72" rx="20" fill="#fff" stroke="#4f5d75"/>
+            <text x="752" y="411" text-anchor="middle" font-size="15" font-weight="600">驗證後用副本</text>
+            <text x="752" y="433" text-anchor="middle" font-size="12">有網路請求，沒重傳內容</text>
+            <rect x="120" y="508" width="240" height="64" rx="20" fill="#fff" stroke="#4f5d75"/>
+            <text x="240" y="535" text-anchor="middle" font-size="15" font-weight="600">使用完整回應</text>
+            <text x="240" y="556" text-anchor="middle" font-size="12">伺服器送來檔案內容</text>
+          </svg>
+        </div>
+        <figcaption><code>304</code> 和「直接用副本」都不重傳檔案，差別是前者仍有一次網路往返。這張圖只畫一般讀取的成功路徑，不涵蓋強制重新整理、網路錯誤或代理快取。<code>Last-Modified</code> 也可以用來驗證，圖中以 <code>ETag</code> 為例。</figcaption>
+      </figure>
+    </section>
+  </main>
+</body>
+</html>

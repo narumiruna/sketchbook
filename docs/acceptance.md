@@ -6,6 +6,12 @@ The bundled examples and static skill checks do not prove that a model will sele
 Paid model evaluations, npm publication, version tags, and release-workflow dispatch require separate authorization.
 Human visual acceptance and remote forwarding remain unverified.
 
+## Diagram Design handoff
+
+Use the [HTTP cache preview](../examples/diagram-design/http-cache.html) to compare the three source drawings with the [saved-document fixture](../examples/diagram-design/http-cache-walkthrough.json) in the Viewer. The static SVGs preserve the diagram shapes and colours but use system fonts. At 390px the fitted view is an overview; use Reset zoom or the zoom controls to read the smallest annotations. Do not treat this import fixture as a default-label-size teaching benchmark.
+
+In a clean native installation of each supported host, verify that Mermaid remains the default and that explicitly selecting Diagram Design loads the packaged skill without conflicting with a separately installed `diagram-design`. Check that a later edit uses the document preference unless overridden and that missing Python is reported without switching sources silently. Native model routing, missing-Python authoring, physical-device reading comfort, and any host without a local native executable require separate evidence. Static prompts, manifests, and a successful standalone MCP round trip do not replace the host walkthrough.
+
 ## Progressive Sketchbook handoff
 
 Follow the [progressive Sketchbook PRD](https://github.com/narumiruna/sketchbook/blob/main/docs/prd/progressive-sketchbook.md) (R1–R6) and [original-page storage decision](https://github.com/narumiruna/sketchbook/blob/main/docs/decisions/0004-keep-original-page-as-first-chapter.md). Use a disposable workspace and the `tests/fixtures/progressive-book.ts` inputs from this checkout. The chat app is a teaching example, not a claim about a deployed service.

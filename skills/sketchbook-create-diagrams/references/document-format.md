@@ -9,6 +9,7 @@ Do not add envelope fields to the document.
 type SketchbookDocument = {
   schemaVersion: 1
   title: string
+  defaultDiagramSource?: "mermaid" | "diagram-design"
   blocks: Array<
     | { id: string; type: "markdown"; markdown: string }
     | { id: string; type: "code"; code: string; language?: string }
@@ -16,13 +17,13 @@ type SketchbookDocument = {
         id: string
         type: "diagram-deck"
         title: string
-        slides: Array<{
-          id: string
-          title: string
-          mermaid: string
-          focusNodes?: string[]
-          explanationMarkdown: string
-        }>
+        slides: Array<
+          {
+            id: string
+            title: string
+            explanationMarkdown: string
+          } & ({ mermaid: string; focusNodes?: string[] } | { svg: string })
+        >
       }
   >
 }
@@ -36,7 +37,9 @@ type SketchbookDocument = {
   - IDs are identifiers, not file paths.
 - Use at most 1 MiB of UTF-8 JSON and 1 to 100 blocks per document.
   - Give each deck 1 to 20 slides.
-  - Limit each Mermaid source to 32 KiB of UTF-8 text.
+  - Limit each Mermaid source to 32 KiB of UTF-8 text and each SVG source to 128 KiB of UTF-8 text.
+  - Require exactly one source field per slide. Use `svg` for static drawing markup, not file paths or HTML.
+- Treat `defaultDiagramSource` as an authoring preference. Omit it for default Mermaid behavior; selecting a different preference does not rewrite existing slides.
 - Use only the fields shown above and schema version 1.
 
 Markdown supports prose, inline math such as `$r + 1$`, display math between `$$` lines, and fenced code.
@@ -122,6 +125,13 @@ Use only these headers. Beta-only families, Mindmap, Event Modeling, ZenUML, and
 - Do not use LaTeX commands that require trusted HTML or external resources.
 
 Flowcharts use the hand-drawn look and a fixed seed. Other families use Mermaid's normal style. The application controls all rendering settings, runs Mermaid in strict mode without HTML labels or event bindings, and sanitizes generated SVG. Do not try to override these settings.
+
+### Static SVG policy
+
+- Supply a well-formed SVG with an SVG namespace and a finite positive `viewBox`. Each component must have magnitude at most 32768 SVG units.
+- Use static shapes, text, and local definitions such as markers, patterns, or gradients. Keep style rules self-contained. `url(...)` may reference only a local fragment (`#name`); `@media` is the only supported CSS at-rule.
+- Do not use HTML, scripts, processing instructions, DOCTYPE, event attributes, animation or transition effects, links, `href`, external assets, or embedded images. Not all SVG elements, attributes, or CSS functions are accepted.
+- Export Diagram Design artwork with system fonts. The Viewer shows it as an isolated static image and exposes its slide title and the adjacent explanation, not an editable SVG DOM.
 
 ## Tool contract
 

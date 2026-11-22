@@ -180,7 +180,7 @@ export class ViewerServer {
         "script-src 'self'",
         "style-src 'self' 'unsafe-inline'",
         "font-src 'self'",
-        "img-src 'self'",
+        "img-src 'self' blob:",
         "connect-src 'self'",
         "base-uri 'none'",
         "form-action 'none'",

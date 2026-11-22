@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm"
 import { describe, expect, test } from "vitest"
 import { type DiagramDeck, type SketchbookDocument, validateDocument } from "../src/document.js"
 import { MERMAID_RENDERERS } from "../src/mermaid-policy.js"
+import { mermaidDeck as deck } from "./fixtures/mermaid-deck.js"
 
 const skillRoot = fileURLToPath(new URL("../skills/sketchbook-create-diagrams/", import.meta.url))
 const skillFile = resolve(skillRoot, "SKILL.md")
@@ -50,12 +51,6 @@ function diagramNodes(source: string) {
   return new Map(
     [...nodes.matchAll(/(\w+)(?:\[|\{)"([^"]+)"(?:\]|\})/g)].map((match) => [match[1], match[2]]),
   )
-}
-
-function deck(document: SketchbookDocument, id: string): DiagramDeck {
-  const block = document.blocks.find((block) => block.id === id)
-  if (block?.type !== "diagram-deck") throw new Error(`Missing teaching deck: ${id}`)
-  return block
 }
 
 function expectArchitectureDetails(document: SketchbookDocument) {
@@ -373,6 +368,7 @@ function expectCompactLabels(document: SketchbookDocument) {
   for (const block of document.blocks) {
     if (block.type !== "diagram-deck") continue
     for (const slide of block.slides) {
+      if (!("mermaid" in slide)) throw new Error("Expected Mermaid teaching fixture")
       for (const [id, label] of diagramNodes(slide.mermaid)) {
         if (labels.has(id)) expect(label).toBe(labels.get(id))
         labels.set(id, label)
@@ -388,6 +384,27 @@ function expectCompactLabels(document: SketchbookDocument) {
 }
 
 describe("bundled Sketchbook skill", () => {
+  test("routes new and existing documents before drawing and does not silently fall back", async () => {
+    const skill = await readFile(skillFile, "utf8")
+    const design = await readFile(
+      resolve(skillRoot, "../sketchbook-diagram-design/SKILL.md"),
+      "utf8",
+    )
+    expect(skill.indexOf("Choose the diagram source before drawing")).toBeLessThan(
+      skill.indexOf("Identify the audience"),
+    )
+    expect(skill).toContain(
+      "honor an explicit choice. Otherwise offer Mermaid (default) and Diagram Design",
+    )
+    expect(skill).toContain(
+      "otherwise use `defaultDiagramSource` from the original document (`mermaid` if absent)",
+    )
+    expect(skill).toContain("Do not redraw existing slides to match a new default")
+    expect(design).toContain("name: sketchbook-diagram-design")
+    expect(design).toContain("If Python or the packaged exporter is unavailable")
+    expect(design).toContain("Do not silently choose another backend")
+    expect(design).toContain("`--system-fonts`")
+  })
   test("has portable, concise routing frontmatter", async () => {
     const skill = await readFile(skillFile, "utf8")
     const frontmatter = skill.match(/^---\n([\s\S]+?)\n---\n/)
@@ -481,7 +498,7 @@ describe("bundled Sketchbook skill", () => {
     const patterns = await readFile(resolve(skillRoot, "references/diagram-patterns.md"), "utf8")
     const articleReview = skill.indexOf("review the whole article's outline")
     const slideReview = skill.indexOf("before checking each slide's contribution and continuity")
-    const save = skill.indexOf("5. Use `sketchbook_write`")
+    const save = skill.search(/^\d+\. Use `sketchbook_write`/m)
     expect(articleReview).toBeGreaterThan(0)
     expect(slideReview).toBeGreaterThan(articleReview)
     expect(save).toBeGreaterThan(slideReview)
@@ -703,14 +720,13 @@ describe("bundled Sketchbook skill", () => {
     "label checks catch long labels and horizontal chains in %s",
     async (name) => {
       const document = validateDocument(await loadFixture(name))
-      const deck = document.blocks.find(
-        (block): block is DiagramDeck => block.type === "diagram-deck",
-      )
-      if (!deck) throw new Error("Missing teaching deck")
-      const source = deck.slides[0].mermaid
+      const first = document.blocks.find((block) => block.type === "diagram-deck")
+      if (!first) throw new Error("Missing teaching deck")
+      const slides = deck(document, first.id).slides
+      const source = slides[0].mermaid
       const update = (mermaid: string) => {
-        deck.slides[0].mermaid = mermaid
-        for (const slide of deck.slides) {
+        slides[0].mermaid = mermaid
+        for (const slide of slides) {
           if (slide.focusNodes) slide.mermaid = mermaid
         }
       }
@@ -860,7 +876,7 @@ describe("bundled Sketchbook skill", () => {
       expect(() => expectTeachingClaims(document, asset)).toThrow()
       if (!detail.focusNodes) {
         detail.explanationMarkdown = originalExplanation
-        detail.mermaid = first.slides[0].mermaid
+        detail.mermaid = deck(document, first.id).slides[0].mermaid
         expect(() => validateDocument(document)).not.toThrow()
         expect(() => expectTeachingClaims(document, asset)).toThrow()
       }

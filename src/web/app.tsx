@@ -131,6 +131,7 @@ function Deck({ deck, inSection }: { deck: DiagramDeck; inSection: boolean }) {
     ids: deck.slides.map((slide) => slide.id),
   }))
   const active = currentSlide(deck, selection)
+  const isSvg = "svg" in active
   const index = deck.slides.indexOf(active)
   const ids = deck.slides.map((slide) => slide.id)
   const multiple = deck.slides.length > 1
@@ -171,16 +172,18 @@ function Deck({ deck, inSection }: { deck: DiagramDeck; inSection: boolean }) {
             {active.title}
           </SlideTitle>
         </div>
-        <span className="deck-kind">Mermaid</span>
+        <span className="deck-kind">{isSvg ? "SVG" : "Mermaid"}</span>
       </header>
       <div className="slide-content">
         <div className="slide-figure">
           <div className="deck-viewport" id={viewportId}>
             <Diagram
-              source={active.mermaid}
+              source={isSvg ? active.svg : active.mermaid}
+              format={isSvg ? "svg" : "mermaid"}
+              title={active.title}
               blockId={deck.id}
               slideId={active.id}
-              focusNodes={active.focusNodes}
+              focusNodes={isSvg ? undefined : active.focusNodes}
             />
           </div>
           {multiple && (

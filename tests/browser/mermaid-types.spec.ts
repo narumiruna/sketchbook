@@ -1,5 +1,5 @@
 import { expect, type Locator, test } from "@playwright/test"
-import type { DiagramDeck, SketchbookDocument } from "../../src/document.js"
+import type { DiagramDeck, MermaidSlide, SketchbookDocument } from "../../src/document.js"
 import { mermaidTypeFixtures } from "../fixtures/mermaid-types.js"
 import { asset, rendered, save, selectSlide } from "./helpers.js"
 
@@ -11,7 +11,10 @@ function sample(id: string): Sample {
   return fixture
 }
 
-function deckFixture(id: string, ...samples: Sample[]): DiagramDeck {
+function deckFixture(
+  id: string,
+  ...samples: Sample[]
+): Omit<DiagramDeck, "slides"> & { slides: MermaidSlide[] } {
   return {
     id,
     type: "diagram-deck",

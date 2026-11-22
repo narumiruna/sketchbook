@@ -1,17 +1,12 @@
 import { readFile } from "node:fs/promises"
 import { describe, expect, test } from "vitest"
-import { type DiagramDeck, type SketchbookDocument, validateDocument } from "../src/document.js"
+import { type SketchbookDocument, validateDocument } from "../src/document.js"
+import { mermaidDeck as deck } from "./fixtures/mermaid-deck.js"
 
 async function fixture(): Promise<SketchbookDocument> {
   return validateDocument(
     JSON.parse(await readFile(new URL("./fixtures/agent-substrate.json", import.meta.url), "utf8")),
   )
-}
-
-function deck(document: SketchbookDocument, id: string): DiagramDeck {
-  const block = document.blocks.find((block) => block.id === id)
-  if (block?.type !== "diagram-deck") throw new Error(`Missing deck ${id}`)
-  return block
 }
 
 function expectCompleteEgressPaths(source: string) {

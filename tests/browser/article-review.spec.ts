@@ -75,6 +75,7 @@ for (const fixture of fixtures) {
         if (block.type !== "diagram-deck") continue
         const deck = page.locator(`.deck[data-block-id="${block.id}"]`)
         for (const slide of block.slides) {
+          if (!("mermaid" in slide)) throw new Error("Expected Mermaid article fixture")
           if (block.slides.length > 1) await selectSlide(deck, slide.id)
           await expect(deck).toHaveAttribute("data-slide-id", slide.id)
           await rendered(deck)

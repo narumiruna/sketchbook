@@ -91,6 +91,41 @@ test("adds sections and chapters without touching v1; legacy replacements leave 
   expect(await store.readViewer(documentId)).toEqual({ ...stored, book })
 })
 
+test("keeps SVG slides and the document preference independent of book revisions", async () => {
+  const svgSlide = {
+    id: "drawing",
+    title: "Drawing",
+    explanationMarkdown: "Offline diagram.",
+    svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90"><text>快取</text></svg>',
+  }
+  await expect(
+    edit(1, { type: "append-slide", deckId: deck.id, slide: svgSlide }),
+  ).resolves.toEqual({ revision: 2, record: "document" })
+  await expect(edit(0, addSection)).resolves.toEqual({ revision: 1, record: "book" })
+  await expect(
+    edit(1, { type: "append-slide", sectionId: section.id, deckId: deck.id, slide: svgSlide }),
+  ).resolves.toEqual({ revision: 2, record: "book" })
+  const original = await store.read(documentId)
+  const book = await store.readBook(documentId)
+  expect(original.document.blocks).toContainEqual({ ...deck, slides: [slide, svgSlide] })
+  expect(book?.sections[0].blocks).toContainEqual({ ...deck, slides: [slide, svgSlide] })
+  const { stored } = await store.write({
+    documentId,
+    expectedRevision: 2,
+    document: { ...original.document, defaultDiagramSource: "diagram-design" },
+  })
+  expect(stored.document).toEqual({ ...original.document, defaultDiagramSource: "diagram-design" })
+  expect(await store.readBook(documentId)).toEqual(book)
+  await expect(
+    edit(2, {
+      type: "replace-block",
+      sectionId: section.id,
+      block: { ...deck, slides: [{ ...svgSlide, svg: "<svg/>" }] },
+    }),
+  ).rejects.toThrow("Invalid static SVG")
+  expect(await store.readBook(documentId)).toEqual(book)
+})
+
 test("changes only the target chapter, section, block or deck; reorder preserves chapter identities", async () => {
   await edit(0, addSection)
   await edit(1, addChapter)

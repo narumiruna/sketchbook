@@ -77,6 +77,10 @@ no external browser requests.
 Other browser engines, physical touch devices, and human visual acceptance
 were not verified for this change; see the [human browser review](acceptance.md#human-browser-review).
 
+## Static SVG diagrams
+
+SVG slides use the same diagram camera as Mermaid but render in browser image mode. A trusted outer SVG supplies the dimensions and accessible slide name; the imported markup does not become part of the Viewer DOM. The shared static XML and CSS policy runs on writes and before image creation, and the Viewer permits Blob URLs for images only. The SVG format is additive; older releases may not read documents that use it. The packaged authoring skill is optional at read time. See the [Diagram Design handoff](acceptance.md#diagram-design-handoff) for host and visual checks that require separate evidence.
+
 ## Historical compatibility checks
 
 These results describe earlier revisions, not the current support contract.
