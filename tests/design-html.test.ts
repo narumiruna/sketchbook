@@ -9,10 +9,7 @@ const html = (body = inline, head = "") =>
   `<!doctype html><html><head>${head}</head><body>${body}</body></html>`
 
 test("keeps the original diagram HTML on write and preserves its layout on display", async () => {
-  const original = await readFile(
-    new URL("../examples/diagram-design/http-cache.html", import.meta.url),
-    "utf8",
-  )
+  const original = await readFile(new URL("./fixtures/cache-design.html", import.meta.url), "utf8")
   const document = {
     schemaVersion: 1,
     title: "Book",

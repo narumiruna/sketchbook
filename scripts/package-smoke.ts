@@ -40,14 +40,14 @@ async function checkSvg(deck: Locator, slide: { id: string; title: string }) {
   assert.equal(await deck.locator(".diagram-controls").count(), 0)
 }
 
-async function cachePage(
-  packagePath: string,
-): Promise<Extract<SketchbookDocument["blocks"][number], { type: "diagram-html" }>> {
+async function cachePage(): Promise<
+  Extract<SketchbookDocument["blocks"][number], { type: "diagram-html" }>
+> {
   return {
     id: "cache-html",
     type: "diagram-html",
     title: "Browser caching with Diagram Design",
-    html: await readFile(join(packagePath, "examples/diagram-design/http-cache.html"), "utf8"),
+    html: await readFile(join(root, "tests/fixtures/cache-design.html"), "utf8"),
   }
 }
 
@@ -254,7 +254,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
             },
           ],
         },
-        await cachePage(packagePath),
+        await cachePage(),
       ],
     }
     const created = await call("sketchbook_write", { document })
@@ -430,7 +430,7 @@ async function smokeMcp(tarball: string): Promise<string> {
   }
   const installed = join(install, "node_modules/@narumitw/sketchbook")
   const svgSlide = await cacheSlide(installed)
-  const designPage = await cachePage(installed)
+  const designPage = await cachePage()
   const help = await execute(
     "npx",
     ["--no", "--package=@narumitw/sketchbook", "--", "sketchbook-mcp", "--help"],

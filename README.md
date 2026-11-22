@@ -2,40 +2,33 @@
 
 English · [繁體中文（台灣）](README.zh-TW.md)
 
-Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Diagram Design HTML. Existing static SVG decks still work. Start with one page and add sections or chapters when readers need more detail.
+Turn a technical explanation into a local page you can open in your browser. Mix Markdown, LaTeX, code, and diagrams. Start with one page, then add sections or chapters as the explanation grows.
 
-Sketchbook builds on [Diagram Design](https://github.com/cathrynlavery/diagram-design) for diagram authoring and bundles its guide, templates, and exporter.
-
-Each deck shows one diagram and its explanation at a time, independently of chapter navigation.
-Use the bottom Previous/Next buttons or labelled position dots to change slides; focused decks also support Left/Right keyboard keys.
-On wide screens, explanations appear beside their diagrams; narrower screens use one reading column.
-The page title is H1. Outside named sections, deck titles are H2 and current slide titles are H3. Inside a named section, they are H3 and H4.
-Matching deck and slide titles appear once visually.
+Sketchbook runs in Pi, as a plugin for Claude Code or Codex, or as a standalone MCP server. It builds on [Diagram Design](https://github.com/cathrynlavery/diagram-design) for diagram authoring and bundles its guide, templates, and exporter. See the [HTTP cache walkthrough](examples/diagram-design/http-cache-walkthrough.json) for a sample document with static SVG slides.
 
 ## Installation
 
+- [Pi](#pi): Install the extension and authoring skill.
+- [Claude Code or Codex](#claude-code-and-codex-plugins): Install the plugin for the skill and MCP tools together.
+- [Other MCP clients](#mcp): Configure the standalone server for tools only.
+
 ### Pi
 
-Install the latest Sketchbook from GitHub:
+Install from GitHub, then restart Pi or run `/reload`:
 
 ```sh
 pi install https://github.com/narumiruna/sketchbook
 ```
 
-The Git install uses Node.js 26.0.0 or later, Git, `tar`, and Pi's default package manager (`npm`).
-Pi clones the repository and builds the extension, Viewer, and bundled skill during installation and when an update changes the Git commit. The build needs access to npm and GitHub.
-Restart Pi or use `/reload`, then run `/skill:sketchbook`.
+Git installation requires Node.js 26.0.0 or later, Git, `tar`, and access to npm and GitHub. Pi uses npm to build the extension, Viewer, and skill on install and when `pi update https://github.com/narumiruna/sketchbook` changes the installed commit. Review the package before installing and the project declarations before granting Pi project trust.
 
-To update the Git installation, run `pi update https://github.com/narumiruna/sketchbook`.
-
-You can also install the prebuilt npm package, which can lag behind this repository:
+Alternatively, install the prebuilt npm package. It may lag behind this repository:
 
 ```sh
 pi install npm:@narumitw/sketchbook
 ```
 
-If you switch sources, remove the old package first with `pi remove <source>` to avoid loading Sketchbook twice.
-To install from a local checkout for development:
+When switching sources, run `pi remove <source>` for the old source first. For local development, run these commands from a checkout with the same build prerequisites:
 
 ```sh
 npm ci
@@ -43,18 +36,11 @@ npm run build
 pi install ./
 ```
 
-Sketchbook tests against Pi 1.6.0; see [compatibility evidence](docs/compatibility.md).
-
-Local installation requires Node.js 26.0.0 or later, the built `dist` assets, and installed dependencies.
-
-The release workflow creates version tags and GitHub Releases. It does not publish npm packages.
-Review package code before installation and project declarations before granting Pi project trust.
+See [compatibility evidence](docs/compatibility.md) for testing against Pi 1.6.0.
 
 ### Claude Code and Codex plugins
 
-Install the plugin to get the `sketchbook` skill and its MCP tools together. The plugins are for local clients; they use the same `sketchbook-mcp` executable.
-
-Build and install the npm tarball from this checkout with Node.js 26.0.0 or later. This keeps the skill and MCP server on the same version. Run these commands at the repository root:
+Build and install the tarball from this checkout to keep the skill and MCP server on the same version. Use Node.js 26.0.0 or later and run the following in the repository root:
 
 ```sh
 npm ci
@@ -64,7 +50,7 @@ npm install --global "./$archive"
 plugin_root="$(npm root --global)/@narumitw/sketchbook"
 ```
 
-Make sure `sketchbook-mcp --help` works in the shell that starts your client. Register the plugin for either client using the `plugin_root` value above:
+Make sure `sketchbook-mcp --help` works in the shell that launches your client. Register the plugin for the client you use:
 
 ```sh
 # Claude Code
@@ -76,19 +62,19 @@ codex plugin marketplace add "$plugin_root"
 codex plugin add sketchbook@narumi-sketchbook
 ```
 
-Start a new client session from the workspace where you want to keep your documents. Claude Code uses the project root; Codex uses the server's working directory, inherited from the CLI session in the tested local setup. Both save to that workspace's `.pi/sketchbook/` directory. If you already configured the standalone MCP server, remove the duplicate entry before using the plugin.
+If you already configured the standalone MCP server, remove that entry to avoid loading it twice. Start a new session in the workspace where you want to save documents. Claude Code uses the project root. In the tested local setup, Codex starts the server in the CLI session's working directory. Both save under `.pi/sketchbook/` in that workspace.
 
 ### MCP
 
-For a server without the bundled skill, configure MCP directly.
-The stdio MCP server exposes the same Sketchbook tools as Pi to clients such as Claude Desktop and Cursor. It does not require Pi. The installed package version determines which tools are available.
-Run the published package from your workspace:
+The standalone server works with stdio MCP clients such as Claude Desktop and Cursor. It does not require Pi. It exposes the tools available in the installed package version, not slash commands or automatic skill loading. For authoring guidance, see the [skill](skills/sketchbook/SKILL.md) and [document format](skills/sketchbook/references/document-format.md).
+
+Run the published server from your workspace:
 
 ```sh
 npx -y @narumitw/sketchbook --cwd .
 ```
 
-Or add the server to your client's MCP configuration. Replace `/absolute/path/to/workspace` with the workspace where Sketchbook should save documents:
+Or add it to your client's MCP settings (for example, `claude_desktop_config.json` or `.cursor/mcp.json`). Set `--cwd` to an existing workspace directory and restart the client:
 
 ```json
 {
@@ -101,140 +87,104 @@ Or add the server to your client's MCP configuration. Replace `/absolute/path/to
 }
 ```
 
-Use the client's MCP settings file, such as Claude Desktop's `claude_desktop_config.json` or Cursor's `.cursor/mcp.json`.
-Restart the client after changing its configuration.
-To use a fixed package version, replace `@narumitw/sketchbook` with `@narumitw/sketchbook@<version>`.
-To run the MCP server from this checkout, use Node.js 26.0.0 or later, run `npm ci` and `npm run build`, then launch `node /absolute/path/to/sketchbook/dist/mcp-cli.js --cwd /absolute/path/to/workspace`.
+To pin the package, use `@narumitw/sketchbook@<version>`. To use this checkout, run `npm ci` and `npm run build` with Node.js 26.0.0 or later, then launch `node /absolute/path/to/sketchbook/dist/mcp-cli.js --cwd /absolute/path/to/workspace`.
 
 #### MCP workspace and behavior
 
-- `--cwd` names an existing workspace directory. Published version `0.2.2` requires it; the current checkout defaults to the server process's working directory when it is omitted.
-  - Relative paths are resolved from the process working directory.
-  - In a terminal, the default is the shell's current directory. An MCP client chooses the directory when it starts the server; this is not necessarily the project open in the client.
-  - Documents stay in that workspace's `.pi/sketchbook/` directory, using the same format as Pi.
-  - Tool inputs cannot change the workspace. Use a separate server configuration for another workspace.
-  - See [Files and lifecycle](#files-and-lifecycle) for limits on concurrent writes.
-- The server uses stdio only; stdout is reserved for MCP messages and diagnostics use stderr.
-  - Each tool returns JSON text and `structuredContent`; failures also set `isError: true`.
-  - Unlike Pi's bounded read text, MCP's `sketchbook_read` includes the complete stored document in both result channels.
-  - Create without `documentId` and `expectedRevision`. For a full-page replacement, read first and submit both fields with the complete document. For a local edit, use `sketchbook_edit`.
-- `sketchbook_open` starts the read-only HTTP viewer, not an HTTP MCP endpoint. The [LAN rules](#lan-access) also apply to MCP.
-  - Client disconnect, stdin EOF, SIGINT, or SIGTERM closes the viewer.
-- MCP exposes tools, not Pi slash commands or automatic skill loading.
-  - The bundled [authoring skill](skills/sketchbook/SKILL.md) and [document format](skills/sketchbook/references/document-format.md) remain available as guidance.
-  - Client-specific UI behavior still requires the [MCP client handoff](docs/acceptance.md#mcp-client-handoff).
+- `--cwd` is required in published version `0.2.2`. The current checkout uses the server process's working directory if you omit it. Relative paths resolve from that directory, which the client selects and which may differ from the open project. Save files go under `.pi/sketchbook/`; use a separate server configuration for each workspace you want to access.
+- Stdout is reserved for MCP messages; diagnostics go to stderr. Results include JSON text and `structuredContent`, with `isError: true` on failures. Unlike Pi's bounded text preview, MCP returns the complete `sketchbook_read` record in both channels.
+- `sketchbook_open` starts the read-only HTTP Viewer, not an HTTP MCP endpoint. A client disconnect, stdin EOF, SIGINT, or SIGTERM closes the Viewer.
 
-## Upgrade from Pi Canvas
-
-The package is now `@narumitw/sketchbook`.
-Replace `canvas_*` tool calls with `sketchbook_*` and `/skill:canvas-explain-diagrams` with `/skill:sketchbook`.
-The old names are not aliases.
-
-Existing documents in `.pi/canvas/` are not moved automatically.
-Stop all Pi sessions that use the workspace and back up the saved documents before moving them.
-If `.pi/sketchbook/` does not exist, move the complete `.pi/canvas/` directory to `.pi/sketchbook/`.
-If both directories exist, keep both and resolve document ID conflicts before moving files; do not overwrite either directory.
-Document IDs, revisions, and schema version 1 remain unchanged.
-Start Pi again to load the renamed tools and skill, then open documents for new viewer URLs.
+See [MCP client handoff](docs/acceptance.md#mcp-client-handoff) for client-specific checks.
 
 ## Use
 
-Use `/skill:sketchbook` in Pi. The older commands `/skill:sketchbook-create-diagrams`, `/skill:sketchbook-diagram-design`, and `/skill:sketchbook-explain-diagrams` are not aliases. Update saved prompts to use the new command.
-
-Load the bundled skill explicitly:
+In Pi, invoke the skill with a prompt:
 
 ```text
 /skill:sketchbook Explain this system with an overview, API detail, and storage detail.
 ```
 
-An explicit `/skill:sketchbook` invocation requests a saved page and a private local Viewer link, even for a short question.
-The page can be Markdown only when prose is clearer.
-When diagrams help or you request one, the skill uses the bundled Diagram Design guide and saves the complete HTML.
-It uses Sketchbook's default light style unless you specify a style or the project has a profile.
-Without an explicit invocation, simple questions that do not benefit from diagrams should stay in chat.
-Automatic skill selection remains unverified.
-See the [HTTP cache example](examples/diagram-design/http-cache.html) for a gradual explanation from a fresh copy to cache validation and the complete decision flow.
+This explicitly requests a saved page and a private Viewer link, even for a short question. The skill can use Markdown alone or save complete Diagram Design HTML when diagrams help. It uses Sketchbook's light style unless you specify a style or the project has a profile. Without an explicit request, simple questions that do not need a diagram should stay in chat. Automatic skill selection remains unverified.
 
-| Tool                   | Input and result                                                                                                                                |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sketchbook_write`     | `{document}` creates a document and returns its ID, revision, storage path, summary, and rendering-unverified status.                           |
-| `sketchbook_read`      | `{documentId}` returns `{documentId, revision, updatedAt, document}` in `structuredContent.stored`.                                             |
-| `sketchbook_write`     | `{document, documentId, expectedRevision}` replaces the full original document if the revision matches.                                         |
-| `sketchbook_open`      | `{documentId}` returns an ephemeral local Viewer URL; it does not launch a browser.                                                             |
-| `sketchbook_read_book` | `{documentId}` returns `{ok: true, book: StoredBook \| null, contentTruncated}`. `null` means no sidecar; its initial revision is `0`.          |
-| `sketchbook_edit`      | `{documentId, expectedRevision, operation}` returns `{ok: true, documentId, revision, record: 'document' \| 'book', renderingVerified: false}`. |
+### Tools
 
-For edits, read the record you intend to change and use its revision. On conflict or an uncertain result, read that same record again before deciding whether to retry.
-A successful write confirms validation and storage. Neither writing nor calling `sketchbook_open` verifies browser rendering.
-Pi and MCP use the same validation and store the exact HTML or SVG source.
-The [document format](skills/sketchbook/references/document-format.md) defines fields, IDs, limits, heading roles, and tool details.
+| Tool                   | Purpose                                                                                                                                                                    |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sketchbook_write`     | Create with `{document}` (omit `documentId` and `expectedRevision`). To replace the original page, pass `{document, documentId, expectedRevision}` with the full document. |
+| `sketchbook_read`      | Read the original page and its revision with `{documentId}`.                                                                                                               |
+| `sketchbook_open`      | Get a private, temporary Viewer URL with `{documentId}`. Open it in your browser; the tool does not launch one.                                                            |
+| `sketchbook_read_book` | Read sections, extra chapters, and their revision with `{documentId}`. If `book` is `null`, the initial revision is `0`.                                                   |
+| `sketchbook_edit`      | Make one revision-checked change with `{documentId, expectedRevision, operation}`.                                                                                         |
 
-For a standalone snippet, add an entry like this to `document.blocks`:
+Read the record you intend to change and use its revision. If an edit conflicts or its result is uncertain, read that record again before retrying. Pi and MCP use the same validation and store the HTML and SVG sources unchanged. A successful write confirms validation and storage, not rendering; opening a URL does not verify rendering either. See the [document format and tool contract](skills/sketchbook/references/document-format.md) for result fields and limits.
+
+### Grow a page into a book
+
+A single page needs no cover or contents list. Add sections for named positions within a page. Add a chapter for a separate page; the original becomes the first chapter without changing its title, content, ID, or open link.
+
+1. Before `add-section` or `add-chapter`, call `sketchbook_read_book`. Use `expectedRevision: 0` if `book` is `null`. Before the next edit, read again or use the revision returned by the previous edit.
+2. Use `sketchbook_edit` to append blocks or slides without resending other content. Use `replace-block` only to replace an existing block. An edit to a block or slide with neither `chapterId` nor `sectionId` uses the original page's revision. All other edits use the book revision; omit `chapterId` to address the first chapter where that field is optional. The two revisions are independent, not a joint snapshot.
+3. Navigate with the numbered contents or Previous/Next chapter controls. Section links jump within the current chapter. A page with only sections lists just those sections. On wide screens the contents stay in a left sidebar; on narrow screens they appear above the page.
+
+Chapter and section links use stable IDs in the `chapter` and `section` query parameters. Keep the original token in the URL fragment after the query. A link without those parameters opens the first page. Renaming or reordering a chapter does not change its ID. See [edit operations](skills/sketchbook/references/document-format.md#edit-operations) and [book verification](docs/acceptance.md#progressive-sketchbook-handoff).
+
+## Content types
+
+### Add Diagram Design HTML
+
+To import a diagram, add a `diagram-html` block with an `id`, `title`, and the complete self-contained HTML in `html`. You can place it on the original page, in a section, or in another chapter. The Viewer keeps the drawings, typography, and captions together without adding a frame or diagram controls. Importing and viewing HTML do not require Python. If your MCP client does not load the skill, use your own authoring workflow. See the [HTML policy](skills/sketchbook/references/document-format.md#diagram-design-html).
+
+### Add a code snippet
+
+For a standalone snippet, add a `code` block to `document.blocks`:
 
 ```json
 { "id": "example", "type": "code", "language": "TypeScript", "code": "const answer = 42;\n" }
 ```
 
-Omit `language` to hide the label.
-The viewer displays the code as text without executing it.
-Focus the block with Tab and use the arrow keys to scroll long lines.
-Use Markdown fences instead for snippets inside prose or slide explanations.
+Omit `language` to hide the label. The Viewer shows code as text and never runs it. Tab to the block and use the arrow keys to scroll long lines. For code within prose or a slide explanation, use a fenced Markdown block.
 
-### Grow a page into a book
+## Rendering and security
 
-A standalone page needs no cover or contents list. Add a section to give readers a named position on that page. Add a chapter when a topic needs its own scrollable page. Only adding another chapter turns the original page into the first chapter of a book. The original title, content, ID, and open link stay in place.
-
-1. Use `sketchbook_read_book` before `add-section` or `add-chapter`. If `book` is `null`, pass `expectedRevision: 0` to the first edit. Read the book again or use its returned revision for the next book edit.
-2. Use `sketchbook_edit` to append a block or slide to its target without resending unrelated content. Use `replace-block` for an explicit replacement. Without `chapterId`, the edit addresses the first chapter. A block or slide edit with neither `chapterId` nor `sectionId` changes the original document and uses the revision from `sketchbook_read`. Every other operation changes the book sidecar and uses its revision. The two revisions are independent; neither is a snapshot of both records.
-3. Use the Viewer’s numbered book contents to switch chapters, or Previous/Next to read in order. Section links appear under the current chapter; select one to jump within that page. For a page with sections but no other chapters, the contents list only those sections. On wide screens the contents stay visible in a left sidebar; on narrow screens they appear above the reading page. A chapter or section link uses `chapter` and/or `section` query parameters with stable IDs. Keep the original token in the URL fragment, after the query. An unqualified link still opens the first chapter; renaming or reordering a chapter does not change its ID. Links remain private and valid only for the running Viewer session.
-
-See [edit operations and targeting](skills/sketchbook/references/document-format.md#edit-operations) for exact fields and [progressive acceptance](docs/acceptance.md#progressive-sketchbook-handoff) for the verification handoff.
-
-### LAN access
-
-Call `sketchbook_open` and use its complete returned URL on a device on the same trusted LAN.
-No manual IP entry, host flag, or network configuration is required in Sketchbook.
-After changing this checkout, run `npm run build`, use `/reload` in Pi, and reopen the document.
-
-- The read-only viewer listens on `0.0.0.0` on a random port.
-  - This opens every IPv4 interface, not just the LAN; Host checks are not client-IP filtering.
-  - The returned URL uses the first detected non-internal private IPv4 address in operating-system interface order.
-  - Private addresses are in `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16`.
-  - If none is detected, the URL uses `127.0.0.1`; the listener still uses `0.0.0.0`.
-  - `0.0.0.0` is a bind address, not the address another device opens. IPv6 is not supported.
-- Requests must use a detected private address or `127.0.0.1` with the exact viewer port.
-  - If an Origin header is present, it must match that request's allowed Host.
-  - Wildcard, public-address, hostname, and unassigned-address Host values are rejected.
-  - Host validation, same-origin access, and Content Security Policy (CSP) limit browser access.
-- HTTP is unencrypted.
-  - Use only trusted networks and operating-system firewall policy; do not expose or forward the port to the Internet.
-  - Keep secrets out of documents.
-- Keep the full viewer URL private. Data requests require the per-server capability token in its fragment. The token permits document reads within that viewer's workspace, not only the linked document.
-- VPNs or virtual interfaces can affect which private address is detected first.
-  - Automatic selection does not prove that a second device can reach that address.
-  - Firewall policy or Wi-Fi client isolation can also block access; Sketchbook does not change either.
-  - See the [LAN device handoff](docs/acceptance.md#lan-device-handoff) for the remaining checks.
-
-Addresses are captured when the listener starts.
-If the network or DHCP address changes, reload Pi and open a fresh URL.
+- **Diagram Design HTML:** The Viewer sandboxes imported pages and works offline. Scripts, navigation, and external resources are not supported. External stylesheets are removed; embedded styles and local SVG definitions stay with the page.
+- **Static SVG decks:** Each deck shows one slide and its explanation at a time, independently of chapter navigation. Use the Previous/Next buttons, labelled dots, or Left/Right keys when the deck has focus. On wide screens, the explanation sits beside the slide; on narrow screens, it appears in one reading column and wide drawings scroll locally. Slides are isolated images with no diagram toolbar.
+- **Markdown and math:** Markdown supports inline and display LaTeX, fenced code, and footnotes, but not raw HTML or images. Footnote targets are local to each block or slide explanation. In-page links move focus without replacing the Viewer token. KaTeX uses `trust: false`, `maxExpand: 1000`, and `maxSize: 20`.
+- **Layout and fonts:** The Viewer uses Diagram Design's light palette and typography. To align an imported page with the book's reading column, add `class="sketchbook-default-layout"` to `<body>`. Other imported pages keep their own margins, width, and colors. Fonts, notices, styles, scripts, and renderers ship with the Viewer. Instrument Serif, Geist, Geist Mono, and Traditional Chinese Noto fonts work without a CDN; missing glyphs use system fallbacks.
+- **Render errors:** An error in supported content does not remove the rest of the document. Rendering runs on the browser's main thread; error handling does not isolate CPU use.
 
 ### Article review
 
-Check the complete heading outline before reviewing individual diagrams. Define terms before using them. Give each diagram one question. Verify arrows, decision outcomes, and order against the source. Keep recurring names consistent. Review every chapter and section at desktop and 390px. Check label size, text wrapping, and local scrolling at the authored scale. Report saving, rendering, readability, source correctness, and human acceptance separately.
+Check the heading outline before reviewing diagrams. The page title is H1; deck and current slide titles are H2 and H3 (H3 and H4 inside a named section). Matching deck and slide titles appear once visually. Define terms before using them and use names consistently. Give each diagram one question, then check arrows, outcomes, and order against the source. At desktop width and 390px, check readable labels, text wrapping, and local scrolling in every chapter and section at the authored scale. Report saving, rendering, readability, source correctness, and human acceptance separately.
 
-## Add Diagram Design HTML
+### LAN access
 
-Place the complete self-contained Diagram Design output in a block with `type: "diagram-html"`, an `id`, a `title`, and the full `html` string. Add these blocks to the first page, sections, or chapters to assemble the book. The Viewer keeps the drawings, typography, and captions together without a diagram frame or camera. See the [HTML policy](skills/sketchbook/references/document-format.md#diagram-design-html).
+Use the complete `sketchbook_open` URL on another device on the **same trusted LAN**. No manual IP or host flag is needed. Keep the full URL private: its fragment contains a token that permits document reads across that workspace, not just for the linked document. HTTP is unencrypted. Do not expose or forward the port to the Internet, and keep secrets out of documents.
 
-Python is not required to import or view HTML. The Viewer works offline. MCP-only clients can read and write the same format; provide your own authoring workflow if the client does not load skills.
+The Viewer listens on all IPv4 interfaces (`0.0.0.0`) on a random port. The URL uses the first detected non-internal private IPv4 address in system interface order, or `127.0.0.1` if none is found. The fallback does not restrict the listener to loopback, and IPv6 is not supported. Host and Origin checks and the Content Security Policy (CSP) restrict browser access but do not filter client IPs. Follow your firewall policy. See the [Viewer access rules](skills/sketchbook/references/document-format.md#open) for allowed addresses, ports, and origins.
+
+VPNs, virtual interfaces, firewalls, and Wi-Fi isolation can prevent another device from connecting. After a network or DHCP change, reload Pi and open a fresh link. If you changed this checkout, rebuild with `npm run build` before reloading. See the [LAN device handoff](docs/acceptance.md#lan-device-handoff) for checks on a second device.
+
+## Files and lifecycle
+
+- The original page lives at `.pi/sketchbook/<documentId>.json`. Sections and extra chapters live in the optional `<documentId>.book.json` alongside it. Supported records need no migration; replacing the original page leaves the book file unchanged. Sketchbook creates a local `.pi/sketchbook/.gitignore`, not a workspace-root rule.
+- Writes check revisions, queue changes per record within one process, and use atomic rename. There is no cross-process lock or transaction spanning both files. Do not write the same document from multiple Pi or MCP processes.
+- Only `sketchbook_open` starts the Viewer. Pi TUI and RPC can open it; print and JSON modes can only read and write. Stopping Pi or the MCP server invalidates the links without deleting files. Open again after reload, new, resume, or fork. Session history does not undo writes; create a new document ID for a separate branch of the content.
+- Physical second-device access, remote SSH, container forwarding, and WSLg or Windows browser access need separate verification.
+
+## Upgrade from Pi Canvas
+
+Use `@narumitw/sketchbook`, `sketchbook_*` tools, and `/skill:sketchbook`. The old `canvas_*` tools and `/skill:canvas-explain-diagrams` are not aliases. Replace `/skill:sketchbook-create-diagrams`, `/skill:sketchbook-diagram-design`, and `/skill:sketchbook-explain-diagrams` in saved prompts as well.
+
+Sketchbook does not move `.pi/canvas/` automatically. Stop all Pi sessions in that workspace and back up the files first. If `.pi/sketchbook/` does not exist, move the entire `.pi/canvas/` directory there. If both exist, keep both and resolve conflicting document IDs before moving files. Do not overwrite either directory. IDs, revisions, and schema version 1 stay the same. Restart Pi and reopen the documents for new URLs.
 
 ## Open older books
 
-Schema version 1 still supports Markdown, code, Diagram Design HTML, and static SVG slides. An old `defaultDiagramSource` field is accepted but ignored. Do not add it to new documents.
+Schema version 1 still supports Markdown, code, Diagram Design HTML, and static SVG slides. The legacy `defaultDiagramSource` field is accepted but ignored. Omit it in new documents.
 
-This version cannot render Mermaid slides. The book does not skip those slides: opening fails if they appear in the original page or a chapter or section. A supported original page can still be read on its own when only its sidecar contains Mermaid. Sketchbook does not convert or rewrite the unsupported records.
+Mermaid slides prevent the Viewer from opening a book. It will not skip, convert, or rewrite them. If only the book file contains Mermaid, you can still read the original page if its content is supported.
 
-Back up the entire `.pi/sketchbook/` directory, including both `.json` and `.book.json` files. The last full-format reader verified for these books is revision `10bc8574615c77f5e2d229850a4340c29cb2bae7`. In a separate recovery checkout of that revision, use Node.js 26 and run:
+Back up all of `.pi/sketchbook/`, including both `.json` and `.book.json` records. The last verified reader for the full older format is revision `10bc8574615c77f5e2d229850a4340c29cb2bae7`. In a separate recovery checkout of that revision, run the following with Node.js 26:
 
 ```sh
 npm ci
@@ -242,40 +192,16 @@ npm run build
 npm pack
 ```
 
-Install the resulting local tarball or point your MCP client at the recovery checkout’s `dist/mcp-cli.js`. Open a backup copy first. This reader also supports Diagram Design HTML and static SVG. If you redraw a Mermaid book, save the new book separately.
-
-## Rendering and security
-
-- Imported Diagram Design HTML displays in a borderless, sandboxed page. Scripts, navigation, and external resources are not supported; external stylesheets such as web fonts are removed. Internal styles and local SVG definitions stay inside the authored page.
-- Static SVG slides display as isolated, plain images without a diagram toolbar. On narrow screens, scroll wide drawings horizontally within the page or slide.
-- Markdown supports inline/display LaTeX, fenced code, and footnotes, but not raw HTML or images.
-  - Footnote targets are local to each Markdown block or slide explanation.
-  - In-page links move focus without replacing the viewer token, so the current URL remains valid after navigation.
-  - KaTeX uses `trust: false`, `maxExpand: 1000`, and `maxSize: 20`.
-- The Viewer uses Diagram Design's default light palette and editorial typography for every document. Diagram Design pages can opt into the book's reading-column alignment with `<body class="sketchbook-default-layout">`. Other imported pages keep their own margins, width, and colors.
-- Font files, licenses, scripts, styles, and renderers ship with the Viewer. The Viewer provides Instrument Serif, Geist, Geist Mono, and Traditional Chinese Noto families without a CDN. For glyphs outside those fonts, the browser uses system fallbacks.
-- See [LAN access](#lan-access) for viewer network controls and URL privacy.
-- A render error for supported content does not remove the rest of the document.
-  - Rendering runs on the browser main thread; error handling is not CPU isolation.
-
-## Files and lifecycle
-
-The workspace stores the original page at `.pi/sketchbook/<documentId>.json` and, if present, its sections and additional chapters at `.pi/sketchbook/<documentId>.book.json`. Supported records need no migration. A full replacement changes only the original page; it leaves the sidecar intact.
-Only `.pi/sketchbook/.gitignore` is created for local artifact exclusions; the root `.gitignore` is not changed.
-Writes use revision checks, a same-process mutation queue per record, and atomic rename. There is no cross-process lock or transaction spanning both records. Do not write the same document from multiple Pi or MCP processes.
-
-Only `sketchbook_open` starts the viewer server.
-Pi TUI and RPC sessions can open it; Pi print and JSON modes can read and write records but cannot open the Viewer.
-Stopping the Pi session or MCP server closes the viewer and invalidates its URLs without removing documents.
-After reload, new, resume, or fork, open again for a current URL.
-Tree navigation and session branching do not restore disk documents; read and create a new ID for a separate document branch.
-Physical second-device LAN access, remote SSH, container forwarding, and WSLg/Windows browser access need environment-specific verification.
+Install the resulting tarball or point your MCP client at the recovery checkout's `dist/mcp-cli.js`. Open a backup copy first. This reader also supports Diagram Design HTML and static SVG. If you redraw a Mermaid book, save it as a new book.
 
 ## Verify
 
-Source builds, including Git installation, require `tar` and network access to download and verify the pinned Diagram Design source archive. The build packages the skill, templates, exporter, and license notices. The prebuilt npm package does not download the upstream archive.
+Source builds, including Git installation, use `tar` and network access to download and verify the pinned Diagram Design archive. The build bundles the guide, templates, exporter, and notices. The prebuilt npm package does not download that archive.
+
+From the repository root, use Node.js 26.0.0 or later:
 
 ```sh
+npm ci
 npm run ci
 npx playwright install chromium
 npm run test:browser -- --output=test-results/browser
@@ -283,19 +209,14 @@ npm pack --dry-run
 npm run test:package
 ```
 
-The package smoke test checks the Git install and update against a disposable repository, as well as the prebuilt npm tarball and local checkout. It does not change your Pi settings.
+If Chromium's system libraries are missing on Linux, use `npx playwright install --with-deps chromium`. The browser output directory keeps review captures separate. The package smoke test checks Git installation and update in a disposable repository, the npm tarball, and the local checkout without changing your Pi settings.
 
-Run `prek install` with [prek](https://prek.j178.dev/) to enable the Git hooks for your checkout. If `git config --local --get core.hooksPath` returns `.husky/_` from an earlier installation, run `git config --local --unset core.hooksPath` first.
+To enable Git hooks, run `prek install` with [prek](https://prek.j178.dev/). If `git config --local --get core.hooksPath` still reports `.husky/_`, run `git config --local --unset core.hooksPath` first. After `npm ci`, `prek run --all-files` runs Biome, type-checks `tsconfig.tests.json` with its own `tsc-rs`, and audits `.github` with `zizmor --pedantic --fix .github`. Only Zizmor can write fixes; review and stage them before retrying a commit.
 
-After `npm ci`, run `prek run --all-files` to run Biome, type-check `tsconfig.tests.json` with `tsc-rs`, and audit GitHub Actions and Dependabot configuration with `zizmor --pedantic --fix .github`. Prek installs `tsc-rs` in its hook environment; no global install is needed. Only Zizmor can write changes: review and stage any fixes before retrying a commit.
-
-On a fresh Linux system, use `npx playwright install --with-deps chromium` if browser system libraries are missing.
-The explicit browser output directory preserves separate review captures under `test-results/`.
-
-See [compatibility evidence](docs/compatibility.md) for measured results and [acceptance](docs/acceptance.md) for human checks, future authorized model tests, and release-owner actions.
-Automated checks do not establish visual acceptance or reliable automatic skill loading.
+See [compatibility evidence](docs/compatibility.md) for measured results and [acceptance](docs/acceptance.md) for human checks, authorized model tests, and release-owner actions. Automated tests do not establish visual acceptance or reliable automatic skill selection. The release workflow creates tags and GitHub Releases, but does not publish to npm.
 
 ## Scope and license
 
 Sketchbook does not provide cloud sharing, accounts, live collaboration, browser editing, nested chapters or sections, version history, restore, autoplay, export, or HTTP MCP transport.
+
 Sketchbook is licensed under the [MIT License](LICENSE). Bundled third-party files retain their own licenses.

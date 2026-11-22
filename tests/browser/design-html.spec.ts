@@ -2,8 +2,7 @@ import { readFile } from "node:fs/promises"
 import { expect, type Page, test } from "@playwright/test"
 import { save } from "./helpers.js"
 
-const source = () =>
-  readFile(new URL("../../examples/diagram-design/http-cache.html", import.meta.url), "utf8")
+const source = () => readFile(new URL("../fixtures/cache-design.html", import.meta.url), "utf8")
 
 test("viewport-dependent HTML does not grow the frame or hide its overflow", async ({
   page,

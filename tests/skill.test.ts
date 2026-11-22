@@ -27,8 +27,8 @@ test("the Sketchbook skill includes the complete Diagram Design authoring workfl
   expect(format).not.toMatch(/mermaid|focusNodes/i)
 })
 
-test("the cache example is valid standalone HTML and introduces each case before the complete decision flow", async () => {
-  const html = await read("examples/diagram-design/http-cache.html")
+test("the cache test fixture is valid standalone HTML and introduces each case before the complete decision flow", async () => {
+  const html = await read("tests/fixtures/cache-design.html")
   expect(() => prepareDesignHtml(html)).not.toThrow()
   expect(
     [...html.matchAll(/<section aria-labelledby="([^"]+)"/g)].map((match) => match[1]),
