@@ -8,7 +8,7 @@ Human visual acceptance and remote forwarding remain unverified.
 
 ## Diagram Design handoff
 
-Use the [HTTP cache preview](../examples/diagram-design/http-cache.html) itself as a `diagram-html` block. Verify the title, drawings, and captions keep their authored layout with system font fallbacks. At 390px, check that the diagrams scroll locally and the book does not scroll sideways. Verify the Viewer has no Mermaid toolbar or diagram frame for the imported page.
+Use the [HTTP cache preview](../examples/diagram-design/http-cache.html) itself as a `diagram-html` block. Verify the title, drawings, and captions use the bundled local fonts and keep their authored layout. For the default theme, the chapter and diagram share the same paper color, text edge, and editorial type roles. Check a different HTML palette to confirm its own layout is not normalized. Compare screenshots at desktop and 390px and keep Viewer access URLs out of the review artifacts. At 390px, check that the diagrams scroll locally and the book does not scroll sideways. Verify the Viewer has no Mermaid toolbar or diagram frame for the imported page.
 
 In a clean native installation of each supported host, verify that Mermaid remains the default and that explicitly selecting Diagram Design loads the packaged skill without conflicting with a separately installed `diagram-design`. Check that a later edit uses the document preference unless overridden and that authoring and importing work without the SVG exporter. Native model routing, physical-device reading comfort, and any host without a local native executable require separate evidence. Static prompts, manifests, and a successful standalone MCP round trip do not replace the host walkthrough.
 

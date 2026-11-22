@@ -20,7 +20,7 @@ const attrs = new Set(
   `id class lang dir style role tabindex colspan rowspan scope aria-label aria-labelledby
    aria-describedby aria-hidden aria-roledescription`.split(/\s+/),
 )
-const frameHead = `<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>html,body{height:auto!important;min-height:0!important}html{overflow:hidden!important}</style>`
+const frameHead = `<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src 'self'; base-uri 'none'; form-action 'none'"><style>html,body{height:auto!important;min-height:0!important}html{overflow:hidden!important}</style>`
 
 function reject(reason: string): never {
   throw new Error(`Invalid Diagram Design HTML: ${reason}`)

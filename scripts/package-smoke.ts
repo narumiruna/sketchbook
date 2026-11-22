@@ -409,6 +409,21 @@ try {
   assert.ok(files.includes("dist/mcp-cli.js") && files.includes("dist/mcp.js"))
   assert.ok(files.includes("dist/web/index.html"))
   assert.ok(files.includes("dist/web/THIRD_PARTY_LICENSES.md"))
+  assert.ok(files.includes("dist/web/EDITORIAL_FONT_LICENSES.md"))
+  for (const family of [
+    "instrument-serif",
+    "geist",
+    "geist-mono",
+    "noto-sans-tc",
+    "noto-serif-tc",
+  ]) {
+    assert.ok(
+      files.some(
+        (file) => file.startsWith(`dist/web/assets/${family}-`) && file.endsWith(".woff2"),
+      ),
+      `Missing bundled ${family} font`,
+    )
+  }
   for (const path of [
     "skills/sketchbook-create-diagrams/SKILL.md",
     "examples/diagram-design/http-cache-walkthrough.json",

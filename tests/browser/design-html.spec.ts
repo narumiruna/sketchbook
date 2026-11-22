@@ -1,9 +1,40 @@
 import { readFile } from "node:fs/promises"
-import { expect, test } from "@playwright/test"
+import { expect, type Page, test } from "@playwright/test"
 import { save } from "./helpers.js"
 
 const source = () =>
   readFile(new URL("../../examples/diagram-design/http-cache.html", import.meta.url), "utf8")
+
+async function usedFonts(page: Page) {
+  const cdp = await page.context().newCDPSession(page)
+  try {
+    await cdp.send("DOM.enable")
+    await cdp.send("CSS.enable")
+    const { root } = await cdp.send("DOM.getDocument")
+    const { nodeId } = await cdp.send("DOM.querySelector", {
+      nodeId: root.nodeId,
+      selector: ".design-page",
+    })
+    const { node } = await cdp.send("DOM.describeNode", { nodeId, depth: 1 })
+    if (!node.contentDocument) throw new Error("Missing Diagram Design frame")
+    const names = async (parent: number, selector: string) => {
+      const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: parent, selector })
+      const { fonts } = await cdp.send("CSS.getPlatformFontsForNode", { nodeId })
+      return fonts
+        .filter((font) => font.isCustomFont && font.glyphCount > 0)
+        .map((font) => font.familyName)
+        .join(", ")
+    }
+    return {
+      chapter: await names(root.nodeId, "main h1"),
+      index: await names(root.nodeId, ".contents-chapter[aria-current]"),
+      title: await names(node.contentDocument.nodeId, "h1"),
+      caption: await names(node.contentDocument.nodeId, "figcaption"),
+    }
+  } finally {
+    await cdp.detach()
+  }
+}
 
 for (const width of [390, 1280]) {
   test(`composes Diagram Design pages into a book at ${width}px`, async ({
@@ -24,7 +55,7 @@ for (const width of [390, 1280]) {
       type: "add-chapter",
       chapter: {
         id: "cache",
-        title: "How cache works",
+        title: "How cache works：快取",
         sections: [],
         blocks: [
           { id: "design", type: "diagram-html", title: "Diagram Design cache walkthrough", html },
@@ -42,7 +73,7 @@ for (const width of [390, 1280]) {
             id: "summary-design",
             type: "diagram-html",
             title: "Cache notes",
-            html: `<!doctype html><html><head><style>h1{color:#bf4520}</style></head><body><h1>Cache notes</h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80"><text x="16" y="36">No body with 304</text></svg></body></html>`,
+            html: `<!doctype html><html><head><style>body{background:#e8efde;padding:20px}h1{color:#395b32}</style></head><body><h1>Cache notes</h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80"><text x="16" y="36">No body with 304</text></svg></body></html>`,
           },
         ],
       },
@@ -61,10 +92,59 @@ for (const width of [390, 1280]) {
     await page.goto(fixture.url)
     await page
       .getByRole("navigation", { name: "Book contents" })
-      .getByRole("link", { name: "How cache works" })
+      .getByRole("link", { name: "How cache works：快取" })
       .click()
     const frame = page.locator('iframe[title="Diagram Design cache walkthrough"]')
     const inner = frame.contentFrame()
+    const chapter = page.getByRole("heading", { level: 1 })
+    const index = page.locator(".book-contents")
+    const current = index.locator('a[aria-current="page"]')
+    await expect(page.locator("html")).toHaveCSS("background-color", "rgb(245, 245, 245)")
+    await expect(inner.locator("body")).toHaveCSS("background-color", "rgb(245, 245, 245)")
+    await expect(frame).toHaveAttribute("data-default-paper", "")
+    await expect(index).toHaveCSS("border-radius", "0px")
+    await expect(current).toHaveCSS("border-inline-start-color", "rgb(191, 69, 32)")
+    await expect(current).toHaveCSS("color", "rgb(45, 49, 66)")
+    expect((await current.boundingBox())?.height).toBeGreaterThanOrEqual(44)
+    for (const [selector, minimum] of [
+      [".connection-status", 4.5],
+      [".chapter-position", 4.5],
+      ['a[aria-current="page"]', 4.5],
+    ] as const) {
+      const contrast = await page.locator(selector).evaluate((element) => {
+        const rgba = (color: string) => color.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? []
+        const luminance = (color: number[]) =>
+          color.slice(0, 3).reduce((sum, channel, index) => {
+            const fraction = channel / 255
+            return (
+              sum +
+              [0.2126, 0.7152, 0.0722][index] *
+                (fraction <= 0.04045 ? fraction / 12.92 : ((fraction + 0.055) / 1.055) ** 2.4)
+            )
+          }, 0)
+        const paper = rgba(getComputedStyle(document.documentElement).backgroundColor)
+        const { color, backgroundColor } = getComputedStyle(element)
+        const fill = rgba(backgroundColor)
+        const alpha = fill[3] ?? 1
+        const background = luminance(
+          paper.map((channel, i) => fill[i] * alpha + channel * (1 - alpha)),
+        )
+        const foreground = luminance(rgba(color))
+        return (Math.max(background, foreground) + 0.05) / (Math.min(background, foreground) + 0.05)
+      })
+      expect(contrast, selector).toBeGreaterThanOrEqual(minimum)
+    }
+    const previous = index.getByRole("link", { name: "Learning browser caches" })
+    await previous.hover()
+    await expect(previous).toHaveCSS("background-color", "rgb(236, 236, 236)")
+    await page.keyboard.press("Tab")
+    await previous.focus()
+    await expect(previous).toHaveCSS("outline-color", "rgb(46, 90, 168)")
+    await expect(previous).toHaveCSS("outline-width", "3px")
+    await expect(chapter).toHaveCSS("font-weight", "400")
+    await expect(chapter.locator("..")).toHaveCSS("border-block-end-color", "rgba(0, 0, 0, 0)")
+    const titleInset = await inner.locator("main").evaluate((el) => el.getBoundingClientRect().left)
+    expect(titleInset).toBe(0)
     await expect(inner.getByRole("heading", { level: 1 })).toHaveText("同一個檔案，不一定要再下載")
     await expect(inner.locator("svg")).toHaveCount(3)
     await expect(inner.getByText("304 NOT MODIFIED", { exact: true })).toBeVisible()
@@ -90,6 +170,16 @@ for (const width of [390, 1280]) {
       })
     }
     await expect(inner.locator("link, script")).toHaveCount(0)
+    if (width === 1280) {
+      await expect
+        .poll(async () => (await usedFonts(page)).chapter)
+        .toMatch(/Instrument Serif.*Noto Serif TC/)
+      const fonts = await usedFonts(page)
+      expect(fonts.index).toMatch(/Geist.*Noto Sans TC|Noto Sans TC.*Geist/)
+      expect(fonts.title).toContain("Noto Serif TC")
+      expect(fonts.caption).toContain("Noto Sans TC")
+      expect(fonts.caption).toContain("Geist Mono")
+    }
     expect(external).toEqual([])
     await page.screenshot({ path: info.outputPath("diagram-design-chapter.png"), fullPage: true })
     await page
@@ -97,13 +187,16 @@ for (const width of [390, 1280]) {
       .getByRole("link", { name: "What to remember" })
       .click()
     await expect(frame).toHaveCount(0)
-    const summaryHeading = page
-      .frameLocator('iframe[title="Cache notes"]')
-      .getByRole("heading", { name: "Cache notes" })
-    await expect(summaryHeading).toHaveCSS("color", "rgb(191, 69, 32)")
-    await expect(page.getByRole("heading", { name: "What to remember" })).not.toHaveCSS(
+    const custom = page.frameLocator('iframe[title="Cache notes"]')
+    await expect(custom.getByRole("heading", { name: "Cache notes" })).toHaveCSS(
       "color",
-      "rgb(191, 69, 32)",
+      "rgb(57, 91, 50)",
+    )
+    await expect(custom.locator("body")).toHaveCSS("background-color", "rgb(232, 239, 222)")
+    await expect(custom.locator("body")).toHaveCSS("padding-inline-start", "20px")
+    await expect(page.getByRole("heading", { name: "What to remember" })).toHaveCSS(
+      "color",
+      "rgb(45, 49, 66)",
     )
     await expect(page.locator(".diagram-viewport, .diagram-controls")).toHaveCount(0)
   })

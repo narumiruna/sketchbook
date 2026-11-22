@@ -33,6 +33,10 @@ test.each([
   ["script", html(`${inline}<script></script>`)],
   ["event attribute", html(`<main onload="">${inline}</main>`)],
   ["metadata navigation", html(inline, '<meta http-equiv="refresh" content="0">')],
+  [
+    "authored font",
+    html(inline, "<style>@font-face{font-family:Local;src:url(/assets/other.woff2)}</style>"),
+  ],
   ["base URL", html(inline, '<base href="https://example.invalid/">')],
   ["network image", html(`${inline}<img src="https://example.invalid/picture">`)],
   ["network CSS", html(inline, "<style>p{background:url(https://example.invalid/paint)}</style>")],
