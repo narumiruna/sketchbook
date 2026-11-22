@@ -279,14 +279,16 @@ npm run test:package
 
 The package smoke test checks the Git install and update against a disposable repository, as well as the prebuilt npm tarball and local checkout. It does not change your Pi settings.
 
-The pre-commit hook checks a temporary copy of staged content. Biome uses the staged configuration and ignore rules; the comment check uses [the staged baseline](scripts/comment-baseline.json).
+Run `prek run --all-files` with [prek](https://prek.j178.dev/) to run `biome check` and audit GitHub Actions and Dependabot configuration with `zizmor --pedantic --fix .github`. Biome does not write changes. Zizmor applies only safe fixes; review and stage them before retrying a commit.
+
+Husky remains the default Git hook runner. Its pre-commit script checks a temporary copy of staged content. Biome uses the staged configuration and ignore rules; the comment check uses [the staged baseline](scripts/comment-baseline.json).
 The comment check covers tracked JavaScript, TypeScript, CSS, HTML, YAML, JSONC (including TypeScript configurations), shell scripts, and Husky hooks. Markdown and comment-like text inside strings and fixture data are not source comments.
 
 - Keep required notices, tool directives, and JSDoc for exported declarations in `src/`.
 - Do not add, edit, duplicate, or move other comments to a different file. Record design rationale in [decision records](docs/decisions/) and workarounds in issues or [issue drafts](docs/follow-ups.md).
 - When removing a retained comment, delete its exact entry from the baseline in the same commit. Remove the path key if its list becomes empty. The baseline cannot grow or accept replacement entries.
 
-The hook does not change the working tree or index. Correct reported issues and stage only the intended changes before retrying.
+The script does not change the working tree or index. Correct reported issues and stage only the intended changes before retrying.
 
 On a fresh Linux system, use `npx playwright install --with-deps chromium` if browser system libraries are missing.
 The explicit browser output directory preserves separate review captures under `test-results/`.

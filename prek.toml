@@ -1,0 +1,20 @@
+[[repos]]
+repo = "https://github.com/biomejs/pre-commit"
+rev = "v2.6.8"
+
+[[repos.hooks]]
+id = "biome-check"
+entry = "biome check"
+stages = ["pre-commit"]
+pass_filenames = false
+always_run = true
+
+[[repos]]
+repo = "https://github.com/zizmorcore/zizmor-pre-commit"
+rev = "v1.32.0"
+
+[[repos.hooks]]
+id = "zizmor"
+args = ["--pedantic", "--fix", ".github"]
+files = '^\.github/'
+pass_filenames = false
