@@ -4,7 +4,9 @@ English · [繁體中文（台灣）](README.zh-TW.md)
 
 Turn a technical explanation into a local page you can open in your browser. Mix Markdown, LaTeX, code, and diagrams. Start with one page, then add sections or chapters as the explanation grows.
 
-Sketchbook runs in Pi, as a plugin for Claude Code or Codex, or as a standalone MCP server. It builds on [Diagram Design](https://github.com/cathrynlavery/diagram-design) for diagram authoring and bundles its guide, templates, and exporter. See the [HTTP cache walkthrough](examples/diagram-design/http-cache-walkthrough.json) for a sample document with static SVG slides.
+Sketchbook runs in Pi, as a plugin for Claude Code or Codex, or as a standalone MCP server. It builds on [Diagram Design](https://github.com/cathrynlavery/diagram-design) for diagram authoring and bundles its guide, templates, and exporter.
+
+![Sketchbook Viewer showing the codebase tour and its architecture diagram](assets/preview.png)
 
 ## Installation
 
