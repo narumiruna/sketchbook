@@ -1,5 +1,7 @@
 # Sketchbook
 
+English · [繁體中文（台灣）](README.zh-TW.md)
+
 Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Diagram Design HTML. Existing static SVG decks still work. Start with one page and add sections or chapters when readers need more detail.
 Each deck shows one diagram and its explanation at a time, independently of chapter navigation.
 Use the bottom Previous/Next buttons or labelled position dots to change slides; focused decks also support Left/Right keyboard keys.

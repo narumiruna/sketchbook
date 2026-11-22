@@ -595,7 +595,9 @@ try {
     files.filter((file) => file.startsWith("skills/") && file.endsWith("/SKILL.md")),
     ["skills/sketchbook/SKILL.md"],
   )
-  assert.ok(files.includes("README.md") && files.includes("LICENSE"))
+  for (const path of ["README.md", "README.zh-TW.md", "LICENSE"]) {
+    assert.ok(files.includes(path), `Packed file missing: ${path}`)
+  }
   assert.ok(files.includes("docs/compatibility.md") && files.includes("docs/acceptance.md"))
   assert.ok(!files.some((file) => file.startsWith("docs/plans/")))
   assert.ok(!files.some((file) => /^(?:node_modules|tests|test-results|src|\.pi)\//.test(file)))
