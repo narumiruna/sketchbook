@@ -77,9 +77,9 @@ no external browser requests.
 Other browser engines, physical touch devices, and human visual acceptance
 were not verified for this change; see the [human browser review](acceptance.md#human-browser-review).
 
-## Static SVG diagrams
+## Diagram Design HTML and static SVG
 
-SVG slides use the same diagram camera as Mermaid but render in browser image mode. A trusted outer SVG supplies the dimensions and accessible slide name; the imported markup does not become part of the Viewer DOM. The shared static XML and CSS policy runs on writes and before image creation, and the Viewer permits Blob URLs for images only. The SVG format is additive; older releases may not read documents that use it. The packaged authoring skill is optional at read time. See the [Diagram Design handoff](acceptance.md#diagram-design-handoff) for host and visual checks that require separate evidence.
+A book can combine entire Diagram Design HTML outputs as blocks. Validation runs before saving and again before displaying a block. An isolated frame has its own styles, permits no scripts, and grows with the page; it does not load external assets, use the diagram camera, or receive the Viewer access token. Existing SVG slides render as standalone images in a scroll region; the SVG source is not inserted into the Viewer DOM. Only Mermaid keeps the diagram camera and toolbar. Older releases may not read records with the new block or slide types. See the [Diagram Design handoff](acceptance.md#diagram-design-handoff) for host and visual checks that require separate evidence.
 
 ## Historical compatibility checks
 

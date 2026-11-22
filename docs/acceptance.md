@@ -8,9 +8,9 @@ Human visual acceptance and remote forwarding remain unverified.
 
 ## Diagram Design handoff
 
-Use the [HTTP cache preview](../examples/diagram-design/http-cache.html) to compare the three source drawings with the [saved-document fixture](../examples/diagram-design/http-cache-walkthrough.json) in the Viewer. The static SVGs preserve the diagram shapes and colours but use system fonts. At 390px the fitted view is an overview; use Reset zoom or the zoom controls to read the smallest annotations. Do not treat this import fixture as a default-label-size teaching benchmark.
+Use the [HTTP cache preview](../examples/diagram-design/http-cache.html) itself as a `diagram-html` block. Verify the title, drawings, and captions keep their authored layout with system font fallbacks. At 390px, check that the diagrams scroll locally and the book does not scroll sideways. Verify the Viewer has no Mermaid toolbar or diagram frame for the imported page.
 
-In a clean native installation of each supported host, verify that Mermaid remains the default and that explicitly selecting Diagram Design loads the packaged skill without conflicting with a separately installed `diagram-design`. Check that a later edit uses the document preference unless overridden and that missing Python is reported without switching sources silently. Native model routing, missing-Python authoring, physical-device reading comfort, and any host without a local native executable require separate evidence. Static prompts, manifests, and a successful standalone MCP round trip do not replace the host walkthrough.
+In a clean native installation of each supported host, verify that Mermaid remains the default and that explicitly selecting Diagram Design loads the packaged skill without conflicting with a separately installed `diagram-design`. Check that a later edit uses the document preference unless overridden and that authoring and importing work without the SVG exporter. Native model routing, physical-device reading comfort, and any host without a local native executable require separate evidence. Static prompts, manifests, and a successful standalone MCP round trip do not replace the host walkthrough.
 
 ## Progressive Sketchbook handoff
 

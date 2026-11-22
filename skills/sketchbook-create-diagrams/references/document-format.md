@@ -13,6 +13,7 @@ type SketchbookDocument = {
   blocks: Array<
     | { id: string; type: "markdown"; markdown: string }
     | { id: string; type: "code"; code: string; language?: string }
+    | { id: string; type: "diagram-html"; title: string; html: string }
     | {
         id: string
         type: "diagram-deck"
@@ -37,7 +38,7 @@ type SketchbookDocument = {
   - IDs are identifiers, not file paths.
 - Use at most 1 MiB of UTF-8 JSON and 1 to 100 blocks per document.
   - Give each deck 1 to 20 slides.
-  - Limit each Mermaid source to 32 KiB of UTF-8 text and each SVG source to 128 KiB of UTF-8 text.
+  - Limit each Mermaid source to 32 KiB of UTF-8 text and each SVG or HTML source to 128 KiB of UTF-8 text.
   - Require exactly one source field per slide. Use `svg` for static drawing markup, not file paths or HTML.
 - Treat `defaultDiagramSource` as an authoring preference. Omit it for default Mermaid behavior; selecting a different preference does not rewrite existing slides.
 - Use only the fields shown above and schema version 1.
@@ -46,7 +47,7 @@ Markdown supports prose, inline math such as `$r + 1$`, display math between `$$
 Use a `code` block for a standalone snippet. Its `code` field must contain at least one non-whitespace character.
 Pass the source directly, without adding Markdown fences. The viewer displays it as text, preserving whitespace.
 If provided, the `language` label must contain a non-whitespace character and be at most 64 characters long.
-Use a `diagram-deck` even for one diagram. Slides can use different supported families in the same deck; neither a Mermaid Markdown fence nor a `code` block renders a diagram.
+Use a `diagram-deck` even for one Mermaid diagram, or `diagram-html` for complete Diagram Design output. Slides can use different supported families in the same deck; neither a Mermaid Markdown fence nor a `code` block renders a diagram.
 
 ## Book content
 
@@ -126,12 +127,18 @@ Use only these headers. Beta-only families, Mindmap, Event Modeling, ZenUML, and
 
 Flowcharts use the hand-drawn look and a fixed seed. Other families use Mermaid's normal style. The application controls all rendering settings, runs Mermaid in strict mode without HTML labels or event bindings, and sanitizes generated SVG. Do not try to override these settings.
 
+### Diagram Design HTML
+
+- Put the complete HTML document with its `<!doctype html>`, embedded styles, and at least one inline SVG in `html`. Use `title` to label the page for assistive technology.
+- Place these blocks in the original page, a section, or a chapter using the existing book tools. The main book controls organize and navigate the content; the imported HTML does not use the Mermaid diagram frame or toolbar.
+- Use static HTML and CSS only. Scripts, embedded pages, forms, links, refresh metadata, external assets and animations are not supported. The Viewer removes stylesheet links and uses fallback fonts; use embedded CSS. Give wide diagrams a local scrolling wrapper.
+
 ### Static SVG policy
 
 - Supply a well-formed SVG with an SVG namespace and a finite positive `viewBox`. Each component must have magnitude at most 32768 SVG units.
 - Use static shapes, text, and local definitions such as markers, patterns, or gradients. Keep style rules self-contained. `url(...)` may reference only a local fragment (`#name`); `@media` is the only supported CSS at-rule.
 - Do not use HTML, scripts, processing instructions, DOCTYPE, event attributes, animation or transition effects, links, `href`, external assets, or embedded images. Not all SVG elements, attributes, or CSS functions are accepted.
-- Export Diagram Design artwork with system fonts. The Viewer shows it as an isolated static image and exposes its slide title and the adjacent explanation, not an editable SVG DOM.
+- Use system fonts for standalone SVG. The Viewer shows it as an isolated, unframed image with its slide title and adjacent explanation.
 
 ## Tool contract
 

@@ -356,6 +356,19 @@ button:disabled {
   padding: 1.25rem;
   border-top: 1px solid #e8edf4;
 }
+.design-page {
+  display: block;
+  width: 100%;
+  border: 0;
+}
+.static-diagram {
+  overflow-x: auto;
+}
+.static-diagram img {
+  display: block;
+  max-width: none;
+}
+
 .diagram {
   --diagram-height: clamp(15rem, 70vh, 36rem);
   position: relative;

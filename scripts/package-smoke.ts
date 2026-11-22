@@ -51,7 +51,22 @@ async function cacheSlide(packagePath: string) {
 async function checkSvg(deck: Locator, slide: { id: string; title: string }) {
   await deck.locator(`button[data-slide-id="${slide.id}"]`).click()
   await deck.getByRole("img", { name: slide.title, exact: true }).waitFor({ timeout: 30_000 })
-  assert.match((await deck.locator(".diagram-svg svg image").getAttribute("href")) ?? "", /^blob:/)
+  assert.match((await deck.locator(".static-diagram img").getAttribute("src")) ?? "", /^blob:/)
+  assert.equal(await deck.locator(".diagram-controls").count(), 0)
+}
+
+async function cachePage(packagePath: string): Promise<SketchbookDocument["blocks"][number]> {
+  return {
+    id: "cache-html",
+    type: "diagram-html",
+    title: "Browser caching with Diagram Design",
+    html: await readFile(join(packagePath, "examples/diagram-design/http-cache.html"), "utf8"),
+  }
+}
+
+async function checkDesignPage(frame: Locator) {
+  await frame.contentFrame().getByRole("heading", { name: "同一個檔案，不一定要再下載" }).waitFor()
+  assert.equal(await frame.contentFrame().locator("svg").count(), 3)
 }
 
 async function smoke(packagePath: string, label: string): Promise<void> {
@@ -155,6 +170,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
     assert.ok(sequenceDeck, "Packed walkthrough must include a diagram deck")
     const svgSlide = await cacheSlide(packagePath)
     sequenceDeck.slides.push(sequenceSlide, svgSlide)
+    document.blocks.push(await cachePage(packagePath))
     const created = await call("sketchbook_write", { document })
     assert.equal(created.path, join(workspace, ".pi/sketchbook", `${created.documentId}.json`))
     assert.equal(created.renderingVerified, false)
@@ -205,6 +221,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
       const sequenceRegion = page.locator(`[data-block-id="${sequenceDeck.id}"]`)
       await checkSequence(sequenceRegion)
       await checkSvg(sequenceRegion, svgSlide)
+      await checkDesignPage(page.locator('iframe[data-block-id="cache-html"]'))
       const mathDeck = document.blocks.find(
         (block) =>
           block.type === "diagram-deck" &&
@@ -257,6 +274,7 @@ async function smokeMcp(tarball: string): Promise<string> {
   await assert.rejects(stat(join(install, "node_modules/@earendil-works/pi-coding-agent")))
   const installed = join(install, "node_modules/@narumitw/sketchbook")
   const svgSlide = await cacheSlide(installed)
+  const designPage = await cachePage(installed)
   const help = await execute(
     "npx",
     ["--no", "--package=@narumitw/sketchbook", "--", "sketchbook-mcp", "--help"],
@@ -305,6 +323,7 @@ async function smokeMcp(tarball: string): Promise<string> {
             svgSlide,
           ],
         },
+        designPage,
       ],
     }
     async function call(name: string, input: Record<string, unknown>) {
@@ -356,6 +375,7 @@ async function smokeMcp(tarball: string): Promise<string> {
       const deck = page.locator('[data-block-id="deck"]')
       await checkSequence(deck)
       await checkSvg(deck, svgSlide)
+      await checkDesignPage(page.locator('iframe[data-block-id="cache-html"]'))
     } finally {
       await browser.close()
     }

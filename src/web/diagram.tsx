@@ -38,25 +38,19 @@ function checkSource(source: string) {
 let queue: Promise<unknown> = Promise.resolve()
 let nextId = 0
 
-type Format = "mermaid" | "svg"
-
 interface Props {
   source: string
-  format: Format
-  title: string
   blockId: string
   slideId: string
   focusNodes?: readonly string[]
 }
 
-type Result = ({ source: string } & ({ format: "mermaid" } | { format: "svg"; title: string })) &
-  ({ svg: SVGSVGElement } | { error: string })
+type Result = { source: string; svg: SVGSVGElement } | { source: string; error: string }
 
 type FrameMode = "native" | "fallback" | null
 
 function useDiagramFullscreen(
   source: string,
-  format: Format,
   card: RefObject<HTMLElement | null>,
   viewport: RefObject<HTMLElement | null>,
 ) {
@@ -224,7 +218,7 @@ function useDiagramFullscreen(
       restoreFocus()
       if (document.fullscreenElement === element) void document.exitFullscreen().catch(() => {})
     }
-  }, [source, format, card, viewport])
+  }, [source, card, viewport])
 
   useEffect(() => {
     if (!mode) return
@@ -248,7 +242,7 @@ function useCoarsePointer() {
   return coarse
 }
 
-export function Diagram({ source, format, title, blockId, slideId, focusNodes }: Props) {
+export function Diagram({ source, blockId, slideId, focusNodes }: Props) {
   const card = useRef<HTMLElement>(null)
   const viewport = useRef<HTMLElement>(null)
   const host = useRef<HTMLDivElement>(null)
@@ -262,11 +256,8 @@ export function Diagram({ source, format, title, blockId, slideId, focusNodes }:
   const [result, setResult] = useState<Result | null>(null)
   const [view, setView] = useState(initialDiagramViewState)
   const [showSource, setShowSource] = useState(false)
-  const fullscreen = useDiagramFullscreen(source, format, card, viewport)
-  const { renderer, error: sourceError } = useMemo(
-    () => (format === "mermaid" ? checkSource(source) : { renderer: null, error: null }),
-    [source, format],
-  )
+  const fullscreen = useDiagramFullscreen(source, card, viewport)
+  const { renderer, error: sourceError } = useMemo(() => checkSource(source), [source])
   let policyError = sourceError
   if (renderer) {
     try {
@@ -295,38 +286,7 @@ export function Diagram({ source, format, title, blockId, slideId, focusNodes }:
       sourceToggle.current?.focus({ preventScroll: true })
     }
     setShowSource(false)
-  }, [source, format, slideId])
-
-  useEffect(() => {
-    if (format !== "svg") return
-    let cancelled = false
-    let close: (() => void) | undefined
-    void (async () => {
-      try {
-        const { openStaticDiagram } = await import("./static-diagram")
-        if (cancelled) return
-        const image = openStaticDiagram(source, title)
-        close = image.close
-        const svg = await image.loaded
-        if (!cancelled) setResult({ source, format, title, svg })
-      } catch (error) {
-        close?.()
-        close = undefined
-        if (!cancelled)
-          setResult({
-            source,
-            format,
-            title,
-            error: error instanceof Error ? error.message : String(error),
-          })
-      }
-    })()
-    return () => {
-      cancelled = true
-      close?.()
-      close = undefined
-    }
-  }, [source, format, title])
+  }, [source, slideId])
 
   useEffect(() => {
     if (!renderer || policyError) return
@@ -349,15 +309,10 @@ export function Diagram({ source, format, title, blockId, slideId, focusNodes }:
         document.body.append(staging)
         const rendered = await mermaid.render(id, source, staging)
         const svg = sanitizeDiagramSvg(rendered.svg, id)
-        if (!cancelled && generation.current === current)
-          setResult({ source, format: "mermaid", svg })
+        if (!cancelled && generation.current === current) setResult({ source, svg })
       } catch (error) {
         if (!cancelled && generation.current === current) {
-          setResult({
-            source,
-            format: "mermaid",
-            error: error instanceof Error ? error.message : String(error),
-          })
+          setResult({ source, error: error instanceof Error ? error.message : String(error) })
         }
       } finally {
         staging.remove()
@@ -370,25 +325,16 @@ export function Diagram({ source, format, title, blockId, slideId, focusNodes }:
     }
   }, [source, renderer, policyError])
 
-  const active = policyError
-    ? { error: policyError }
-    : result?.source === source &&
-        result.format === format &&
-        (result.format !== "svg" || result.title === title)
-      ? result
-      : null
-  const graphic = active && "svg" in active ? active.svg : null
-
   useLayoutEffect(() => {
     const element = host.current
     if (!element) return
-    if (graphic) {
-      element.replaceChildren(graphic)
+    if (!policyError && result?.source === source && "svg" in result) {
+      element.replaceChildren(result.svg)
     } else {
       element.replaceChildren()
     }
     controller.current?.refresh()
-  }, [graphic])
+  }, [result, source, policyError])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Apply the camera when entering any slide, including one sharing the same SVG.
   useLayoutEffect(() => {
@@ -400,6 +346,11 @@ export function Diagram({ source, format, title, blockId, slideId, focusNodes }:
     controller.current?.refresh()
   }, [showSource, fullscreen.mode])
 
+  const active = policyError
+    ? { source, error: policyError }
+    : result?.source === source
+      ? result
+      : null
   const error = active && "error" in active ? active.error : null
   const ready = !!active && "svg" in active && view.ready
   const disabled = !ready || showSource

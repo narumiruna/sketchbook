@@ -401,9 +401,9 @@ describe("bundled Sketchbook skill", () => {
     )
     expect(skill).toContain("Do not redraw existing slides to match a new default")
     expect(design).toContain("name: sketchbook-diagram-design")
-    expect(design).toContain("If Python or the packaged exporter is unavailable")
-    expect(design).toContain("Do not silently choose another backend")
-    expect(design).toContain("`--system-fonts`")
+    expect(design).toContain('type: "diagram-html"')
+    expect(design).toContain("Do not convert it to SVG")
+    expect(design).toContain("do not weaken the policy or silently change backends")
   })
   test("has portable, concise routing frontmatter", async () => {
     const skill = await readFile(skillFile, "utf8")

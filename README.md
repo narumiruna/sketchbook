@@ -1,6 +1,6 @@
 # Pi Sketchbook
 
-Pi Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Mermaid or static SVG diagram decks. Start with one page and add sections or chapters when readers need more detail.
+Pi Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Mermaid or static SVG diagram decks, and static Diagram Design HTML. Start with one page and add sections or chapters when readers need more detail.
 Each deck shows one diagram and its explanation at a time, independently of chapter navigation.
 Use the bottom Previous/Next buttons or labelled position dots to change slides; focused decks also support Left/Right keyboard keys.
 On wide screens, explanations appear beside their diagrams; narrower screens use one reading column.
@@ -221,11 +221,11 @@ If the network or DHCP address changes, reload Pi and open a fresh URL.
 
 ## Choose a diagram source
 
-When creating a document with the bundled skill, choose **Mermaid** (the default) or **Diagram Design**. Diagram Design uses the packaged agent skill and requires Python 3 to export a static SVG. The Viewer does not need Python or an Internet connection. MCP-only clients can save or read the same format but must supply their own authoring workflow.
+When creating a document with the bundled skill, choose **Mermaid** (the default) or **Diagram Design**. Diagram Design uses the packaged agent skill and saves its HTML directly. Python is not required to import or view it, and the Viewer works offline. MCP-only clients can save or read the same format but must supply their own authoring workflow.
 
 A document can set `defaultDiagramSource` to `mermaid` or `diagram-design`. Omit it for the existing Mermaid workflow. This is an authoring preference, not a Viewer setting. Each slide supplies exactly one of `mermaid` or `svg`, so the same deck can mix both. Changing the preference does not redraw existing slides. `focusNodes` remains Mermaid-flowchart-only.
 
-The [HTTP cache walkthrough](examples/diagram-design/http-cache-walkthrough.json) is a `sketchbook_write` document. Its three SVGs come from the [Diagram Design HTML preview](examples/diagram-design/http-cache.html). The SVG workflow imports the drawing, not the HTML page, animation, or webfonts. See the [static SVG policy](skills/sketchbook-create-diagrams/references/document-format.md#static-svg-policy).
+Place the output of the [Diagram Design HTML preview](examples/diagram-design/http-cache.html), or another supported static HTML document, in a block with `type: "diagram-html"`, a `title`, and the complete `html` string. Add these blocks directly to the first page, sections, or chapters to assemble a book. The Viewer preserves the page’s layout and captions without Mermaid’s diagram frame or toolbars. See the [Diagram Design HTML policy](skills/sketchbook-create-diagrams/references/document-format.md#diagram-design-html).
 
 ## Supported Mermaid diagrams
 
@@ -263,7 +263,7 @@ Not supported:
 
 ### Downgrade without losing source
 
-The original page stays schema version 1. A version without book support can still open a compatible original page, but will not show its sidecar content. Keep both files to recover that content in a book-aware build. An older version can reject pages with `defaultDiagramSource` or SVG slides, including slides in the book. For a downgrade, open the original records in a compatible build and create a separate Mermaid-only document without `defaultDiagramSource`; do not overwrite the only copy. Older versions that accept only `flowchart` reject a page that uses a newer header, including `graph`. Back up both records, leave the source unchanged, and use a compatible reader to copy Mermaid source if needed.
+The original page stays schema version 1. A version without book support can still open a compatible original page, but will not show its sidecar content. Keep both files to recover that content in a book-aware build. An older version can reject pages or books with `defaultDiagramSource`, SVG slides, or Diagram Design HTML blocks. For a downgrade, open the original records in a compatible build and create a separate Mermaid-only document without `defaultDiagramSource`; do not overwrite the only copy. Older versions that accept only `flowchart` reject a page that uses a newer header, including `graph`. Back up both records, leave the source unchanged, and use a compatible reader to copy Mermaid source if needed.
 
 ## Rendering and security
 
@@ -273,7 +273,8 @@ The original page stays schema version 1. A version without book support can sti
   - The viewer checks source before rendering, runs Mermaid in strict mode without HTML labels or diagram event bindings, and sanitizes generated SVG. SVG definition references must stay within that diagram.
   - Diagrams start fitted without upscaling; inline frame height follows the SVG aspect ratio and available width, within a bounded height.
   - Fit can still make large diagrams small. Rework a teaching diagram that is unreadable at its default scale; Reset, Zoom, and panning remain available for inspecting large diagrams.
-- Imported SVGs are validated and displayed as isolated static images, not inserted into the Viewer’s document. The Viewer blocks scripts and external resources, uses system font fallbacks, and shares the normal diagram controls. On narrow screens, use Zoom or Reset zoom to read a dense diagram at a larger size.
+- Imported Diagram Design HTML displays in a borderless, sandboxed page. Scripts, navigation, and external resources are not supported; external stylesheets such as web fonts are removed. Internal styles and local SVG definitions stay inside the authored page.
+- Static SVG slides display as isolated, plain images without a diagram toolbar. On narrow screens, scroll wide drawings horizontally within the page or slide.
 - Markdown supports inline/display LaTeX, fenced code, and footnotes, but not raw HTML or images.
   - Footnote targets are local to each Markdown block or slide explanation.
   - In-page links move focus without replacing the viewer token, so the current URL remains valid after navigation.
@@ -283,7 +284,7 @@ The original page stays schema version 1. A version without book support can sti
 - A parse error is shown locally with source details instead of removing the rest of the document.
   - Rendering runs on the browser main thread; error handling is not CPU isolation.
 
-## Diagram controls
+## Mermaid diagram controls
 
 The toolbar directly shows Fit to screen, Fullscreen, Zoom out, current zoom, Zoom in, Reset zoom, and Show source.
 Input-specific help remains visible below the buttons; no More controls panel is used.

@@ -140,7 +140,7 @@ export function createSketchbookTools(mutationQueue?: FileMutationQueue) {
     label: "Sketchbook Write",
     promptSnippet: "Create or replace a saved Pi Sketchbook document with revision checks",
     description:
-      "Create or fully replace a Pi Sketchbook document with Markdown, code, or Mermaid diagram decks (such as flowchart, sequenceDiagram, classDiagram, and stateDiagram-v2). Use only supported non-beta headers; see the README matrix. Diagram decks may mix types, but focusNodes is flowchart-only. Do not use Mermaid configuration, HTML, links, images, icons, or node metadata. Updates require documentId and expectedRevision; read after a conflict. Writes only .pi/sketchbook/*.json, same-directory temporary files, and .pi/sketchbook/.gitignore in the workspace; never changes the workspace root .gitignore. Saving does not verify browser rendering.",
+      "Create or fully replace a Pi Sketchbook document with Markdown, code, static Diagram Design HTML blocks, or Mermaid/SVG diagram decks. Use only supported non-beta Mermaid headers; see the README matrix. Do not use Mermaid configuration, HTML, links, images, icons, or node metadata in Mermaid. Diagram decks may mix source types, but focusNodes is Mermaid flowchart-only. For complete static Diagram Design output, use a `diagram-html` block; do not put raw HTML in Markdown. Updates require documentId and expectedRevision; read after a conflict. Writes only .pi/sketchbook/*.json, same-directory temporary files, and .pi/sketchbook/.gitignore in the workspace; never changes the workspace root .gitignore. Saving does not verify browser rendering.",
     parameters: WriteInputSchema,
     outputSchema: WriteOutputSchema,
     async execute(input: unknown, cwd: string, signal?: AbortSignal) {

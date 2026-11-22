@@ -44,7 +44,7 @@ describe("Agent Substrate article regression", () => {
     expect(takeaways.markdown).toContain("### 技術名稱對照")
     expect(takeaways.markdown).toContain("## 參考資料")
     for (const block of document.blocks) {
-      if (block.type === "code") continue
+      if (block.type !== "markdown" && block.type !== "diagram-deck") continue
       const prose =
         block.type === "markdown"
           ? [block.markdown]
