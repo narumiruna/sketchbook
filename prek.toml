@@ -10,6 +10,19 @@ pass_filenames = false
 always_run = true
 
 [[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "tsc-rs"
+name = "Type-check with tsc-rs"
+entry = "tsc-rs --noEmit -p tsconfig.tests.json"
+language = "node"
+additional_dependencies = ["tsc-rs@0.8.0"]
+files = '(\.[cm]?tsx?$|^tsconfig.*\.json$|^package(-lock)?\.json$)'
+pass_filenames = false
+stages = ["pre-commit"]
+
+[[repos]]
 repo = "https://github.com/zizmorcore/zizmor-pre-commit"
 rev = "v1.32.0"
 

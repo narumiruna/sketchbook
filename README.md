@@ -281,7 +281,7 @@ The package smoke test checks the Git install and update against a disposable re
 
 Run `prek install` with [prek](https://prek.j178.dev/) to enable the Git hooks for your checkout. If `git config --local --get core.hooksPath` returns `.husky/_` from an earlier installation, run `git config --local --unset core.hooksPath` first.
 
-Run `prek run --all-files` to run `biome check` and audit GitHub Actions and Dependabot configuration with `zizmor --pedantic --fix .github`. Biome does not write changes. Zizmor applies only safe fixes; review and stage them before retrying a commit.
+After `npm ci`, run `prek run --all-files` to run Biome, type-check `tsconfig.tests.json` with `tsc-rs`, and audit GitHub Actions and Dependabot configuration with `zizmor --pedantic --fix .github`. Prek installs `tsc-rs` in its hook environment; no global install is needed. Only Zizmor can write changes: review and stage any fixes before retrying a commit.
 
 On a fresh Linux system, use `npx playwright install --with-deps chromium` if browser system libraries are missing.
 The explicit browser output directory preserves separate review captures under `test-results/`.
