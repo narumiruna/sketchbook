@@ -74,6 +74,7 @@ export class ViewerServer {
   constructor(
     private readonly store: DocumentStore,
     private readonly assets: string | URL = new URL("./web/", import.meta.url),
+    private readonly listenHost: "0.0.0.0" | "127.0.0.1" = "0.0.0.0",
   ) {}
 
   async open(documentId: string, signal?: AbortSignal): Promise<string> {
@@ -112,7 +113,7 @@ export class ViewerServer {
         throw new Error("Sketchbook viewer index is not a regular bundled file.")
       }
       this.assertOpen()
-      const hosts = viewerHosts()
+      const hosts = this.listenHost === "127.0.0.1" ? [this.listenHost] : viewerHosts()
       const server = createServer((request, response) => {
         void this.handle(request, response).catch(() => {
           if (response.destroyed) return
@@ -132,7 +133,7 @@ export class ViewerServer {
       await new Promise<void>((accept, reject) => {
         const onError = (error: Error) => reject(error)
         server.once("error", onError)
-        server.listen(0, "0.0.0.0", () => {
+        server.listen(0, this.listenHost, () => {
           server.off("error", onError)
           server.on("error", (error) => {
             this.failure = error

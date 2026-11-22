@@ -8,6 +8,16 @@ Sketchbook 可在 Pi 使用，也提供 Claude Code 和 Codex 外掛，以及獨
 
 ![Sketchbook Viewer 顯示英文程式碼導覽與架構圖](assets/preview.png)
 
+## 試用展示
+
+從原始碼工作副本試用時，先安裝 [just](https://just.systems/) 和 Node.js 26 以上版本，再從儲存庫根目錄執行：
+
+```sh
+just demo
+```
+
+指令會執行 `npm ci` 重新安裝依賴套件，再建置 Viewer。接著用瀏覽器開啟終端機列出的任一連結。《圖型實用圖鑑》分上下冊，共 51 頁，每頁各有一種圖型的案例。正文是繁體中文，圖面保留英文標籤。展示使用暫存工作區，HTTP Viewer 只監聽 `127.0.0.1`，不會讀寫你的 Sketchbook 文件。按 Ctrl+C 可關閉 Viewer 並清理暫存檔。
+
 ## 安裝
 
 - [Pi](#pi)：安裝擴充功能和撰寫 skill。

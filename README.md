@@ -8,6 +8,16 @@ Sketchbook runs in Pi, as a plugin for Claude Code or Codex, or as a standalone 
 
 ![Sketchbook Viewer showing the codebase tour and its architecture diagram](assets/preview.png)
 
+## Try the demo
+
+From a source checkout, install [just](https://just.systems/) and Node.js 26 or later. Run this command from the repository root:
+
+```sh
+just demo
+```
+
+The command runs `npm ci` to reinstall dependencies and builds the Viewer. Open either link printed in the terminal. The Diagram Atlas has 51 pages across two volumes, with a worked example for each diagram type. The text is in Traditional Chinese and the diagrams retain their English labels. The demo uses a temporary workspace and an HTTP Viewer bound to `127.0.0.1`; it does not read or write your Sketchbook documents. Press Ctrl+C to stop the Viewer and remove its temporary files.
+
 ## Installation
 
 - [Pi](#pi): Install the extension and authoring skill.
