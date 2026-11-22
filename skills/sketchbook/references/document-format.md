@@ -9,7 +9,6 @@ Do not add envelope fields to the document.
 type SketchbookDocument = {
   schemaVersion: 1
   title: string
-  defaultDiagramSource?: "mermaid" | "diagram-design"
   blocks: Array<
     | { id: string; type: "markdown"; markdown: string }
     | { id: string; type: "code"; code: string; language?: string }
@@ -18,13 +17,12 @@ type SketchbookDocument = {
         id: string
         type: "diagram-deck"
         title: string
-        slides: Array<
-          {
-            id: string
-            title: string
-            explanationMarkdown: string
-          } & ({ mermaid: string; focusNodes?: string[] } | { svg: string })
-        >
+        slides: Array<{
+          id: string
+          title: string
+          explanationMarkdown: string
+          svg: string
+        }>
       }
   >
 }
@@ -38,16 +36,16 @@ type SketchbookDocument = {
   - IDs are identifiers, not file paths.
 - Use at most 1 MiB of UTF-8 JSON and 1 to 100 blocks per document.
   - Give each deck 1 to 20 slides.
-  - Limit each Mermaid source to 32 KiB of UTF-8 text and each SVG or HTML source to 128 KiB of UTF-8 text.
+  - Limit each SVG or HTML source to 128 KiB of UTF-8 text.
   - Require exactly one source field per slide. Use `svg` for static drawing markup, not file paths or HTML.
-- Treat `defaultDiagramSource` as an authoring preference. Omit it for default Mermaid behavior; selecting a different preference does not rewrite existing slides.
+- Omit `defaultDiagramSource` in new documents. A legacy value is accepted but ignored.
 - Use only the fields shown above and schema version 1.
 
 Markdown supports prose, inline math such as `$r + 1$`, display math between `$$` lines, and fenced code.
 Use a `code` block for a standalone snippet. Its `code` field must contain at least one non-whitespace character.
 Pass the source directly, without adding Markdown fences. The viewer displays it as text, preserving whitespace.
 If provided, the `language` label must contain a non-whitespace character and be at most 64 characters long.
-Use a `diagram-deck` even for one Mermaid diagram, or `diagram-html` for complete Diagram Design output. Slides can use different supported families in the same deck; neither a Mermaid Markdown fence nor a `code` block renders a diagram.
+Use `diagram-html` for complete Diagram Design output. Use a `diagram-deck` only for static SVG slides.
 
 ## Book content
 
@@ -72,17 +70,6 @@ type StoredBook = {
   - Use at most 32 additional chapters, 32 sections per chapter, and 4 MiB of UTF-8 JSON for the sidecar.
   - Keep chapter IDs unique within the book (do not use the original document ID), section IDs unique within each chapter, block IDs unique within each block list, and slide IDs unique within each deck. Use stable IDs for links and edits.
 
-## Slide focus
-
-- Leave `focusNodes` absent on the first slide of every deck and on all non-flowchart slides. Only `flowchart` and `graph` can use it on detail slides. Neither participant IDs nor other Mermaid identifiers can select a flowchart focus region.
-- On a focused detail slide, supply 1–12 unique Mermaid node IDs in `focusNodes`. Each ID must match the same ASCII ID pattern above.
-  - Use actual node IDs, not display labels, subgraph IDs, or edge IDs. For `Api["Document API"]`, use `"Api"`.
-  - Copy the complete first slide's Mermaid string exactly, including whitespace. Do not crop or restyle the source to focus it.
-- The viewer shows one hatched attention frame and starts zoomed in on its region. The frame replaces any previous frame.
-  - **Fit to screen** shows the complete diagram with the current frame. **Reset to slide focus** returns to the detail view.
-  - If any focus ID cannot be resolved, the viewer shows the full diagram without a frame and reports the missing focus. Correct the IDs rather than relying on the fallback.
-- Focus is optional. A deck can leave it out entirely; unfocused slides can use different Mermaid source and different supported families.
-
 ## Article headings and emphasis
 
 - `document.title` owns the page H1 on the first page. On an additional chapter page, use its `chapter.title` as the page title. Do not repeat the page title as a Markdown H1 or opening subject heading.
@@ -95,42 +82,12 @@ type StoredBook = {
 
 ## Content policy
 
-Begin the plain Mermaid source with a header from this table for Mermaid 12.3.0. For a flowchart, give a direction such as `LR` or `TD` and use subgraphs for real component groups or service boundaries, not to draw attention frames.
-
-| Family              | Accepted headers                                                       |
-| ------------------- | ---------------------------------------------------------------------- |
-| Flowchart           | `flowchart`, `graph`                                                   |
-| Sequence            | `sequenceDiagram`                                                      |
-| Class               | `classDiagram`                                                         |
-| State               | `stateDiagram-v2`, `stateDiagram`                                      |
-| Entity relationship | `erDiagram`                                                            |
-| User journey        | `journey`                                                              |
-| Gantt               | `gantt`                                                                |
-| Pie                 | `pie`                                                                  |
-| Git graph           | `gitGraph`                                                             |
-| Requirement         | `requirementDiagram`                                                   |
-| Timeline            | `timeline`                                                             |
-| Quadrant chart      | `quadrantChart`                                                        |
-| Kanban              | `kanban`                                                               |
-| Block               | `block`                                                                |
-| Packet              | `packet`                                                               |
-| Sankey              | `sankey`                                                               |
-| XY chart            | `xychart`                                                              |
-| C4                  | `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` |
-
-Use only these headers. Beta-only families, Mindmap, Event Modeling, ZenUML, and other diagram formats are not supported. Do not use `flowchart-elk`, `xychart-beta`, `classDiagram-v2`, or bare `requirement` even if Mermaid recognizes them.
-
-- Use plain text for diagram labels. Do not use Mermaid frontmatter, configuration directives, node metadata (`@{...}`), click actions or other interactive links, HTML, images, icons, external resources, or custom plugins.
-- Do not use raw HTML or images in Markdown.
-  - Use ordinary links with safe schemes such as HTTPS.
-- Do not use LaTeX commands that require trusted HTML or external resources.
-
-Flowcharts use the hand-drawn look and a fixed seed. Other families use Mermaid's normal style. The application controls all rendering settings, runs Mermaid in strict mode without HTML labels or event bindings, and sanitizes generated SVG. Do not try to override these settings.
+Do not use raw HTML or images in Markdown. Use links with safe schemes such as HTTPS and avoid LaTeX commands that require trusted HTML or external resources.
 
 ### Diagram Design HTML
 
 - Put the complete HTML document with its `<!doctype html>`, embedded styles, and at least one inline SVG in `html`. Use `title` to label the page for assistive technology.
-- Place these blocks in the original page, a section, or a chapter using the existing book tools. The main book controls organize and navigate the content; the imported HTML does not use the Mermaid diagram frame or toolbar.
+- Place these blocks in the original page, a section, or a chapter using the existing book tools. The main book controls organize and navigate the content; the imported HTML has no diagram frame or toolbar.
 - Add `class="sketchbook-default-layout"` to `<body>` only to let the Viewer align the standard Diagram Design wrapper with the book. Omit it to keep authored spacing and width. Use content-based sizing if possible; a page with viewport-height rules can scroll inside its frame.
 - Use static HTML and CSS only. Scripts, embedded pages, forms, links, refresh metadata, external assets and animations are not supported. The Viewer removes stylesheet links and uses fallback fonts; use embedded CSS. Give wide diagrams a local scrolling wrapper.
 
@@ -148,18 +105,18 @@ Flowcharts use the hand-drawn look and a fixed seed. Other families use Mermaid'
 `sketchbook_write({ document })` creates a generated ID at revision 1.
 Omit both `documentId` and `expectedRevision` for creation.
 The result includes `documentId`, `revision`, `path`, a `blocks` summary, and `renderingVerified: false`.
-A successful write means validation and persistence succeeded. Pi and MCP check headers and source policy without parsing the full Mermaid body. They store the exact source; the Viewer handles diagram parsing and reports any errors on the affected slide. Saving or opening does not verify that Mermaid or LaTeX rendered.
+A successful write means validation and persistence succeeded. Saving or opening does not verify browser rendering.
 
 Keep these evidence states separate in the handoff:
 
 - **Saved**: the write returned an ID and revision.
-- **Rendered**: browser evidence shows that the inspected Markdown, Mermaid, and math rendered without errors.
-- **Readable**: complete visual review supports the article's composition and reading order at desktop and 390px, including every slide's initial fitted labels and explanation.
+- **Rendered**: browser evidence shows that the inspected Markdown, diagrams, and math rendered without errors.
+- **Readable**: complete visual review supports the article's composition and reading order at desktop and 390px, including each diagram's original layout and explanation.
 - **Content-correct**: source checks and article review support arrow recipients, actions, order, decision inputs and outcomes, slide contributions, concept order, and caveats.
 - **Human acceptance**: a person explicitly accepted the result; agent checks do not establish this state.
 
 Name the checked document ID, record revisions, viewport widths, chapters, sections, and slide coverage, and mark missing evidence as unverified.
-Include the compact review record defined in the diagram patterns with the available evidence.
+Record which source facts support diagram claims and list any issues.
 Do not infer one state from another; saving, rendering, and minimum label sizes do not establish readability or content correctness.
 
 ### Read and replace

@@ -8,10 +8,8 @@ import { fileURLToPath } from "node:url"
 const revision = "d74d8c2d0c78a9e1efd43137f6a9a51182a8b5f0"
 const checksum = "93f6634f9a1be43d6c70417e0d85c687b9e34d3f044660a9a3fce613c82524b9"
 const prefix = `diagram-design-${revision}`
-const bundle = fileURLToPath(
-  new URL("../skills/sketchbook-diagram-design/upstream/", import.meta.url),
-)
-const scratch = await mkdtemp(join(tmpdir(), "sketchbook-diagram-design-"))
+const bundle = fileURLToPath(new URL("../skills/sketchbook/upstream/", import.meta.url))
+const scratch = await mkdtemp(join(tmpdir(), "sketchbook-upstream-"))
 try {
   const response = await fetch(
     `https://codeload.github.com/cathrynlavery/diagram-design/tar.gz/${revision}`,

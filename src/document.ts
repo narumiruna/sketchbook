@@ -1,10 +1,9 @@
 import { type Static, type TSchema, Type } from "typebox"
 import { Check, Errors } from "typebox/value"
 import { MAX_DESIGN_HTML_BYTES, prepareDesignHtml } from "./design-html.js"
-import { assertMermaidFocus, assertMermaidPolicy, MAX_MERMAID_BYTES } from "./mermaid-policy.js"
+import { rejectRetiredDocument, rejectRetiredDocumentEnvelope } from "./retired-format.js"
 import { inspectStaticSvg, MAX_SVG_BYTES } from "./static-svg.js"
 
-export { MAX_MERMAID_BYTES }
 export const MAX_DOCUMENT_BYTES = 1024 * 1024
 export const MAX_BLOCKS = 100
 export const MAX_SLIDES = 20
@@ -35,30 +34,15 @@ export const CodeBlockSchema = Type.Object(
   { additionalProperties: false },
 )
 
-const slideFields = { id: IdSchema, title: TitleSchema, explanationMarkdown: TextSchema }
-const MermaidSlideSchema = Type.Object(
+export const SlideSchema = Type.Object(
   {
-    ...slideFields,
-    mermaid: Type.String({ minLength: 1, maxLength: MAX_MERMAID_BYTES }),
-    focusNodes: Type.Optional(
-      Type.Array(IdSchema, {
-        minItems: 1,
-        maxItems: 12,
-        uniqueItems: true,
-        description:
-          "Flowchart node IDs for one focus region on the unchanged first slide diagram.",
-      }),
-    ),
+    id: IdSchema,
+    title: TitleSchema,
+    explanationMarkdown: TextSchema,
+    svg: Type.String({ minLength: 1, maxLength: MAX_SVG_BYTES }),
   },
   { additionalProperties: false },
 )
-
-const SvgSlideSchema = Type.Object(
-  { ...slideFields, svg: Type.String({ minLength: 1, maxLength: MAX_SVG_BYTES }) },
-  { additionalProperties: false },
-)
-
-export const SlideSchema = Type.Union([MermaidSlideSchema, SvgSlideSchema])
 
 export const DiagramDeckSchema = Type.Object(
   {
@@ -92,7 +76,9 @@ export const SketchbookDocumentSchema = Type.Object(
     schemaVersion: Type.Literal(1),
     title: TitleSchema,
     defaultDiagramSource: Type.Optional(
-      Type.Union([Type.Literal("mermaid"), Type.Literal("diagram-design")]),
+      Type.Union([Type.Literal("mermaid"), Type.Literal("diagram-design")], {
+        description: "Deprecated authoring preference. Ignored; omit in new documents.",
+      }),
     ),
     blocks: Type.Array(BlockSchema, {
       minItems: 1,
@@ -126,7 +112,6 @@ export type MarkdownBlock = Static<typeof MarkdownBlockSchema>
 export type CodeBlock = Static<typeof CodeBlockSchema>
 export type DesignHtmlBlock = Static<typeof DesignHtmlBlockSchema>
 export type DiagramDeck = Static<typeof DiagramDeckSchema>
-export type MermaidSlide = Static<typeof MermaidSlideSchema>
 export type Block = Static<typeof BlockSchema>
 export type WriteInput = Static<typeof WriteInputSchema>
 export type StoredDocument = Static<typeof StoredDocumentSchema>
@@ -162,23 +147,12 @@ export function validateBlocks(blocks: Block[]): void {
     }
     if (block.type !== "diagram-deck") continue
     const slideIds = new Set<string>()
-    const overview = block.slides[0]
     for (const slide of block.slides) {
       const location = `${block.id}/${slide.id}`
       if (slideIds.has(slide.id)) throw new Error(`Duplicate slide ID: ${location}`)
       slideIds.add(slide.id)
       try {
-        if ("svg" in slide) {
-          inspectStaticSvg(slide.svg)
-          continue
-        }
-        if (
-          slide.focusNodes &&
-          (slide === overview || !("mermaid" in overview) || slide.mermaid !== overview.mermaid)
-        ) {
-          throw new Error("A focus slide must reuse the first slide's Mermaid source unchanged")
-        }
-        assertMermaidFocus(assertMermaidPolicy(slide.mermaid), slide.focusNodes)
+        inspectStaticSvg(slide.svg)
       } catch (error) {
         throw new Error(`${location}: ${error instanceof Error ? error.message : String(error)}`)
       }
@@ -187,6 +161,7 @@ export function validateBlocks(blocks: Block[]): void {
 }
 
 export function validateDocument(value: unknown): SketchbookDocument {
+  rejectRetiredDocument(value)
   assertSchema(SketchbookDocumentSchema, value)
   if (Buffer.byteLength(JSON.stringify(value), "utf8") > MAX_DOCUMENT_BYTES) {
     throw new Error(`Sketchbook document exceeds ${MAX_DOCUMENT_BYTES} bytes`)
@@ -196,6 +171,7 @@ export function validateDocument(value: unknown): SketchbookDocument {
 }
 
 export function validateWriteInput(value: unknown): WriteInput {
+  rejectRetiredDocumentEnvelope(value)
   assertSchema(WriteInputSchema, value)
   if ((value.documentId === undefined) !== (value.expectedRevision === undefined)) {
     throw new Error("Updates require both documentId and expectedRevision; creates omit both")
@@ -205,6 +181,7 @@ export function validateWriteInput(value: unknown): WriteInput {
 }
 
 export function validateStoredDocument(value: unknown): StoredDocument {
+  rejectRetiredDocumentEnvelope(value)
   assertSchema(StoredDocumentSchema, value)
   if (Number.isNaN(Date.parse(value.updatedAt)))
     throw new Error("Invalid sketchbook updatedAt timestamp")

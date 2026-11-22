@@ -573,7 +573,7 @@ describe("ViewerServer", () => {
   it("checks cancellation after an asynchronous store read before listening", async () => {
     const controller = new AbortController()
     const listen = vi.spyOn(Server.prototype, "listen")
-    vi.spyOn(store, "read").mockImplementationOnce(async () => {
+    vi.spyOn(store, "readViewer").mockImplementationOnce(async () => {
       controller.abort(new Error("Open cancelled"))
       return stored
     })

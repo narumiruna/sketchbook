@@ -3,7 +3,6 @@ import type { Chapter, StoredBook } from "../book.js"
 import type { CodeBlock, DiagramDeck, StoredDocument } from "../document.js"
 import { BookContents, ChapterOrder, chapterNumber, useBookLocation } from "./chapter-navigation"
 import { DesignPage } from "./design-page"
-import { Diagram } from "./diagram"
 import { Markdown } from "./markdown"
 import { StaticDiagram } from "./static-diagram"
 
@@ -52,6 +51,11 @@ function useDocument({ documentId, token }: Session) {
           signal: controller.signal,
         })
         if (stopped) return
+        if (response.status === 422) {
+          const message = await response.text()
+          if (!stopped) setStatus(current ? `${message} Last loaded content is kept.` : message)
+          return
+        }
         if (response.status !== 304) {
           if (!response.ok) throw new Error(`Document request failed (${response.status})`)
           const next = (await response.json()) as ViewerDocument
@@ -133,7 +137,6 @@ function Deck({ deck, inSection }: { deck: DiagramDeck; inSection: boolean }) {
     ids: deck.slides.map((slide) => slide.id),
   }))
   const active = currentSlide(deck, selection)
-  const isSvg = "svg" in active
   const index = deck.slides.indexOf(active)
   const ids = deck.slides.map((slide) => slide.id)
   const multiple = deck.slides.length > 1
@@ -175,25 +178,16 @@ function Deck({ deck, inSection }: { deck: DiagramDeck; inSection: boolean }) {
             {active.title}
           </SlideTitle>
         </div>
-        <span className="deck-kind">{isSvg ? "SVG" : "Mermaid"}</span>
+        <span className="deck-kind">SVG</span>
       </header>
       <div className="slide-content">
         <div className="slide-figure">
           <div className="deck-viewport" id={viewportId}>
-            {isSvg ? (
-              <StaticDiagram
-                key={`${active.id}/${active.svg}`}
-                source={active.svg}
-                title={active.title}
-              />
-            ) : (
-              <Diagram
-                source={active.mermaid}
-                blockId={deck.id}
-                slideId={active.id}
-                focusNodes={active.focusNodes}
-              />
-            )}
+            <StaticDiagram
+              key={`${active.id}/${active.svg}`}
+              source={active.svg}
+              title={active.title}
+            />
           </div>
           {multiple && (
             <fieldset className="slide-pagination" aria-label={`${deck.title} slide positions`}>

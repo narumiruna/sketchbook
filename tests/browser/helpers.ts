@@ -1,7 +1,13 @@
 import { type APIRequestContext, expect, type Locator, type Page } from "@playwright/test"
 import type { DiagramDeck, SketchbookDocument, StoredDocument } from "../../src/document.js"
 
-export { mermaidDeck as getDeck } from "../fixtures/mermaid-deck.js"
+import { drawing } from "../fixtures/static-drawing.js"
+
+export function getDeck(document: SketchbookDocument, id: string): DiagramDeck {
+  const block = document.blocks.find((block) => block.id === id)
+  if (block?.type !== "diagram-deck") throw new Error(`Missing deck: ${id}`)
+  return block
+}
 
 const coordinator = "http://127.0.0.1:4179"
 
@@ -25,20 +31,6 @@ export async function save(
   return (await response.json()) as Fixture
 }
 
-export async function asset(request: APIRequestContext, name: string) {
-  const response = await request.get(`${coordinator}/assets/${name}`)
-  expect(response.ok()).toBeTruthy()
-  return (await response.json()) as SketchbookDocument
-}
-
-export const source = `flowchart LR
-  subgraph Service["服務邊界"]
-    A["讀取文件 — a deliberately long label for responsive SVG rendering"] --> B["寫入"]
-  end
-  classDef important fill:#ddeeef,stroke:#246;
-  class A important;
-  linkStyle 0 stroke:#246,stroke-width:2px;`
-
 export function documentFixture(): SketchbookDocument {
   const deck = (id: string): DiagramDeck => ({
     id,
@@ -48,19 +40,19 @@ export function documentFixture(): SketchbookDocument {
       {
         id: "overview",
         title: "Overview",
-        mermaid: source,
+        svg: drawing("服務邊界 → 寫入"),
         explanationMarkdown: `Explanation ${id} overview with $x^2$.`,
       },
       {
         id: "detail",
         title: "Detail",
-        mermaid: `flowchart LR\n A["Detail ${id}"] --> C["Core"]`,
+        svg: drawing(`Detail ${id} → Core`),
         explanationMarkdown: `Explanation ${id} detail.`,
       },
       {
         id: "end",
         title: "End",
-        mermaid: `flowchart LR\n C["Core"] --> Z["End ${id}"]`,
+        svg: drawing(`Core → End ${id}`),
         explanationMarkdown: `Explanation ${id} end.`,
       },
     ],
@@ -84,8 +76,11 @@ export function documentFixture(): SketchbookDocument {
 }
 
 export async function rendered(deck: Locator) {
-  await expect(deck.locator(".diagram")).toHaveAttribute("aria-busy", "false")
-  await expect(deck.locator(".diagram-svg > svg")).toBeVisible()
+  const image = deck.locator(".static-diagram img")
+  await expect(image).toBeVisible()
+  await expect
+    .poll(() => image.evaluate((element) => (element as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0)
 }
 
 export async function selectSlide(deck: Locator, id: string) {
@@ -108,39 +103,19 @@ export async function readingMetrics(deck: Locator) {
         height: bounds.height,
       }
     }
-    const svg = element.querySelector<SVGSVGElement>(".diagram-svg > svg")
-    const paragraph = element.querySelector(".slide-explanation p")
+    const frame = box(".static-diagram")
+    const graph = box(".static-diagram img")
     const explanation = element.querySelector(".slide-explanation")
-    if (!svg || !explanation) throw new Error("Missing rendered slide")
-    const fonts = [...svg.querySelectorAll("text")]
-      .filter((label) => label.textContent?.trim())
-      .map((label) => {
-        const matrix = label.getScreenCTM()
-        return (
-          Number.parseFloat(getComputedStyle(label).fontSize) *
-          Math.hypot(matrix?.a ?? 0, matrix?.b ?? 0)
-        )
-      })
-    const frame = box(".diagram-viewport")
-    const graph = box(".diagram-svg > svg")
+    if (!explanation) throw new Error("Missing slide explanation")
     if (!frame || !graph) throw new Error("Missing diagram geometry")
     return {
       heading: box(".deck-heading"),
-      toolbar: box(".diagram-controls"),
       frame,
       graph,
       pagination: box(".slide-pagination", false),
       explanation: box(".slide-explanation"),
       firstParagraph: box(".slide-explanation p", false),
-      lineHeight: paragraph ? Number.parseFloat(getComputedStyle(paragraph).lineHeight) : null,
       bodyFontPx: Number.parseFloat(getComputedStyle(explanation).fontSize),
-      labels: fonts.length,
-      minFontPx: Math.min(...fonts),
-      maxFontPx: Math.max(...fonts),
-      frameHeight: frame.height,
-      graphHeight: graph.height,
-      frameWidth: frame.width,
-      graphWidth: graph.width,
       overflow: document.documentElement.scrollWidth > innerWidth,
     }
   })
@@ -154,7 +129,7 @@ export async function captureArticle(page: Page, path: string) {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
     )
   })
-  const regions = await page.locator(".diagram-viewport").evaluateAll((frames) =>
+  const regions = await page.locator(".static-diagram").evaluateAll((frames) =>
     frames.map((frame) => {
       const bounds = frame.getBoundingClientRect()
       return {

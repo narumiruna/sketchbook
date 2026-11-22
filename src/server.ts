@@ -6,6 +6,7 @@ import { networkInterfaces } from "node:os"
 import { extname, isAbsolute, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { validateDocumentId } from "./document.js"
+import { RetiredMermaidError } from "./retired-format.js"
 import type { DocumentStore } from "./store.js"
 
 const MIME: Record<string, string> = {
@@ -79,7 +80,7 @@ export class ViewerServer {
     signal?.throwIfAborted()
     this.assertOpen()
     validateDocumentId(documentId)
-    await this.store.read(documentId, signal)
+    await this.store.readViewer(documentId, signal)
     signal?.throwIfAborted()
     this.assertOpen()
     this.starting ??= this.start()
@@ -261,6 +262,10 @@ export class ViewerServer {
     try {
       stored = await this.store.readViewer(id, signal)
     } catch (error) {
+      if (error instanceof RetiredMermaidError) {
+        reply(response, 422, error.message)
+        return
+      }
       if (!missing(error)) throw error
       reply(response, 404, "Document not found.")
       return

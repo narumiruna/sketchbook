@@ -1,7 +1,4 @@
 {
-  "scripts/capture-reading-layout.ts": [
-    "// Never store its temporary capability URL or use a user's document directory."
-  ],
   "tests/mcp.test.ts": ["// Closing an incomplete request can reset the socket."],
   "tests/server.test.ts": ["// Destroying an incomplete request can reset its client socket."],
   "tests/tools.test.ts": ["// Shutdown can reset an incomplete HTTP request."]

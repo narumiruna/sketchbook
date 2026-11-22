@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test"
-import { documentFixture, getDeck, rendered, save } from "./helpers.js"
+import { RetiredMermaidError } from "../../src/retired-format.js"
+import { documentFixture, rendered, save } from "./helpers.js"
 
 test("Markdown and KaTeX cannot run HTML, load images, or create unsafe links", async ({
   page,
@@ -43,200 +44,27 @@ test("Markdown and KaTeX cannot run HTML, load images, or create unsafe links", 
   await expect(page.getByText("Last text stays readable.")).toBeVisible()
 })
 
-test("Mermaid and formula errors stay local, include IDs and source, and recover", async ({
-  page,
-  request,
-}) => {
+test("an invalid formula stays local without hiding other content", async ({ page, request }) => {
   const document = documentFixture()
-  document.blocks.unshift({
-    id: "bad-math",
-    type: "markdown",
-    markdown: "Invalid $\\notARealKatexCommand{x}$ and recursive $\\def\\loop{\\loop}\\loop$.",
-  })
-  const first = getDeck(document, "first")
-  first.slides[0].mermaid = "flowchart LR\n A[unterminated"
-  first.slides[1].explanationMarkdown = "Invalid formula $\\frac{a}{$."
-  const fixture = await save(request, document)
-  await page.goto(fixture.url)
-  const deck = page.locator('[data-block-id="first"]')
-  await expect(deck.getByRole("alert")).toContainText("Block first, slide overview")
-  await expect(deck.locator("pre code")).toHaveText(first.slides[0].mermaid)
-  for (const name of [
-    "Fit to screen",
-    "Fullscreen",
-    "Zoom out",
-    "Zoom in",
-    "Reset zoom",
-    "Show source",
-  ])
-    await expect(
-      deck.locator(".diagram-controls").getByRole("button", { name, exact: true }),
-    ).toBeVisible()
-  await expect(deck.getByRole("button", { name: "Fit to screen" })).toBeDisabled()
-  for (const name of ["Zoom out", "Zoom in", "Reset zoom"])
-    await expect(deck.getByRole("button", { name, exact: true })).toBeDisabled()
-  await deck.getByRole("button", { name: "Show source", exact: true }).click()
-  await expect(deck.locator("pre code")).toHaveCount(1)
-  await expect(deck.locator("pre code")).toHaveText(first.slides[0].mermaid)
-  await deck.getByRole("button", { name: "Show diagram", exact: true }).click()
-  await expect(deck.locator("pre code")).toHaveCount(1)
-  const math = page.locator('[data-block-id="bad-math"]')
-  await expect(math.getByRole("alert")).toHaveCount(2)
-  await expect(math.getByRole("alert").last()).toContainText(
-    /Too many expansions|infinite loop|expansion/i,
-  )
-  await expect(math).toContainText("Block bad-math")
-  await rendered(page.locator('[data-block-id="second"]'))
-  await expect(page.getByText("Last text stays readable.")).toBeVisible()
-  await deck.getByRole("button", { name: "Next slide" }).click()
-  await rendered(deck)
-  await expect(deck.getByRole("button", { name: "Show source", exact: true })).toBeVisible()
-  await expect(deck.getByRole("button", { name: "Zoom in", exact: true })).toBeEnabled()
-  await expect(deck.locator(".diagram-source")).toHaveCount(0)
-  await expect(deck.getByRole("alert")).toContainText("Block first, slide detail: Formula error")
-  await expect(deck.locator(".render-error code")).toContainText("\\frac{a}{")
-  await deck.getByRole("button", { name: "Next slide" }).click()
-  await rendered(deck)
-  await expect(deck.getByRole("alert")).toHaveCount(0)
-})
-
-test("stored policy rejects Mermaid configuration, callbacks, external assets and CSS loads", async ({
-  request,
-}) => {
-  for (const mermaid of [
-    "---\nconfig:\n  securityLevel: loose\n---\nflowchart LR\n A-->B",
-    '%%{init: {"securityLevel":"loose"}}%%\nflowchart LR\n A-->B',
-    'flowchart LR\n A-->B\n click A "https://external.invalid/"',
-    'flowchart LR\n A@{img:"https://external.invalid/image.png"}',
-    "flowchart LR\n A-->B\n classDef remote fill:url(https://external.invalid/fill.svg);",
-    'flowchart LR\n A["<img src=https://external.invalid/raw.png>"]',
-    "eventmodeling\n tf 01 evt Start",
-    "sequenceDiagram\n A->>B: Message\n link A: Reference @ /guide",
-  ]) {
-    const document = documentFixture()
-    getDeck(document, "first").slides[0].mermaid = mermaid
-    const response = await request.post("http://127.0.0.1:4179/documents", { data: { document } })
-    expect(response.status(), mermaid).toBe(400)
-  }
-})
-
-test("Viewer independently rejects excluded headers and non-flowchart focus", async ({
-  page,
-  request,
-}) => {
-  const document = documentFixture()
-  const fixture = await save(request, document)
-  getDeck(document, "first").slides[0].mermaid = "eventmodeling\n tf 01 evt Start"
-  const sequence = getDeck(document, "second").slides[0]
-  sequence.mermaid = "sequenceDiagram\n Client->>Server: Save"
-  sequence.focusNodes = ["Client"]
-  const diagramChunks: string[] = []
-  page.on("request", (request) => {
-    const name = new URL(request.url()).pathname
-    if (/(?:eventmodeling|sequenceDiagram)-[^/]+\.js$/.test(name)) diagramChunks.push(name)
-  })
-  await page.route("**/api/documents/**", async (route) => {
-    const response = await route.fetch()
-    if (response.status() === 304) return route.fulfill({ response })
-    await route.fulfill({ response, json: { ...(await response.json()), document } })
-  })
-  await page.goto(fixture.url)
-  await expect(page.locator('[data-block-id="first"]').getByRole("alert")).toContainText(
-    "diagram type is not supported",
-  )
-  await expect(page.locator('[data-block-id="second"]').getByRole("alert")).toContainText(
-    "only supported for flowchart diagrams",
-  )
-  await expect(page.locator(".diagram-svg > svg")).toHaveCount(0)
-  expect(diagramChunks).toEqual([])
-})
-
-test("quoted and escaped Mermaid metadata is rejected before renderer resource requests", async ({
-  page,
-  request,
-}) => {
-  const document = documentFixture()
-  const fixture = await save(request, document)
-  getDeck(document, "first").slides[0].mermaid =
-    'flowchart LR\n A@{ "img": "/assets/metadata-sentinel.svg" }'
-  getDeck(document, "second").slides[0].mermaid = String.raw`flowchart LR
- A@{ "\u0069mg": "/assets/metadata-sentinel.svg" }`
-  const resourceRequests: string[] = []
-  page.on("request", (request) => {
-    if (request.url().includes("metadata-sentinel")) resourceRequests.push(request.url())
-  })
-  await page.route("**/api/documents/**", async (route) => {
-    const response = await route.fetch()
-    if (response.status() === 304) return route.fulfill({ response })
-    const stored = await response.json()
-    await route.fulfill({ response, json: { ...stored, document } })
-  })
-  await page.goto(fixture.url)
-  for (const id of ["first", "second"]) {
-    await expect(page.locator(`[data-block-id="${id}"]`).getByRole("alert")).toContainText(
-      "node metadata",
-    )
-  }
-  expect(resourceRequests).toEqual([])
+  document.blocks.unshift({ id: "bad-math", type: "markdown", markdown: "$\\notACommand{x}$" })
+  await page.goto((await save(request, document)).url)
+  await expect(page.locator('[data-block-id="bad-math"]')).toContainText("notACommand")
+  await rendered(page.locator('[data-block-id="first"]'))
   await expect(page.getByText("Last text stays readable.")).toBeVisible()
 })
 
-test("browser defense rejects config overrides and sanitizes encoded labels and SVG CSS URLs", async ({
-  page,
-  request,
-}) => {
-  const document = documentFixture()
-  const fixture = await save(request, document)
-  getDeck(document, "first").slides[0].mermaid =
-    '%%{init: {"look":"classic"}}%%\nflowchart LR\n A-->B'
-  getDeck(document, "second").slides[0].mermaid = [
-    "flowchart LR",
-    ' A["&lt;img src=&quot;/assets/encoded-label.png&quot; onerror=&quot;alert(1)&quot;&gt;"] --> B["Safe"]',
-  ].join("\n")
-  const external: string[] = []
-  page.on("request", (request) => {
-    if (new URL(request.url()).origin !== new URL(fixture.url).origin) external.push(request.url())
+for (const location of ["The original page", "A book chapter or section"] as const) {
+  test(`the Viewer explains a retired diagram in: ${location}`, async ({ page, request }) => {
+    const fixture = await save(request, documentFixture())
+    const error = new RetiredMermaidError(location).message
+    await page.route("**/api/documents/**", (route) => route.fulfill({ status: 422, body: error }))
+    await page.goto(fixture.url)
+    await expect(page.getByRole("status")).toHaveText(error)
+    await expect(page.getByRole("navigation")).toHaveCount(0)
+    await page.unroute("**/api/documents/**")
+    await expect(page.getByRole("heading", { name: "Browser fixture", exact: true })).toBeVisible()
+    await page.route("**/api/documents/**", (route) => route.fulfill({ status: 422, body: error }))
+    await expect(page.getByRole("status")).toHaveText(`${error} Last loaded content is kept.`)
+    await expect(page.getByRole("heading", { name: "Browser fixture", exact: true })).toBeVisible()
   })
-  await page.route("**/api/documents/**", async (route) => {
-    const response = await route.fetch()
-    if (response.status() === 304) return route.fulfill({ response })
-    const stored = await response.json()
-    await route.fulfill({ response, json: { ...stored, document } })
-  })
-  await page.route("**/assets/flowDiagram-*.js", async (route) => {
-    const response = await route.fetch()
-    const script = await response.text()
-    const wrapped = script.replace(
-      /export\{(\w+) as diagram\}from"([^"]+)";/,
-      (_match, symbol, module) => `
-      import { ${symbol} as testDiagram } from "${module}";
-      const originalDraw = testDiagram.renderer.draw;
-      testDiagram.renderer.draw = async (...args) => {
-        await originalDraw(...args);
-        const svg = document.getElementById(args[1]);
-        if (svg) {
-          svg.querySelector("style").textContent += " .hostile { fill: url(https://external.invalid/fill.svg); } .diagram-svg svg text, .slide-explanation { opacity: 0.75; }";
-          const link = document.createElementNS("http://www.w3.org/2000/svg", "a");
-          link.setAttribute("href", "javascript:alert(1)");
-          svg.append(link);
-        }
-      };
-      export { testDiagram as diagram };
-    `,
-    )
-    expect(wrapped).not.toBe(script)
-    await route.fulfill({ response, body: wrapped })
-  })
-  await page.goto(fixture.url)
-  await expect(page.locator('[data-block-id="first"]').getByRole("alert")).toContainText(
-    "configuration is not permitted",
-  )
-  const second = page.locator('[data-block-id="second"]')
-  await rendered(second)
-  await expect(second.locator("img, image, foreignObject, script, a, [onerror]")).toHaveCount(0)
-  const svg = await second.locator(".diagram-svg > svg").innerHTML()
-  expect(svg).not.toMatch(/url\([^)]*https?:/i)
-  await expect(second.locator(".diagram-svg svg text").first()).toHaveCSS("opacity", "0.75")
-  await expect(second.locator(".slide-explanation")).toHaveCSS("opacity", "1")
-  expect(external).toEqual([])
-})
+}

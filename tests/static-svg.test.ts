@@ -25,7 +25,7 @@ test("accepts the three exported cache slides and preserves the exact document s
   )
   const document = validateDocument(value)
   expect(document).toBe(value)
-  expect(document.defaultDiagramSource).toBe("diagram-design")
+  expect(document.defaultDiagramSource).toBeUndefined()
   const block = document.blocks[1]
   if (block.type !== "diagram-deck") throw new Error("Missing cache deck")
   expect(block.slides).toHaveLength(3)
@@ -35,20 +35,12 @@ test("accepts the three exported cache slides and preserves the exact document s
   }
 })
 
-test("deck slides are mutually exclusive; the document preference is not a format restriction", () => {
+test("retains old SVG books regardless of their ignored preference, but rejects retired slide fields", () => {
   const svg = drawing('<text x="10" y="20">快取</text>')
-  const mermaid = "flowchart LR\n A --> B"
-  const mixed = deck(
-    [
-      { ...baseSlide, svg },
-      { ...baseSlide, id: "two", mermaid },
-    ],
-    "diagram-design",
-  )
-  expect(validateDocument(mixed)).toBe(mixed)
-  expect(() => validateDocument(deck([{ ...baseSlide, svg, mermaid }]))).toThrow(
-    "Invalid sketchbook data",
-  )
+  for (const preference of ["mermaid", "diagram-design", undefined]) {
+    const document = deck([{ ...baseSlide, svg }], preference)
+    expect(validateDocument(document)).toBe(document)
+  }
   expect(() => validateDocument(deck([{ ...baseSlide, svg, focusNodes: ["A"] }]))).toThrow(
     "Invalid sketchbook data",
   )
@@ -56,14 +48,6 @@ test("deck slides are mutually exclusive; the document preference is not a forma
   expect(() => validateDocument(deck([{ ...baseSlide, svg }], "svg"))).toThrow(
     "Invalid sketchbook data",
   )
-  expect(() =>
-    validateDocument(
-      deck([
-        { ...baseSlide, svg },
-        { ...baseSlide, id: "two", mermaid, focusNodes: ["A"] },
-      ]),
-    ),
-  ).toThrow("reuse the first slide")
 })
 
 test.each(["", "0 0 0 10", "0 0 NaN 10", "0 0 40000 10", "0 0 1 1 1"])(

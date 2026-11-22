@@ -1,6 +1,6 @@
 # Pi Sketchbook
 
-Pi Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Mermaid or static SVG diagram decks, and static Diagram Design HTML. Start with one page and add sections or chapters when readers need more detail.
+Pi Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Diagram Design HTML. Existing static SVG decks still work. Start with one page and add sections or chapters when readers need more detail.
 Each deck shows one diagram and its explanation at a time, independently of chapter navigation.
 Use the bottom Previous/Next buttons or labelled position dots to change slides; focused decks also support Left/Right keyboard keys.
 On wide screens, explanations appear beside their diagrams; narrower screens use one reading column.
@@ -36,7 +36,7 @@ Review package code before installation and project declarations before granting
 
 ### Claude Code and Codex plugins
 
-Install the plugin to get `sketchbook-create-diagrams` and its MCP tools together. The plugins are for local clients; they use the same `sketchbook-mcp` executable.
+Install the plugin to get the `sketchbook` skill and its MCP tools together. The plugins are for local clients; they use the same `sketchbook-mcp` executable.
 
 Build and install the npm tarball from this checkout with Node.js 26.0.0 or later. This keeps the skill and MCP server on the same version. Run these commands at the repository root:
 
@@ -105,13 +105,13 @@ To run the MCP server from this checkout, use Node.js 26.0.0 or later, run `npm 
 - `sketchbook_open` starts the read-only HTTP viewer, not an HTTP MCP endpoint. The [LAN rules](#lan-access) also apply to MCP.
   - Client disconnect, stdin EOF, SIGINT, or SIGTERM closes the viewer.
 - MCP exposes tools, not Pi slash commands or automatic skill loading.
-  - The bundled [authoring skill](skills/sketchbook-create-diagrams/SKILL.md) and [document format](skills/sketchbook-create-diagrams/references/document-format.md) remain available as guidance.
+  - The bundled [authoring skill](skills/sketchbook/SKILL.md) and [document format](skills/sketchbook/references/document-format.md) remain available as guidance.
   - Client-specific UI behavior still requires the [MCP client handoff](docs/acceptance.md#mcp-client-handoff).
 
 ## Upgrade from Pi Canvas
 
 The package is now `@narumitw/sketchbook`.
-Replace `canvas_*` tool calls with `sketchbook_*` and `/skill:canvas-explain-diagrams` with `/skill:sketchbook-create-diagrams`.
+Replace `canvas_*` tool calls with `sketchbook_*` and `/skill:canvas-explain-diagrams` with `/skill:sketchbook`.
 The old names are not aliases.
 
 Existing documents in `.pi/canvas/` are not moved automatically.
@@ -123,20 +123,20 @@ Start Pi again to load the renamed tools and skill, then open documents for new 
 
 ## Use
 
-If you used `/skill:sketchbook-explain-diagrams`, update your prompts and integrations to use `/skill:sketchbook-create-diagrams`. The old command is not an alias.
+Use `/skill:sketchbook` in Pi. The older commands `/skill:sketchbook-create-diagrams`, `/skill:sketchbook-diagram-design`, and `/skill:sketchbook-explain-diagrams` are not aliases. Update saved prompts to use the new command.
 
 Load the bundled skill explicitly:
 
 ```text
-/skill:sketchbook-create-diagrams Explain this system with an overview, API detail, and storage detail.
+/skill:sketchbook Explain this system with an overview, API detail, and storage detail.
 ```
 
 For a quick overview, answer in chat first: state what the subject does and list its main features. Save a page only when requested or when a visual helps.
 When the skill handles a diagram request, it saves the page, opens the local Viewer, and returns its link by default.
-The skill chooses from the [supported diagram families](#supported-mermaid-diagrams) based on the question: for example, a state diagram for lifecycle changes or an XY chart for numeric trends.
+The skill uses the bundled Diagram Design guide to choose the right diagram type and saves the complete HTML. No renderer choice is needed.
 Simple questions that do not benefit from diagrams should not trigger the skill automatically.
 Automatic skill selection remains unverified.
-The skill includes complete [architecture](skills/sketchbook-create-diagrams/assets/architecture-walkthrough.json), [process](skills/sketchbook-create-diagrams/assets/process-walkthrough.json), and [sequence](skills/sketchbook-create-diagrams/assets/sequence-walkthrough.json) examples.
+See the [HTTP cache example](examples/diagram-design/http-cache.html) for a gradual explanation from a fresh copy to cache validation and the complete decision flow.
 
 | Tool                   | Input and result                                                                                                                                |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -149,8 +149,8 @@ The skill includes complete [architecture](skills/sketchbook-create-diagrams/ass
 
 For edits, read the record you intend to change and use its revision. On conflict or an uncertain result, read that same record again before deciding whether to retry.
 A successful write confirms validation and storage. Neither writing nor calling `sketchbook_open` verifies browser rendering.
-Pi and MCP apply the same Mermaid header and source checks and preserve the exact source. The Viewer parses the diagram body in the browser.
-The [document format](skills/sketchbook-create-diagrams/references/document-format.md) defines fields, IDs, limits, heading roles, and tool details.
+Pi and MCP use the same validation and store the exact HTML or SVG source.
+The [document format](skills/sketchbook/references/document-format.md) defines fields, IDs, limits, heading roles, and tool details.
 
 For a standalone snippet, add an entry like this to `document.blocks`:
 
@@ -171,7 +171,7 @@ A standalone page needs no cover or contents list. Add a section to give readers
 2. Use `sketchbook_edit` to append a block or slide to its target without resending unrelated content. Use `replace-block` for an explicit replacement. Without `chapterId`, the edit addresses the first chapter. A block or slide edit with neither `chapterId` nor `sectionId` changes the original document and uses the revision from `sketchbook_read`. Every other operation changes the book sidecar and uses its revision. The two revisions are independent; neither is a snapshot of both records.
 3. Use the Viewer’s numbered book contents to switch chapters, or Previous/Next to read in order. Section links appear under the current chapter; select one to jump within that page. For a page with sections but no other chapters, the contents list only those sections. On wide screens the contents stay visible in a left sidebar; on narrow screens they appear above the reading page. A chapter or section link uses `chapter` and/or `section` query parameters with stable IDs. Keep the original token in the URL fragment, after the query. An unqualified link still opens the first chapter; renaming or reordering a chapter does not change its ID. Links remain private and valid only for the running Viewer session.
 
-See [edit operations and targeting](skills/sketchbook-create-diagrams/references/document-format.md#edit-operations) for exact fields and [progressive acceptance](docs/acceptance.md#progressive-sketchbook-handoff) for the verification handoff.
+See [edit operations and targeting](skills/sketchbook/references/document-format.md#edit-operations) for exact fields and [progressive acceptance](docs/acceptance.md#progressive-sketchbook-handoff) for the verification handoff.
 
 ### LAN access
 
@@ -203,76 +203,32 @@ If the network or DHCP address changes, reload Pi and open a fresh URL.
 
 ### Article review
 
-- Start chapter introduction Markdown headings at H2 and section Markdown headings at H3. Do not repeat the page or section title in Markdown.
-  - Legacy Markdown blocks with H1 are shifted down when rendered; saved JSON is unchanged.
-  - Keep explanation headings subordinate to their slide.
-- Review the complete heading outline and concept order before reviewing decks and slide transitions. Check that required terms are defined before use, repeated text is removed, and each main topic has a conclusion.
-  - Give each deck one question. Make each slide build on established context and add useful information. Use consistent names and meanings for components that appear more than once.
-  - Check every arrow's sender, receiver, action, direction, and required order against sources or explicit teaching facts.
-  - Make important decision inputs, outcomes, and write/no-write effects visible in the graph.
-  - Compare slide contributions across decks; a new title does not make a repeated explanation useful.
-  - Keep a compact source/contribution/issues review record outside the document payload.
-- Inspect the full page and every slide at desktop and 390-pixel widths before claiming visual review.
-  - Check default Fit label size, unused frame space, text wrapping, emphasis, and diagram meaning.
-  - Report saving, rendering, readability, content correctness, and human acceptance separately.
-  - Rendering and minimum label sizes are prerequisites, not proof of explanation quality or comfortable reading.
-- Use short labels and compact graphs that can be read without Reset or Zoom.
-  - Long-label and large-graph stress tests do not define suitable teaching layouts.
+Check the complete heading outline before reviewing individual diagrams. Define terms before using them. Give each diagram one question. Verify arrows, decision outcomes, and order against the source. Keep recurring names consistent. Review every chapter and section at desktop and 390px. Check label size, text wrapping, and local scrolling at the authored scale. Report saving, rendering, readability, source correctness, and human acceptance separately.
 
-## Choose a diagram source
+## Add Diagram Design HTML
 
-When creating a document with the bundled skill, choose **Mermaid** (the default) or **Diagram Design**. Diagram Design uses the packaged agent skill and saves its HTML directly. Python is not required to import or view it, and the Viewer works offline. MCP-only clients can save or read the same format but must supply their own authoring workflow.
+Place the complete self-contained Diagram Design output in a block with `type: "diagram-html"`, an `id`, a `title`, and the full `html` string. Add these blocks to the first page, sections, or chapters to assemble the book. The Viewer keeps the drawings, typography, and captions together without a diagram frame or camera. See the [HTML policy](skills/sketchbook/references/document-format.md#diagram-design-html).
 
-A document can set `defaultDiagramSource` to `mermaid` or `diagram-design`. Omit it for the existing Mermaid workflow. This is an authoring preference, not a Viewer setting. Each slide supplies exactly one of `mermaid` or `svg`, so the same deck can mix both. Changing the preference does not redraw existing slides. `focusNodes` remains Mermaid-flowchart-only.
+Python is not required to import or view HTML. The Viewer works offline. MCP-only clients can read and write the same format; provide your own authoring workflow if the client does not load skills.
 
-Place the output of the [Diagram Design HTML preview](examples/diagram-design/http-cache.html), or another supported static HTML document, in a block with `type: "diagram-html"`, a `title`, and the complete `html` string. Add these blocks directly to the first page, sections, or chapters to assemble a book. The Viewer preserves the page’s layout and captions without Mermaid’s diagram frame or toolbars. See the [Diagram Design HTML policy](skills/sketchbook-create-diagrams/references/document-format.md#diagram-design-html).
+## Open older books
 
-## Supported Mermaid diagrams
+Schema version 1 still supports Markdown, code, Diagram Design HTML, and static SVG slides. An old `defaultDiagramSource` field is accepted but ignored. Do not add it to new documents.
 
-Use a `diagram-deck` even for one diagram. Slides in one deck can use different families. Put plain Mermaid source in `slides[].mermaid`, not a Markdown fence. Use one of these headers from the pinned Mermaid 12.3.0 release:
+This version cannot render Mermaid slides. The book does not skip those slides: opening fails if they appear in the original page or a chapter or section. A supported original page can still be read on its own when only its sidecar contains Mermaid. Sketchbook does not convert or rewrite the unsupported records.
 
-| Family              | Accepted headers                                                       |
-| ------------------- | ---------------------------------------------------------------------- |
-| Flowchart           | `flowchart`, `graph`                                                   |
-| Sequence            | `sequenceDiagram`                                                      |
-| Class               | `classDiagram`                                                         |
-| State               | `stateDiagram-v2`, `stateDiagram`                                      |
-| Entity relationship | `erDiagram`                                                            |
-| User journey        | `journey`                                                              |
-| Gantt               | `gantt`                                                                |
-| Pie                 | `pie`                                                                  |
-| Git graph           | `gitGraph`                                                             |
-| Requirement         | `requirementDiagram`                                                   |
-| Timeline            | `timeline`                                                             |
-| Quadrant chart      | `quadrantChart`                                                        |
-| Kanban              | `kanban`                                                               |
-| Block               | `block`                                                                |
-| Packet              | `packet`                                                               |
-| Sankey              | `sankey`                                                               |
-| XY chart            | `xychart`                                                              |
-| C4                  | `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` |
+Back up the entire `.pi/sketchbook/` directory, including both `.json` and `.book.json` files. The last full-format reader verified for these books is revision `10bc8574615c77f5e2d229850a4340c29cb2bae7`. In a separate recovery checkout of that revision, use Node.js 26 and run:
 
-Flowcharts, including subgraphs, keep the hand-drawn Rough.js style with a fixed nonzero seed and a muted blue-gray default palette. Other families use Mermaid's normal style. The diagram skill omits `focusNodes` by default. Use it only on a flowchart detail slide that needs to zoom into a region of the overview.
+```sh
+npm ci
+npm run build
+npm pack
+```
 
-Not supported:
-
-- Beta-only families: Architecture, Agentflow, Swimlanes, TreeView, Radar, Ishikawa, Venn, Wardley, Cynefin, Use Case, Treemap, and the four Railroad forms.
-- Experimental Mindmap, Event Modeling (the pinned renderer needs HTML for its event labels), and ZenUML (requires a plugin).
-- Headers outside the table, including `flowchart-elk`, `xychart-beta`, `classDiagram-v2`, bare `requirement`, the `info` version display, and internal `error` and `---` entries. Parser acceptance does not add a header to this list.
-- PlantUML, Graphviz, and other text diagram formats as Mermaid input.
-
-### Downgrade without losing source
-
-The original page stays schema version 1. A version without book support can still open a compatible original page, but will not show its sidecar content. Keep both files to recover that content in a book-aware build. An older version can reject pages or books with `defaultDiagramSource`, SVG slides, or Diagram Design HTML blocks. For a downgrade, open the original records in a compatible build and create a separate Mermaid-only document without `defaultDiagramSource`; do not overwrite the only copy. Older versions that accept only `flowchart` reject a page that uses a newer header, including `graph`. Back up both records, leave the source unchanged, and use a compatible reader to copy Mermaid source if needed.
+Install the resulting local tarball or point your MCP client at the recovery checkout’s `dist/mcp-cli.js`. Open a backup copy first. This reader also supports Diagram Design HTML and static SVG. If you redraw a Mermaid book, save the new book separately.
 
 ## Rendering and security
 
-- Support for a Mermaid family does not enable all of its syntax.
-  - Use plain text labels. Do not use frontmatter, configuration directives, node metadata (`@{...}`), click actions or other interactive links, HTML, images, icons, external resources, or custom plugins.
-  - Use simple declarations for supported styling statements. Custom CSS rules and C4 style update commands are not supported.
-  - The viewer checks source before rendering, runs Mermaid in strict mode without HTML labels or diagram event bindings, and sanitizes generated SVG. SVG definition references must stay within that diagram.
-  - Diagrams start fitted without upscaling; inline frame height follows the SVG aspect ratio and available width, within a bounded height.
-  - Fit can still make large diagrams small. Rework a teaching diagram that is unreadable at its default scale; Reset, Zoom, and panning remain available for inspecting large diagrams.
 - Imported Diagram Design HTML displays in a borderless, sandboxed page. Scripts, navigation, and external resources are not supported; external stylesheets such as web fonts are removed. Internal styles and local SVG definitions stay inside the authored page.
 - Static SVG slides display as isolated, plain images without a diagram toolbar. On narrow screens, scroll wide drawings horizontally within the page or slide.
 - Markdown supports inline/display LaTeX, fenced code, and footnotes, but not raw HTML or images.
@@ -282,37 +238,12 @@ The original page stays schema version 1. A version without book support can sti
 - The Viewer uses Diagram Design's default light palette and editorial typography for every document. Diagram Design pages can opt into the book's reading-column alignment with `<body class="sketchbook-default-layout">`. Other imported pages keep their own margins, width, and colors.
 - Font files, licenses, scripts, styles, and renderers ship with the Viewer. The Viewer provides Instrument Serif, Geist, Geist Mono, and Traditional Chinese Noto families without a CDN. For glyphs outside those fonts, the browser uses system fallbacks.
 - See [LAN access](#lan-access) for viewer network controls and URL privacy.
-- A parse error is shown locally with source details instead of removing the rest of the document.
+- A render error for supported content does not remove the rest of the document.
   - Rendering runs on the browser main thread; error handling is not CPU isolation.
-
-## Mermaid diagram controls
-
-The toolbar directly shows Fit to screen, Fullscreen, Zoom out, current zoom, Zoom in, Reset zoom, and Show source.
-Input-specific help remains visible below the buttons; no More controls panel is used.
-Enabled controls are available in the keyboard tab order.
-Hover or focus an icon button to show its label.
-Show source displays inert text, not executable HTML. Tab to the source region and use the arrow or Page Up/Page Down keys to scroll it, including in fullscreen.
-Changing slides restores the diagram view.
-
-- **Fit to screen** shows the complete graph. **Reset zoom** restores 100% native size on slides without a focus region.
-- Flowchart architecture decks start with a full overview and no frame. Flowchart detail slides can open zoomed in on a single blue, lightly hatched focus region on the same graph.
-  - In forced-colors mode, a dashed system-color border identifies the focus region without shading.
-  - **Fit to screen** keeps the current frame visible. **Reset to slide focus** returns to that detail view.
-- Zoom is limited to 400%; the lower limit is 25% or the fitted scale when smaller.
-- Drag with a mouse or pen to pan a large graph.
-  - Ctrl/Command + wheel zooms at the pointer; an ordinary wheel continues document scrolling.
-  - Inline touch gestures remain available for document scrolling; touch panning and pinch zoom are not implemented.
-  - Coarse-pointer help describes control-based zoom and article scrolling, not mouse-wheel gestures.
-- Focus the diagram viewport to use `+`/`-` to zoom and `0` to fit.
-  - Shift + arrow keys pan the diagram at the current zoom.
-  - Unmodified Left/Right keys still switch slides in the focused deck.
-- Fullscreen uses the browser API or an in-page fallback.
-  - Exit restores focus; Escape closes the fallback.
-  - Changing the diagram source or removing its block closes fullscreen and releases background locks.
 
 ## Files and lifecycle
 
-The workspace stores the original page at `.pi/sketchbook/<documentId>.json` and, if present, its sections and additional chapters at `.pi/sketchbook/<documentId>.book.json`. No migration is needed. A legacy full replacement changes only the original page; it leaves the sidecar intact.
+The workspace stores the original page at `.pi/sketchbook/<documentId>.json` and, if present, its sections and additional chapters at `.pi/sketchbook/<documentId>.book.json`. Supported records need no migration. A full replacement changes only the original page; it leaves the sidecar intact.
 Only `.pi/sketchbook/.gitignore` is created for local artifact exclusions; the root `.gitignore` is not changed.
 Writes use revision checks, a same-process mutation queue per record, and atomic rename. There is no cross-process lock or transaction spanning both records. Do not write the same document from multiple Pi or MCP processes.
 
@@ -346,8 +277,6 @@ The hook does not change the working tree or index. Correct reported issues and 
 
 On a fresh Linux system, use `npx playwright install --with-deps chromium` if browser system libraries are missing.
 The explicit browser output directory preserves separate review captures under `test-results/`.
-For controlled before/after layout captures, run `npx tsx scripts/capture-reading-layout.ts baseline` before UI edits and `npx tsx scripts/capture-reading-layout.ts after` after rebuilding.
-The capture script uses a temporary workspace, not saved user documents, and retains no capability URLs.
 
 See [compatibility evidence](docs/compatibility.md) for measured results and [acceptance](docs/acceptance.md) for human checks, future authorized model tests, and release-owner actions.
 Automated checks do not establish visual acceptance or reliable automatic skill loading.

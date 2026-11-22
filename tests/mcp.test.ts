@@ -23,7 +23,7 @@ import {
 import { createSketchbookMcpServer } from "../src/mcp.js"
 import { ViewerServer } from "../src/server.js"
 import { DocumentStore } from "../src/store.js"
-import { mermaidTypesDocument } from "./fixtures/mermaid-types.js"
+import { drawing } from "./fixtures/static-drawing.js"
 
 const document: SketchbookDocument = {
   schemaVersion: 1,
@@ -39,7 +39,7 @@ const document: SketchbookDocument = {
         {
           id: "flow",
           title: "Flow",
-          mermaid: "flowchart LR\nA --> B",
+          svg: drawing("A → B"),
           explanationMarkdown: "A sends data to B.",
         },
       ],
@@ -136,7 +136,7 @@ function get(url: URL, path: string, authorization?: string, method = "GET") {
   })
 }
 
-function unsafeDocument(mermaid: string): SketchbookDocument {
+function legacyDocument(mermaid: string) {
   return {
     ...document,
     blocks: [
@@ -242,8 +242,7 @@ describe("Sketchbook MCP protocol", () => {
     expect(catalog.tools[2].description).toContain("trusted networks")
     const instructions = client.getInstructions()
     for (const text of [
-      "Decks can mix types, but focusNodes is flowchart-only",
-      "Do not use Mermaid directives, frontmatter, HTML, images, icons, links, click actions, or node metadata",
+      "Save completed Diagram Design pages in `diagram-html` blocks",
       "Create documents without documentId or expectedRevision",
       "Read the target revision first",
       "deliberate full-page replacement",
@@ -321,22 +320,6 @@ describe("Sketchbook MCP protocol", () => {
       },
     })
     expect((await read(client, documentId)).stored).toMatchObject({ document, revision: 1 })
-  })
-
-  it("round-trips exact source for all supported Mermaid headers through MCP", async () => {
-    const { client } = await session()
-    const document = mermaidTypesDocument()
-    const written = await write(client, document)
-    expect(written).toMatchObject({ ok: true, revision: 1, renderingVerified: false })
-    expect((await read(client, written.documentId)).stored.document).toEqual(document)
-    const deck = document.blocks[0]
-    if (deck.type !== "diagram-deck") throw new Error("Fixture missing deck")
-    const sequence = deck.slides[2]
-    deck.slides = [sequence, { ...sequence, id: "focus", focusNodes: ["Client"] }]
-    failure(
-      await client.callTool({ name: "sketchbook_write", arguments: { document } }),
-      /only supported for flowchart/,
-    )
   })
 
   it("creates, reads, replaces, and rejects revision conflicts without opening a viewer", async () => {
@@ -469,34 +452,23 @@ describe("Sketchbook MCP protocol", () => {
   )
 
   it.each(["empty", "saved"])(
-    "rejects Mermaid policy violations in an %s workspace without storage changes",
+    "rejects retired Mermaid slides in an %s workspace without storage changes",
     async (state) => {
       const { client } = await session()
       const written = state === "saved" ? await write(client) : undefined
       const before = await snapshot(cwd)
-      for (const mermaid of [
-        "eventmodeling\n tf 01 evt Start",
-        "architecture-beta\n service app(server)[Service]",
-        '%%{init: {"theme": "dark"}}%%\nflowchart LR\nA --> B',
-        "---\ntitle: Configuration\n---\nflowchart LR\nA --> B",
-        'flowchart LR\nA["<b>HTML</b>"] --> B',
-        'flowchart LR\nA --> B\nclick A "https://example.com"',
-        'flowchart LR\nA["![image](image.png)"] --> B',
-        'flowchart LR\nA@{ shape: rect, label: "Metadata" } --> B',
-        "flowchart LR\nA[fa:fa-user] --> B",
-      ]) {
-        failure(
-          await client.callTool({
-            name: "sketchbook_write",
-            arguments: {
-              document: unsafeDocument(mermaid),
-              ...(written ? { documentId: written.documentId, expectedRevision: 1 } : {}),
-            },
-          }),
-          /not (?:permitted|supported)/i,
-        )
-        expect(await snapshot(cwd)).toEqual(before)
-      }
+
+      failure(
+        await client.callTool({
+          name: "sketchbook_write",
+          arguments: {
+            document: legacyDocument("flowchart LR\nA --> B"),
+            ...(written ? { documentId: written.documentId, expectedRevision: 1 } : {}),
+          },
+        }),
+        /contains a Mermaid diagram/,
+      )
+      expect(await snapshot(cwd)).toEqual(before)
       if (written)
         expect((await read(client, written.documentId)).stored.document).toEqual(document)
     },
@@ -596,7 +568,10 @@ describe("Sketchbook MCP protocol", () => {
       if (name === "sketchbook_write") {
         vi.spyOn(DocumentStore.prototype, "write").mockImplementationOnce(waitForAbort)
       } else {
-        vi.spyOn(DocumentStore.prototype, "read").mockImplementationOnce(waitForAbort)
+        vi.spyOn(
+          DocumentStore.prototype,
+          name === "sketchbook_open" ? "readViewer" : "read",
+        ).mockImplementationOnce(waitForAbort)
       }
       const controller = new AbortController()
       const pending = client.callTool(
@@ -724,7 +699,7 @@ describe("Sketchbook MCP protocol", () => {
     const opening = vi.spyOn(ViewerServer.prototype, "open")
     const entered = Promise.withResolvers<AbortSignal>()
     const blocked = Promise.withResolvers<StoredDocument>()
-    vi.spyOn(DocumentStore.prototype, "read").mockImplementationOnce((_id, signal) => {
+    vi.spyOn(DocumentStore.prototype, "readViewer").mockImplementationOnce((_id, signal) => {
       if (!signal) throw new Error("Pending viewer opens must receive a signal")
       entered.resolve(signal)
       return blocked.promise

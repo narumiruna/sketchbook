@@ -15,36 +15,20 @@ import {
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js"
-import { chromium, type Locator } from "@playwright/test"
+import { type Browser, chromium, type Locator } from "@playwright/test"
 import { Check } from "typebox/value"
-import type { DiagramDeck, SketchbookDocument } from "../src/document.js"
+import type { SketchbookDocument } from "../src/document.js"
 
 const execute = promisify(execFile)
 const root = resolve(import.meta.dirname, "..")
 const temporary = await realpath(await mkdtemp(join(tmpdir(), "pi-sketchbook-package-")))
-
-const sequenceMessage = "Return saved revision"
-const sequenceSlide: DiagramDeck["slides"][number] = {
-  id: "save-sequence",
-  title: "Save request and response",
-  mermaid: `sequenceDiagram\nClient->>Server: Save document\nServer-->>Client: ${sequenceMessage}`,
-  explanationMarkdown: "The server replies with the revision after it saves the document.",
-}
-
-async function checkSequence(deck: Locator): Promise<void> {
-  await deck.locator(`button[data-slide-id="${sequenceSlide.id}"]`).click()
-  await deck
-    .locator(".diagram-svg > svg text")
-    .filter({ hasText: sequenceMessage })
-    .waitFor({ timeout: 30_000 })
-}
 
 async function cacheSlide(packagePath: string) {
   const file = join(packagePath, "examples/diagram-design/http-cache-walkthrough.json")
   const document = JSON.parse(await readFile(file, "utf8")) as SketchbookDocument
   const deck = document.blocks.find((block) => block.type === "diagram-deck")
   const slide = deck?.slides[0]
-  assert.ok(slide && "svg" in slide)
+  assert.ok(slide)
   return slide
 }
 
@@ -55,7 +39,9 @@ async function checkSvg(deck: Locator, slide: { id: string; title: string }) {
   assert.equal(await deck.locator(".diagram-controls").count(), 0)
 }
 
-async function cachePage(packagePath: string): Promise<SketchbookDocument["blocks"][number]> {
+async function cachePage(
+  packagePath: string,
+): Promise<Extract<SketchbookDocument["blocks"][number], { type: "diagram-html" }>> {
   return {
     id: "cache-html",
     type: "diagram-html",
@@ -67,6 +53,88 @@ async function cachePage(packagePath: string): Promise<SketchbookDocument["block
 async function checkDesignPage(frame: Locator) {
   await frame.contentFrame().getByRole("heading", { name: "同一個檔案，不一定要再下載" }).waitFor()
   assert.equal(await frame.contentFrame().locator("svg").count(), 3)
+}
+
+async function checkCacheBook(
+  browser: Browser,
+  design: Awaited<ReturnType<typeof cachePage>>,
+  call: (name: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>,
+) {
+  const { html } = design
+  const sections = [...html.matchAll(/<section aria-labelledby="([^"]+)">([\s\S]*?)<\/section>/g)]
+  assert.equal(sections.length, 3)
+  const chapters = sections.map(([section, headingId, content], index) => {
+    const title = ["直接用快取副本", "過期後如何驗證", "完整快取決策流程"][index]
+    const heading = /<h2[^>]*>([^<]+)<\/h2>/.exec(content)?.[1]
+    assert.ok(heading)
+    const header = index === 0 ? /<header>[\s\S]*?<\/header>/.exec(html)?.[0] : ""
+    const pageHtml = `${html.slice(0, html.indexOf("<main>"))}<main>${header}${section}</main></body></html>`
+    return {
+      id: headingId.replace("-heading", ""),
+      title,
+      heading,
+      block: { ...design, title, html: pageHtml },
+    }
+  })
+  const [first, ...remaining] = chapters
+  const saved = await call("sketchbook_write", {
+    document: { schemaVersion: 1, title: first.title, blocks: [first.block] },
+  })
+  let expectedRevision = 0
+  for (const { id, title, block } of remaining) {
+    const updated = await call("sketchbook_edit", {
+      documentId: saved.documentId,
+      expectedRevision,
+      operation: { type: "add-chapter", chapter: { id, title, blocks: [block], sections: [] } },
+    })
+    assert.equal(updated.revision, ++expectedRevision)
+  }
+  const opened = await call("sketchbook_open", { documentId: saved.documentId })
+  const url = new URL(String(opened.url))
+  for (const width of [1440, 390]) {
+    const page = await browser.newPage({ viewport: { width, height: 900 } })
+    const external: string[] = []
+    try {
+      page.on("request", (request) => {
+        const origin = new URL(request.url()).origin
+        if (origin !== "null" && origin !== url.origin) external.push(origin)
+      })
+      await page.goto(url.href)
+      const contents = page.getByRole("navigation", { name: "Book contents" })
+      for (const { id, title, heading } of chapters) {
+        await contents.getByRole("link", { name: title }).click()
+        const frame = page.locator("iframe.design-page")
+        const inner = frame.contentFrame()
+        await inner.getByRole("heading", { name: heading, exact: true }).waitFor()
+        assert.equal(await inner.locator("svg").count(), 1)
+        assert.ok(await inner.locator("svg").isVisible())
+        assert.ok(await inner.locator("figcaption").isVisible())
+        assert.equal(await page.locator(".diagram-viewport, .diagram-controls").count(), 0)
+        assert.equal(
+          await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          true,
+        )
+        assert.deepEqual(external, [], "Cache chapters must load without external resources")
+        await page.screenshot({
+          path: join(root, "test-results", `package-cache-${id}-${width}.png`),
+          fullPage: true,
+        })
+        if (width === 390) {
+          const offset = await inner.locator(".diagram-container").evaluate((container) => {
+            container.scrollLeft = container.scrollWidth
+            return container.scrollLeft
+          })
+          assert.ok(offset > 0, "The diagram must scroll within its own container")
+          await page.screenshot({
+            path: join(root, "test-results", `package-cache-${id}-390-scrolled.png`),
+            fullPage: true,
+          })
+        }
+      }
+    } finally {
+      await page.close()
+    }
+  }
 }
 
 async function smoke(packagePath: string, label: string): Promise<void> {
@@ -103,13 +171,13 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   assert.equal(extension.flags.size, 0, "The viewer must not require host flags")
   const skills = loader.getSkills()
   assert.deepEqual(skills.diagnostics, [])
-  assert.deepEqual(skills.skills.map((skill) => skill.name).sort(), [
-    "sketchbook-create-diagrams",
-    "sketchbook-diagram-design",
-  ])
+  assert.deepEqual(
+    skills.skills.map((skill) => skill.name),
+    ["sketchbook"],
+  )
   assert.equal(
-    skills.skills.find((skill) => skill.name === "sketchbook-create-diagrams")?.filePath,
-    join(packagePath, "skills/sketchbook-create-diagrams/SKILL.md"),
+    skills.skills[0].filePath,
+    join(packagePath, "skills/sketchbook/SKILL.md"),
     "Pi must discover the skill from the package being tested",
   )
 
@@ -135,17 +203,16 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   await session.bindExtensions({ mode: "rpc", onError: (error) => errors.push(error.error) })
   try {
     assert.equal(
-      await session.followUp("/skill:sketchbook-create-diagrams Explain the API architecture."),
+      await session.followUp("/skill:sketchbook Explain the API architecture."),
       "queued",
     )
     const expanded = session.getFollowUpMessages()[0]
-    assert.ok(expanded.includes('<skill name="sketchbook-create-diagrams"'))
+    assert.ok(expanded.includes('<skill name="sketchbook"'))
     assert.ok(expanded.includes("sketchbook_write"))
     assert.ok(expanded.endsWith("Explain the API architecture."))
     assert.ok(session.getActiveToolNames().includes("sketchbook_write"))
-    assert.equal(await session.followUp("/skill:sketchbook-diagram-design SVG example"), "queued")
-    assert.ok(session.getFollowUpMessages()[1].includes('<skill name="sketchbook-diagram-design"'))
-    const packagedUpstream = join(packagePath, "skills/sketchbook-diagram-design/upstream")
+    assert.ok(expanded.includes("upstream/GUIDE.md"))
+    const packagedUpstream = join(packagePath, "skills/sketchbook/upstream")
     for (const name of ["GUIDE.md", "LICENSE", "assets/template.html", "scripts/export_svg.py"]) {
       assert.ok((await stat(join(packagedUpstream, name))).isFile())
     }
@@ -160,17 +227,34 @@ async function smoke(packagePath: string, label: string): Promise<void> {
       assert.ok(tool.outputSchema && Check(tool.outputSchema, result.structuredContent))
       return result.structuredContent as Record<string, unknown>
     }
-    const document: SketchbookDocument = JSON.parse(
-      await readFile(
-        join(packagePath, "skills/sketchbook-create-diagrams/assets/architecture-walkthrough.json"),
-        "utf8",
-      ),
-    )
-    const sequenceDeck = document.blocks.find((block) => block.type === "diagram-deck")
-    assert.ok(sequenceDeck, "Packed walkthrough must include a diagram deck")
     const svgSlide = await cacheSlide(packagePath)
-    sequenceDeck.slides.push(sequenceSlide, svgSlide)
-    document.blocks.push(await cachePage(packagePath))
+    const document: SketchbookDocument = {
+      schemaVersion: 1,
+      title: "Packaged book",
+      blocks: [
+        {
+          id: "intro",
+          type: "markdown",
+          markdown: "Read the example and compare the two explanations.",
+        },
+        { id: "example", type: "code", code: "Cache-Control: max-age=60" },
+        {
+          id: "svg-deck",
+          type: "diagram-deck",
+          title: "Static SVG",
+          slides: [
+            svgSlide,
+            {
+              ...svgSlide,
+              id: "formula",
+              title: "Formula",
+              explanationMarkdown: "For example $x^2$.",
+            },
+          ],
+        },
+        await cachePage(packagePath),
+      ],
+    }
     const created = await call("sketchbook_write", { document })
     assert.equal(created.path, join(workspace, ".pi/sketchbook", `${created.documentId}.json`))
     assert.equal(created.renderingVerified, false)
@@ -215,12 +299,10 @@ async function smoke(packagePath: string, label: string): Promise<void> {
         if (new URL(request.url()).origin !== url.origin) external.push(request.url())
       })
       await page.goto(url.href)
-      await page.locator(".diagram-svg svg").first().waitFor({ timeout: 30_000 })
+      await page.locator(".static-diagram img").waitFor({ timeout: 30_000 })
       assert.equal(await page.title(), `${document.title} — Pi Sketchbook`)
       assert.equal(await page.locator(".brand").textContent(), "Pi Sketchbook")
-      const sequenceRegion = page.locator(`[data-block-id="${sequenceDeck.id}"]`)
-      await checkSequence(sequenceRegion)
-      await checkSvg(sequenceRegion, svgSlide)
+      await checkSvg(page.locator('[data-block-id="svg-deck"]'), svgSlide)
       await checkDesignPage(page.locator('iframe[data-block-id="cache-html"]'))
       const mathDeck = document.blocks.find(
         (block) =>
@@ -249,7 +331,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
     await assert.rejects(fetch(url.origin, { signal: AbortSignal.timeout(2000) }))
     assert.deepEqual(errors, [])
     console.log(
-      `Passed ${label}: Pi discovery, skill command expansion, automatic LAN URL without flags, tools, packed browser assets and sequence render, shutdown`,
+      `Passed ${label}: Pi discovery, skill command expansion, automatic LAN URL without flags, tools, packed browser assets and static diagrams, shutdown`,
     )
   } finally {
     for (const handler of extension.handlers.get("session_shutdown") ?? []) {
@@ -271,7 +353,9 @@ async function smokeMcp(tarball: string): Promise<string> {
     ["install", "--ignore-scripts", "--omit=dev", "--no-audit", "--no-fund", tarball],
     { cwd: install, timeout: 120_000 },
   )
-  await assert.rejects(stat(join(install, "node_modules/@earendil-works/pi-coding-agent")))
+  for (const name of ["@earendil-works/pi-coding-agent", "mermaid", "@narumitw/diagram-viewer"]) {
+    await assert.rejects(stat(join(install, "node_modules", name)), { code: "ENOENT" })
+  }
   const installed = join(install, "node_modules/@narumitw/sketchbook")
   const svgSlide = await cacheSlide(installed)
   const designPage = await cachePage(installed)
@@ -316,10 +400,9 @@ async function smokeMcp(tarball: string): Promise<string> {
             {
               id: "overview",
               title: "MCP tool flow",
-              mermaid: "flowchart LR\nClient --> Server --> Store",
+              svg: svgSlide.svg,
               explanationMarkdown: "The MCP server saves the document in the selected workspace.",
             },
-            sequenceSlide,
             svgSlide,
           ],
         },
@@ -370,12 +453,12 @@ async function smokeMcp(tarball: string): Promise<string> {
     try {
       const page = await browser.newPage()
       await page.goto(url.href)
-      await page.locator(".diagram-svg svg").waitFor({ timeout: 30_000 })
+      await page.locator(".static-diagram img").waitFor({ timeout: 30_000 })
       assert.equal(await page.title(), "Standalone MCP — Pi Sketchbook")
       const deck = page.locator('[data-block-id="deck"]')
-      await checkSequence(deck)
       await checkSvg(deck, svgSlide)
       await checkDesignPage(page.locator('iframe[data-block-id="cache-html"]'))
+      await checkCacheBook(browser, designPage, call)
     } finally {
       await browser.close()
     }
@@ -383,7 +466,7 @@ async function smokeMcp(tarball: string): Promise<string> {
     await assert.rejects(fetch(endpoint, { headers, signal: AbortSignal.timeout(2000) }))
     assert.equal(stderr, "")
     console.log(
-      "Passed standalone MCP: npx executable without Pi, tools, browser assets and sequence render, EOF shutdown",
+      "Passed standalone MCP: npx executable without Pi, tools, offline browser assets, three cache chapters, and EOF shutdown",
     )
   } finally {
     await client.close()
@@ -425,10 +508,10 @@ try {
     )
   }
   for (const path of [
-    "skills/sketchbook-create-diagrams/SKILL.md",
     "examples/diagram-design/http-cache-walkthrough.json",
-    "skills/sketchbook-diagram-design/SKILL.md",
-    "skills/sketchbook-diagram-design/upstream/THIRD_PARTY_LICENSES.md",
+    "skills/sketchbook/SKILL.md",
+    "skills/sketchbook/references/document-format.md",
+    "skills/sketchbook/upstream/THIRD_PARTY_LICENSES.md",
     ".claude-plugin/plugin.json",
     ".claude-plugin/marketplace.json",
     ".codex-plugin/plugin.json",
@@ -437,6 +520,10 @@ try {
   ]) {
     assert.ok(files.includes(path), `Packed file missing: ${path}`)
   }
+  assert.deepEqual(
+    files.filter((file) => file.startsWith("skills/") && file.endsWith("/SKILL.md")),
+    ["skills/sketchbook/SKILL.md"],
+  )
   assert.ok(files.includes("README.md") && files.includes("LICENSE"))
   assert.ok(files.includes("docs/compatibility.md") && files.includes("docs/acceptance.md"))
   assert.ok(!files.some((file) => file.startsWith("docs/plans/")))

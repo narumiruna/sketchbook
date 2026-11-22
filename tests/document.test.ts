@@ -1,14 +1,15 @@
 import { describe, expect, test } from "vitest"
 import {
   MAX_DOCUMENT_BYTES,
-  MAX_MERMAID_BYTES,
   type SketchbookDocument,
   validateDocument,
   validateDocumentId,
   validateWriteInput,
 } from "../src/document.js"
+import { MAX_SVG_BYTES } from "../src/static-svg.js"
+import { drawing } from "./fixtures/static-drawing.js"
 
-function document(source = "flowchart LR\n A[Start] --> B[Finish]"): SketchbookDocument {
+function document(source = drawing("Start → Finish")): SketchbookDocument {
   return {
     schemaVersion: 1,
     title: "Example",
@@ -21,7 +22,7 @@ function document(source = "flowchart LR\n A[Start] --> B[Finish]"): SketchbookD
           {
             id: "overview",
             title: "Overview",
-            mermaid: source,
+            svg: source,
             explanationMarkdown: "Start to finish.",
           },
         ],
@@ -31,8 +32,8 @@ function document(source = "flowchart LR\n A[Start] --> B[Finish]"): SketchbookD
 }
 
 describe("document validation", () => {
-  test("accepts the bounded contract and comments before flowchart", () => {
-    const value = document("%% Architecture\nflowchart LR\n A[開始] --> B[Finish]")
+  test("accepts the bounded contract and non-ASCII labels", () => {
+    const value = document(drawing("開始 → Finish"))
     expect(validateDocument(value)).toBe(value)
   })
 
@@ -84,34 +85,6 @@ describe("document validation", () => {
     ).toThrow("Invalid sketchbook data")
   })
 
-  test("allows a focus region on a later slide that reuses the complete overview", () => {
-    const value = document()
-    const deck = value.blocks[0]
-    if (deck?.type !== "diagram-deck") throw new Error("Fixture missing deck")
-    const overview = deck.slides[0]
-    if (!("mermaid" in overview)) throw new Error("Expected Mermaid fixture")
-    const detail = { ...overview, id: "detail", focusNodes: ["A", "B"] }
-    deck.slides.push(detail)
-    expect(validateDocument(value)).toBe(value)
-    detail.mermaid = "flowchart LR\n A[Start]"
-    expect(() => validateDocument(value)).toThrow("reuse the first slide")
-    deck.slides.pop()
-    overview.focusNodes = ["A"]
-    expect(() => validateDocument(value)).toThrow("reuse the first slide")
-  })
-
-  test.each(
-    [[], ["A", "A"], ["#A"], ["客戶"], Array.from({ length: 13 }, (_, i) => `A${i}`)].map(
-      (focusNodes) => ({ focusNodes }),
-    ),
-  )("rejects invalid focus node lists: $focusNodes", ({ focusNodes }) => {
-    const value = document()
-    const deck = value.blocks[0]
-    if (deck?.type !== "diagram-deck") throw new Error("Fixture missing deck")
-    deck.slides.push({ ...deck.slides[0], id: "detail", focusNodes })
-    expect(() => validateDocument(value)).toThrow("Invalid sketchbook data")
-  })
-
   test("rejects empty decks and duplicate block/slide IDs", () => {
     const value = document()
     const deck = value.blocks[0]
@@ -145,10 +118,10 @@ describe("document validation", () => {
   })
 
   test("measures UTF-8 byte limits instead of only character counts", () => {
-    expect(() => validateDocument(document(`flowchart LR\n%%${"中".repeat(12000)}`))).toThrow(
-      "bytes",
-    )
-    expect(() => validateDocument(document("a".repeat(MAX_MERMAID_BYTES + 1)))).toThrow()
+    expect(() =>
+      validateDocument(document(drawing("中".repeat(Math.ceil(MAX_SVG_BYTES / 3))))),
+    ).toThrow("exceeds 128 KiB")
+    expect(() => validateDocument(document("a".repeat(MAX_SVG_BYTES + 1)))).toThrow()
     expect(() =>
       validateDocument({
         schemaVersion: 1,
@@ -162,47 +135,6 @@ describe("document validation", () => {
         ],
       }),
     ).toThrow("bytes")
-  })
-
-  test("rejects focus on a later sequence slide with identical source", () => {
-    const value = document("sequenceDiagram\n Client->>Server: Save")
-    const deck = value.blocks[0]
-    if (deck?.type !== "diagram-deck") throw new Error("Fixture missing deck")
-    deck.slides.push({ ...deck.slides[0], id: "detail", focusNodes: ["Client"] })
-    expect(() => validateDocument(value)).toThrow("only supported for flowchart")
-  })
-
-  test.each([
-    "eventmodeling\n tf 01 evt Start",
-    "architecture-beta\n service app(server)[Service]",
-    "mindmap\n Root",
-    "xychart-beta\n bar [1, 2]",
-    "flowchart-elk LR\n A-->B",
-    "flowchartJunk LR\n A-->B",
-    "sequenceDiagram\n A->>B: Message\n link A: Reference @ /guide",
-    "sequenceDiagram\n A->>B: Message\n links A: {}",
-    "sequenceDiagram\n participant A@{ type: database }",
-    'classDiagram\n class A\n link A "/guide"',
-    "---\nconfig:\n look: classic\n---\nflowchart LR\n A-->B",
-    "%%{init: {securityLevel: 'loose'}}%%\nflowchart LR\n A-->B",
-    "flowchart LR\n A-->B\n click A callback",
-    "flowchart LR; A-->B; click A callback",
-    'flowchart LR\n A["<img src=x onerror=alert(1)>"]',
-    'flowchart LR\n A["https://example.com"]',
-    "flowchart LR\n classDef evil fill:url(//example.com/image)",
-    "flowchart LR\n classDef evil @import 'bad.css'",
-    'flowchart LR\n A@{ shape: image, img: "x" }',
-    'flowchart LR\n A@{ shape: icon, icon: "fa:foo" }',
-    "flowchart LR\n A[fa:fa-user]",
-    'flowchart LR\n A@{ "img": "/assets/metadata-sentinel.svg" }',
-    "flowchart LR\n A@{ 'img': '/assets/metadata-sentinel.svg' }",
-    String.raw`flowchart LR
- A@{ "\u0069mg": "/assets/metadata-sentinel.svg" }`,
-    'flowchart LR\n A@{ shape: "image", "img": "/assets/metadata-sentinel.svg" }',
-    'flowchart LR\n A["`![image](/assets/metadata-sentinel.svg)`"]',
-    "flowchart LR\n A@{ shape: rect }",
-  ])("rejects unsupported or unsafe Mermaid: %s", (source) => {
-    expect(() => validateDocument(document(source))).toThrow()
   })
 
   test("requires generated document IDs and complete update preconditions", () => {

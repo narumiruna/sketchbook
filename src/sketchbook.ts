@@ -1,6 +1,6 @@
 import { resolve } from "node:path"
 import { type Static, Type } from "typebox"
-import { BookEditInputSchema, StoredBookSchema } from "./book.js"
+import { BookEditInputSchema, StoredBookSchema, validateBookEditInput } from "./book.js"
 import {
   assertSchema,
   DocumentIdSchema,
@@ -140,14 +140,13 @@ export function createSketchbookTools(mutationQueue?: FileMutationQueue) {
     label: "Sketchbook Write",
     promptSnippet: "Create or replace a saved Pi Sketchbook document with revision checks",
     description:
-      "Create or fully replace a Pi Sketchbook document with Markdown, code, static Diagram Design HTML blocks, or Mermaid/SVG diagram decks. Use only supported non-beta Mermaid headers; see the README matrix. Do not use Mermaid configuration, HTML, links, images, icons, or node metadata in Mermaid. Diagram decks may mix source types, but focusNodes is Mermaid flowchart-only. For complete static Diagram Design output, use a `diagram-html` block; do not put raw HTML in Markdown. Updates require documentId and expectedRevision; read after a conflict. Writes only .pi/sketchbook/*.json, same-directory temporary files, and .pi/sketchbook/.gitignore in the workspace; never changes the workspace root .gitignore. Saving does not verify browser rendering.",
+      "Create or fully replace a Pi Sketchbook document with Markdown, code, static Diagram Design HTML blocks, or static SVG decks. Use `diagram-html` for complete Diagram Design output, not raw HTML in Markdown. Updates require documentId and expectedRevision; read after a conflict. Writes only .pi/sketchbook/*.json, same-directory temporary files, and .pi/sketchbook/.gitignore in the workspace; never changes the workspace root .gitignore. Saving does not verify browser rendering.",
     parameters: WriteInputSchema,
     outputSchema: WriteOutputSchema,
     async execute(input: unknown, cwd: string, signal?: AbortSignal) {
       try {
         const active = signalFor(signal)
         active.throwIfAborted()
-        assertSchema(WriteInputSchema, input)
         const { stored, path } = await workspace(cwd).store.write(input, active)
         const data: Static<typeof WriteOutputSchema> = {
           ok: true,
@@ -243,11 +242,11 @@ export function createSketchbookTools(mutationQueue?: FileMutationQueue) {
       try {
         const active = signalFor(signal)
         active.throwIfAborted()
-        assertSchema(BookEditInputSchema, input)
-        const mutation = await workspace(cwd).store.editBook(input, active)
+        const edit = validateBookEditInput(input)
+        const mutation = await workspace(cwd).store.editBook(edit, active)
         const data: Static<typeof EditOutputSchema> = {
           ok: true,
-          documentId: input.documentId,
+          documentId: edit.documentId,
           ...mutation,
           renderingVerified: false,
         }

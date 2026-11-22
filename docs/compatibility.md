@@ -1,5 +1,9 @@
 # Compatibility evidence
 
+## Current compatibility
+
+Sketchbook uses Diagram Design HTML for new diagrams. Static SVG decks, Markdown, KaTeX, code, sections, and chapters remain supported. Root documents or book sidecars containing Mermaid slides are not opened or converted. See [Open older books](../README.md#open-older-books) for the verified recovery build and backup steps. The records below describe earlier revisions, including features and fixtures that have since been retired.
+
 ## Evidence labels
 
 - **Declared** identifies the support contract or a pinned dependency, not a passed test.
@@ -331,11 +335,11 @@ Verification on checkout `9940695b24a820205fc536c621a3ae44ad0ca849` with Node.js
 
 ## Fixture coverage
 
-[Architecture walkthrough](../skills/sketchbook-create-diagrams/assets/architecture-walkthrough.json) provides four connected save-boundary views and a separate caller URL/browser-request handoff.
+[Architecture walkthrough](https://github.com/narumiruna/sketchbook/blob/10bc8574615c77f5e2d229850a4340c29cb2bae7/skills/sketchbook-create-diagrams/assets/architecture-walkthrough.json) provides four connected save-boundary views and a separate caller URL/browser-request handoff.
 It includes subgraphs, Chinese text, and an independent one-slide deck.
-[Process walkthrough](../skills/sketchbook-create-diagrams/assets/process-walkthrough.json) provides a replacement overview, a serialized revision decision, and an independent interrupted-response check.
+[Process walkthrough](https://github.com/narumiruna/sketchbook/blob/10bc8574615c77f5e2d229850a4340c29cb2bae7/skills/sketchbook-create-diagrams/assets/process-walkthrough.json) provides a replacement overview, a serialized revision decision, and an independent interrupted-response check.
 Both flowchart walkthroughs include Markdown prose, inline/display LaTeX, fenced TypeScript, an opening H2, and a final conclusion without redundant start/end reminders.
-[Sequence walkthrough](../skills/sketchbook-create-diagrams/assets/sequence-walkthrough.json) teaches the order of one request and its response without `focusNodes`.
+[Sequence walkthrough](https://github.com/narumiruna/sketchbook/blob/10bc8574615c77f5e2d229850a4340c29cb2bae7/skills/sketchbook-create-diagrams/assets/sequence-walkthrough.json) teaches the order of one request and its response without `focusNodes`.
 Earlier complete-article browser checks covered the eight bundled flowchart slides, five Agent Substrate slides, and three fresh authoring slides at narrow and desktop widths.
 Controlled compact/wide/tall layout and 20-slide navigation cases are separate from the teaching articles; the large cases do not inherit the compact label-size target.
 The skill test protects known outline and meaning regressions, not arbitrary narrative quality.
