@@ -6,7 +6,7 @@
     "sketchbook-mcp": "./dist/mcp-cli.js"
   },
   "type": "module",
-  "license": "AGPL-3.0-only",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/narumiruna/sketchbook.git"

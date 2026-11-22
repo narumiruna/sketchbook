@@ -3,6 +3,9 @@
 [English](README.md) · 繁體中文（台灣）
 
 Sketchbook 提供 Pi 工具和獨立的 MCP 伺服器，讓你在本機撰寫包含 Markdown、LaTeX、程式碼和 Diagram Design HTML 的技術文件，也支援既有的靜態 SVG 投影片。你可以從單頁開始，等讀者需要更多細節時再加入小節或章節。
+
+Sketchbook 的圖表製作功能以 [Diagram Design](https://github.com/cathrynlavery/diagram-design) 為基礎，並隨附其製作指南、範本與匯出工具。
+
 每組投影片一次顯示一張圖和它的說明，翻頁不影響章節位置。
 使用底部的上一張、下一張按鈕或帶標籤的定位圓點切換投影片；投影片組取得鍵盤焦點後，也可以用左右方向鍵切換。
 寬螢幕會把說明放在圖旁，窄螢幕則使用單欄版面。
@@ -293,4 +296,4 @@ npm run test:package
 ## 功能範圍和授權
 
 Sketchbook 不提供雲端分享、帳號、即時協作、瀏覽器內編輯、巢狀章節或小節、版本歷史、還原、自動播放、匯出或 HTTP MCP 傳輸。
-授權採 GNU Affero General Public License 第 3 版，請參閱 [LICENSE](LICENSE)。
+Sketchbook 採用 [MIT 授權](LICENSE)。隨附的第三方檔案仍適用各自的授權條款。

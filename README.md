@@ -3,6 +3,9 @@
 English · [繁體中文（台灣）](README.zh-TW.md)
 
 Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Diagram Design HTML. Existing static SVG decks still work. Start with one page and add sections or chapters when readers need more detail.
+
+Sketchbook builds on [Diagram Design](https://github.com/cathrynlavery/diagram-design) for diagram authoring and bundles its guide, templates, and exporter.
+
 Each deck shows one diagram and its explanation at a time, independently of chapter navigation.
 Use the bottom Previous/Next buttons or labelled position dots to change slides; focused decks also support Left/Right keyboard keys.
 On wide screens, explanations appear beside their diagrams; narrower screens use one reading column.
@@ -295,4 +298,4 @@ Automated checks do not establish visual acceptance or reliable automatic skill 
 ## Scope and license
 
 Sketchbook does not provide cloud sharing, accounts, live collaboration, browser editing, nested chapters or sections, version history, restore, autoplay, export, or HTTP MCP transport.
-See [LICENSE](LICENSE) for the GNU Affero General Public License, version 3.
+Sketchbook is licensed under the [MIT License](LICENSE). Bundled third-party files retain their own licenses.
