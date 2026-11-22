@@ -331,7 +331,7 @@ function Reader({ stored, token }: { stored: ViewerDocument; token: string }) {
     heading?.focus({ preventScroll: true })
   }, [location, focusId, focusTarget, shouldFocus])
   useEffect(() => {
-    document.title = `${chapter.title} — Pi Sketchbook`
+    document.title = `${chapter.title} — Sketchbook`
   }, [chapter.title])
 
   const revisionRecord = index > 0 && book ? book : { revision, updatedAt }
@@ -379,7 +379,7 @@ export function App({ session }: { session: Session }) {
   return (
     <div className="viewer">
       <header className="viewer-header">
-        <span className="brand">Pi Sketchbook</span>
+        <span className="brand">Sketchbook</span>
         <p role="status" className="connection-status">
           {status}
         </p>

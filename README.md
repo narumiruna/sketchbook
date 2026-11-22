@@ -1,6 +1,6 @@
-# Pi Sketchbook
+# Sketchbook
 
-Pi Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Diagram Design HTML. Existing static SVG decks still work. Start with one page and add sections or chapters when readers need more detail.
+Sketchbook provides Pi tools and a standalone MCP server for local technical documents with Markdown, LaTeX, code, and Diagram Design HTML. Existing static SVG decks still work. Start with one page and add sections or chapters when readers need more detail.
 Each deck shows one diagram and its explanation at a time, independently of chapter navigation.
 Use the bottom Previous/Next buttons or labelled position dots to change slides; focused decks also support Left/Right keyboard keys.
 On wide screens, explanations appear beside their diagrams; narrower screens use one reading column.
@@ -176,7 +176,7 @@ See [edit operations and targeting](skills/sketchbook/references/document-format
 ### LAN access
 
 Call `sketchbook_open` and use its complete returned URL on a device on the same trusted LAN.
-No manual IP entry, host flag, or network configuration is required in Pi Sketchbook.
+No manual IP entry, host flag, or network configuration is required in Sketchbook.
 After changing this checkout, run `npm run build`, use `/reload` in Pi, and reopen the document.
 
 - The read-only viewer listens on `0.0.0.0` on a random port.
@@ -195,7 +195,7 @@ After changing this checkout, run `npm run build`, use `/reload` in Pi, and reop
 - Keep the full viewer URL private. Data requests require the per-server capability token in its fragment. The token permits document reads within that viewer's workspace, not only the linked document.
 - VPNs or virtual interfaces can affect which private address is detected first.
   - Automatic selection does not prove that a second device can reach that address.
-  - Firewall policy or Wi-Fi client isolation can also block access; Pi Sketchbook does not change either.
+  - Firewall policy or Wi-Fi client isolation can also block access; Sketchbook does not change either.
   - See the [LAN device handoff](docs/acceptance.md#lan-device-handoff) for the remaining checks.
 
 Addresses are captured when the listener starts.

@@ -208,7 +208,7 @@ for (const width of [390, 1440]) {
     await expect(title(page)).toHaveText(api.title)
     await expect(title(page)).toBeFocused()
     await expect(title(page)).toBeInViewport()
-    await expect(page).toHaveTitle(`${api.title} — Pi Sketchbook`)
+    await expect(page).toHaveTitle(`${api.title} — Sketchbook`)
     checkLocation(page.url(), fixture, api.id)
 
     await chapterOrder(page)
