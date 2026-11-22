@@ -300,7 +300,7 @@ Verification on macOS with Node.js `26.11.1` on 2026-11-12 produced these result
 
 The new regressions cover capability-preserving fragment navigation, footnote references and return links, unique targets across Markdown instances, and literal percent-containing footnote identifiers.
 Keyboard checks cover bounded Shift + arrow camera movement, source scrolling on both axes, fullscreen focus order, and unchanged ordinary slide navigation and touch scrolling.
-Disposable Git fixtures verify that pre-commit checks use staged blobs, configuration, and ignore rules without changing the working tree or index.
+At that revision, disposable Git fixtures verified that the former pre-commit script checked staged content, configuration, and ignore rules without changing the working tree or index.
 Storage checks verify recovery from a failed first ignore-file write and preservation of pre-existing ignore files.
 
 The existing Vite chunk-size warning remains.

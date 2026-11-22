@@ -7,10 +7,7 @@ import { fileURLToPath } from "node:url"
 
 const root = fileURLToPath(new URL("../", import.meta.url))
 
-if (existsSync(join(root, "node_modules/husky/package.json"))) {
-  const { default: husky } = await import("husky")
-  process.stdout.write(husky())
-} else {
+if (!existsSync(join(root, "node_modules/vite/package.json"))) {
   const npm = process.env.npm_execpath
   if (!npm) throw new Error("Run the Sketchbook prepare script through npm")
 
