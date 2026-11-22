@@ -34,7 +34,15 @@ The automated browser tests cover these sample chapters at 390px and 1440px, inc
 
 ## Future authorized model checks
 
-The provider or account owner must authorize API usage before running these checks. Try a simple overview question (no skill expected), an explicit diagram request (Diagram Design, no renderer prompt), and a request to add a chapter (the original page remains first). Record the host, model ID, exact package revision, saved record revisions, checks, and any missing evidence. Do not record credentials or Viewer links.
+The provider or account owner must authorize API usage before running these checks.
+Use a fresh session for each skill-routing check:
+
+1. Ask “What is an npm lifecycle script?” without invoking the skill. Expect a chat answer without a Sketchbook tool call.
+2. Ask `/skill:sketchbook What is an npm lifecycle script?` with no existing style profile. Expect a saved page that answers the question and a private Viewer link, without a style prompt. A Markdown-only page is sufficient.
+3. Explicitly request a Sketchbook diagram for a multi-step process with no existing style profile. Expect Diagram Design HTML and a Viewer link without a renderer or style prompt.
+4. Ask to add a chapter to an existing Sketchbook. Expect the original page to remain first.
+
+Record the host, model ID, exact package revision, saved record revisions, checks, and any missing evidence. Do not record credentials or Viewer links.
 
 ## LAN device handoff
 
