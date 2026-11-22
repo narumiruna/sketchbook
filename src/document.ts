@@ -1,6 +1,8 @@
 import { type Static, type TSchema, Type } from "typebox"
 import { Check, Errors } from "typebox/value"
+import { MAX_DESIGN_HTML_BYTES, prepareDesignHtml } from "./design-html.js"
 import { assertMermaidFocus, assertMermaidPolicy, MAX_MERMAID_BYTES } from "./mermaid-policy.js"
+import { inspectStaticSvg, MAX_SVG_BYTES } from "./static-svg.js"
 
 export { MAX_MERMAID_BYTES }
 export const MAX_DOCUMENT_BYTES = 1024 * 1024
@@ -33,12 +35,11 @@ export const CodeBlockSchema = Type.Object(
   { additionalProperties: false },
 )
 
-export const SlideSchema = Type.Object(
+const slideFields = { id: IdSchema, title: TitleSchema, explanationMarkdown: TextSchema }
+const MermaidSlideSchema = Type.Object(
   {
-    id: IdSchema,
-    title: TitleSchema,
+    ...slideFields,
     mermaid: Type.String({ minLength: 1, maxLength: MAX_MERMAID_BYTES }),
-    explanationMarkdown: TextSchema,
     focusNodes: Type.Optional(
       Type.Array(IdSchema, {
         minItems: 1,
@@ -52,6 +53,13 @@ export const SlideSchema = Type.Object(
   { additionalProperties: false },
 )
 
+const SvgSlideSchema = Type.Object(
+  { ...slideFields, svg: Type.String({ minLength: 1, maxLength: MAX_SVG_BYTES }) },
+  { additionalProperties: false },
+)
+
+export const SlideSchema = Type.Union([MermaidSlideSchema, SvgSlideSchema])
+
 export const DiagramDeckSchema = Type.Object(
   {
     id: IdSchema,
@@ -62,12 +70,30 @@ export const DiagramDeckSchema = Type.Object(
   { additionalProperties: false },
 )
 
-export const BlockSchema = Type.Union([MarkdownBlockSchema, CodeBlockSchema, DiagramDeckSchema])
+const DesignHtmlBlockSchema = Type.Object(
+  {
+    id: IdSchema,
+    type: Type.Literal("diagram-html"),
+    title: TitleSchema,
+    html: Type.String({ minLength: 1, maxLength: MAX_DESIGN_HTML_BYTES }),
+  },
+  { additionalProperties: false },
+)
+
+export const BlockSchema = Type.Union([
+  MarkdownBlockSchema,
+  CodeBlockSchema,
+  DiagramDeckSchema,
+  DesignHtmlBlockSchema,
+])
 
 export const SketchbookDocumentSchema = Type.Object(
   {
     schemaVersion: Type.Literal(1),
     title: TitleSchema,
+    defaultDiagramSource: Type.Optional(
+      Type.Union([Type.Literal("mermaid"), Type.Literal("diagram-design")]),
+    ),
     blocks: Type.Array(BlockSchema, {
       minItems: 1,
       maxItems: MAX_BLOCKS,
@@ -98,7 +124,9 @@ export const StoredDocumentSchema = Type.Object(
 export type SketchbookDocument = Static<typeof SketchbookDocumentSchema>
 export type MarkdownBlock = Static<typeof MarkdownBlockSchema>
 export type CodeBlock = Static<typeof CodeBlockSchema>
+export type DesignHtmlBlock = Static<typeof DesignHtmlBlockSchema>
 export type DiagramDeck = Static<typeof DiagramDeckSchema>
+export type MermaidSlide = Static<typeof MermaidSlideSchema>
 export type Block = Static<typeof BlockSchema>
 export type WriteInput = Static<typeof WriteInputSchema>
 export type StoredDocument = Static<typeof StoredDocumentSchema>
@@ -120,20 +148,18 @@ export function validateDocumentId(id: string): void {
   assertSchema(DocumentIdSchema, id)
 }
 
-function validateMermaid(slide: DiagramDeck["slides"][number], location: string): void {
-  try {
-    const renderer = assertMermaidPolicy(slide.mermaid)
-    assertMermaidFocus(renderer, slide.focusNodes)
-  } catch (error) {
-    throw new Error(`${location}: ${error instanceof Error ? error.message : String(error)}`)
-  }
-}
-
 export function validateBlocks(blocks: Block[]): void {
   const blockIds = new Set<string>()
   for (const block of blocks) {
     if (blockIds.has(block.id)) throw new Error(`Duplicate block ID: ${block.id}`)
     blockIds.add(block.id)
+    if (block.type === "diagram-html") {
+      try {
+        prepareDesignHtml(block.html)
+      } catch (error) {
+        throw new Error(`${block.id}: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
     if (block.type !== "diagram-deck") continue
     const slideIds = new Set<string>()
     const overview = block.slides[0]
@@ -141,12 +167,21 @@ export function validateBlocks(blocks: Block[]): void {
       const location = `${block.id}/${slide.id}`
       if (slideIds.has(slide.id)) throw new Error(`Duplicate slide ID: ${location}`)
       slideIds.add(slide.id)
-      if (slide.focusNodes && (slide === overview || slide.mermaid !== overview.mermaid)) {
-        throw new Error(
-          `${location}: A focus slide must reuse the first slide's Mermaid source unchanged`,
-        )
+      try {
+        if ("svg" in slide) {
+          inspectStaticSvg(slide.svg)
+          continue
+        }
+        if (
+          slide.focusNodes &&
+          (slide === overview || !("mermaid" in overview) || slide.mermaid !== overview.mermaid)
+        ) {
+          throw new Error("A focus slide must reuse the first slide's Mermaid source unchanged")
+        }
+        assertMermaidFocus(assertMermaidPolicy(slide.mermaid), slide.focusNodes)
+      } catch (error) {
+        throw new Error(`${location}: ${error instanceof Error ? error.message : String(error)}`)
       }
-      validateMermaid(slide, location)
     }
   }
 }

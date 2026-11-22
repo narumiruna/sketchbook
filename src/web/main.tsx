@@ -1,8 +1,11 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { App } from "./app"
+import { installEditorialFonts } from "./editorial-fonts"
 import "katex/dist/katex.min.css"
 import "./styles.css"
+
+installEditorialFonts(document)
 
 const session = {
   documentId: new URLSearchParams(location.search).get("documentId") ?? "",

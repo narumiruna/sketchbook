@@ -173,12 +173,16 @@ test("historical comparison detects added heading padding and frame whitespace",
     2,
   )
   const threshold = reference.firstParagraphY - before.lineHeight + 0.5
-  expect((await readingMetrics(deck)).firstParagraph?.y).toBeLessThanOrEqual(threshold)
+  const initialY = (await readingMetrics(deck)).firstParagraph?.y
+  if (initialY === undefined) throw new Error("Missing first paragraph")
+  expect(initialY).toBeLessThanOrEqual(threshold)
+  const addedSpace = Math.max(16, Math.ceil(threshold - initialY + 2))
+  const halfSpace = addedSpace / 2
   for (const css of [
-    ".deck-heading { padding-top: calc(0.85rem + 8px); padding-bottom: calc(0.85rem + 8px); }",
-    ".deck-heading h2 { padding-block: 8px; }",
-    ".deck-heading h3 { border-block: 8px solid transparent; }",
-    `.diagram-viewport { height: ${(await readingMetrics(deck)).frame.height + 16}px !important; }`,
+    `.deck-heading { padding-block: calc(0.85rem + ${halfSpace}px); }`,
+    `.deck-heading h2 { padding-block: ${halfSpace}px; }`,
+    `.deck-heading h3 { border-block: ${halfSpace}px solid transparent; }`,
+    `.diagram-viewport { height: ${(await readingMetrics(deck)).frame.height + addedSpace}px !important; }`,
   ]) {
     const override = await page.addStyleTag({ content: css })
     const unchanged = await historicalCompactBaseline(deck, before)

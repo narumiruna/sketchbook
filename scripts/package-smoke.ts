@@ -39,6 +39,36 @@ async function checkSequence(deck: Locator): Promise<void> {
     .waitFor({ timeout: 30_000 })
 }
 
+async function cacheSlide(packagePath: string) {
+  const file = join(packagePath, "examples/diagram-design/http-cache-walkthrough.json")
+  const document = JSON.parse(await readFile(file, "utf8")) as SketchbookDocument
+  const deck = document.blocks.find((block) => block.type === "diagram-deck")
+  const slide = deck?.slides[0]
+  assert.ok(slide && "svg" in slide)
+  return slide
+}
+
+async function checkSvg(deck: Locator, slide: { id: string; title: string }) {
+  await deck.locator(`button[data-slide-id="${slide.id}"]`).click()
+  await deck.getByRole("img", { name: slide.title, exact: true }).waitFor({ timeout: 30_000 })
+  assert.match((await deck.locator(".static-diagram img").getAttribute("src")) ?? "", /^blob:/)
+  assert.equal(await deck.locator(".diagram-controls").count(), 0)
+}
+
+async function cachePage(packagePath: string): Promise<SketchbookDocument["blocks"][number]> {
+  return {
+    id: "cache-html",
+    type: "diagram-html",
+    title: "Browser caching with Diagram Design",
+    html: await readFile(join(packagePath, "examples/diagram-design/http-cache.html"), "utf8"),
+  }
+}
+
+async function checkDesignPage(frame: Locator) {
+  await frame.contentFrame().getByRole("heading", { name: "同一個檔案，不一定要再下載" }).waitFor()
+  assert.equal(await frame.contentFrame().locator("svg").count(), 3)
+}
+
 async function smoke(packagePath: string, label: string): Promise<void> {
   const manifest = JSON.parse(await readFile(join(packagePath, "package.json"), "utf8"))
   assert.equal(manifest.name, "@narumitw/sketchbook")
@@ -73,10 +103,12 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   assert.equal(extension.flags.size, 0, "The viewer must not require host flags")
   const skills = loader.getSkills()
   assert.deepEqual(skills.diagnostics, [])
-  assert.equal(skills.skills.length, 1)
-  assert.equal(skills.skills[0].name, "sketchbook-create-diagrams")
+  assert.deepEqual(skills.skills.map((skill) => skill.name).sort(), [
+    "sketchbook-create-diagrams",
+    "sketchbook-diagram-design",
+  ])
   assert.equal(
-    skills.skills[0].filePath,
+    skills.skills.find((skill) => skill.name === "sketchbook-create-diagrams")?.filePath,
     join(packagePath, "skills/sketchbook-create-diagrams/SKILL.md"),
     "Pi must discover the skill from the package being tested",
   )
@@ -111,6 +143,12 @@ async function smoke(packagePath: string, label: string): Promise<void> {
     assert.ok(expanded.includes("sketchbook_write"))
     assert.ok(expanded.endsWith("Explain the API architecture."))
     assert.ok(session.getActiveToolNames().includes("sketchbook_write"))
+    assert.equal(await session.followUp("/skill:sketchbook-diagram-design SVG example"), "queued")
+    assert.ok(session.getFollowUpMessages()[1].includes('<skill name="sketchbook-diagram-design"'))
+    const packagedUpstream = join(packagePath, "skills/sketchbook-diagram-design/upstream")
+    for (const name of ["GUIDE.md", "LICENSE", "assets/template.html", "scripts/export_svg.py"]) {
+      assert.ok((await stat(join(packagedUpstream, name))).isFile())
+    }
 
     const ctx = { cwd: workspace, mode: "rpc" } as ExtensionToolContext
     async function call(name: string, input: unknown) {
@@ -130,7 +168,9 @@ async function smoke(packagePath: string, label: string): Promise<void> {
     )
     const sequenceDeck = document.blocks.find((block) => block.type === "diagram-deck")
     assert.ok(sequenceDeck, "Packed walkthrough must include a diagram deck")
-    sequenceDeck.slides.push(sequenceSlide)
+    const svgSlide = await cacheSlide(packagePath)
+    sequenceDeck.slides.push(sequenceSlide, svgSlide)
+    document.blocks.push(await cachePage(packagePath))
     const created = await call("sketchbook_write", { document })
     assert.equal(created.path, join(workspace, ".pi/sketchbook", `${created.documentId}.json`))
     assert.equal(created.renderingVerified, false)
@@ -178,7 +218,10 @@ async function smoke(packagePath: string, label: string): Promise<void> {
       await page.locator(".diagram-svg svg").first().waitFor({ timeout: 30_000 })
       assert.equal(await page.title(), `${document.title} — Pi Sketchbook`)
       assert.equal(await page.locator(".brand").textContent(), "Pi Sketchbook")
-      await checkSequence(page.locator(`[data-block-id="${sequenceDeck.id}"]`))
+      const sequenceRegion = page.locator(`[data-block-id="${sequenceDeck.id}"]`)
+      await checkSequence(sequenceRegion)
+      await checkSvg(sequenceRegion, svgSlide)
+      await checkDesignPage(page.locator('iframe[data-block-id="cache-html"]'))
       const mathDeck = document.blocks.find(
         (block) =>
           block.type === "diagram-deck" &&
@@ -216,7 +259,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   }
 }
 
-async function smokeMcp(tarball: string): Promise<void> {
+async function smokeMcp(tarball: string): Promise<string> {
   const npmEnvironment = { npm_config_update_notifier: "false" }
   const install = join(temporary, "mcp-install")
   const workspace = join(install, "workspace")
@@ -229,6 +272,9 @@ async function smokeMcp(tarball: string): Promise<void> {
     { cwd: install, timeout: 120_000 },
   )
   await assert.rejects(stat(join(install, "node_modules/@earendil-works/pi-coding-agent")))
+  const installed = join(install, "node_modules/@narumitw/sketchbook")
+  const svgSlide = await cacheSlide(installed)
+  const designPage = await cachePage(installed)
   const help = await execute(
     "npx",
     ["--no", "--package=@narumitw/sketchbook", "--", "sketchbook-mcp", "--help"],
@@ -274,8 +320,10 @@ async function smokeMcp(tarball: string): Promise<void> {
               explanationMarkdown: "The MCP server saves the document in the selected workspace.",
             },
             sequenceSlide,
+            svgSlide,
           ],
         },
+        designPage,
       ],
     }
     async function call(name: string, input: Record<string, unknown>) {
@@ -324,7 +372,10 @@ async function smokeMcp(tarball: string): Promise<void> {
       await page.goto(url.href)
       await page.locator(".diagram-svg svg").waitFor({ timeout: 30_000 })
       assert.equal(await page.title(), "Standalone MCP — Pi Sketchbook")
-      await checkSequence(page.locator('[data-block-id="deck"]'))
+      const deck = page.locator('[data-block-id="deck"]')
+      await checkSequence(deck)
+      await checkSvg(deck, svgSlide)
+      await checkDesignPage(page.locator('iframe[data-block-id="cache-html"]'))
     } finally {
       await browser.close()
     }
@@ -337,6 +388,7 @@ async function smokeMcp(tarball: string): Promise<void> {
   } finally {
     await client.close()
   }
+  return installed
 }
 
 try {
@@ -357,8 +409,26 @@ try {
   assert.ok(files.includes("dist/mcp-cli.js") && files.includes("dist/mcp.js"))
   assert.ok(files.includes("dist/web/index.html"))
   assert.ok(files.includes("dist/web/THIRD_PARTY_LICENSES.md"))
+  assert.ok(files.includes("dist/web/EDITORIAL_FONT_LICENSES.md"))
+  for (const family of [
+    "instrument-serif",
+    "geist",
+    "geist-mono",
+    "noto-sans-tc",
+    "noto-serif-tc",
+  ]) {
+    assert.ok(
+      files.some(
+        (file) => file.startsWith(`dist/web/assets/${family}-`) && file.endsWith(".woff2"),
+      ),
+      `Missing bundled ${family} font`,
+    )
+  }
   for (const path of [
     "skills/sketchbook-create-diagrams/SKILL.md",
+    "examples/diagram-design/http-cache-walkthrough.json",
+    "skills/sketchbook-diagram-design/SKILL.md",
+    "skills/sketchbook-diagram-design/upstream/THIRD_PARTY_LICENSES.md",
     ".claude-plugin/plugin.json",
     ".claude-plugin/marketplace.json",
     ".codex-plugin/plugin.json",
@@ -374,9 +444,9 @@ try {
   await execute("tar", ["-xzf", join(temporary, packed.filename), "-C", temporary])
   const extracted = join(temporary, "package")
   await assert.rejects(stat(join(extracted, "node_modules")))
-  await smoke(extracted, "tarball")
+  const installed = await smokeMcp(join(temporary, packed.filename))
+  await smoke(installed, "tarball")
   await smoke(root, "local")
-  await smokeMcp(join(temporary, packed.filename))
 } finally {
   await rm(temporary, { recursive: true, force: true })
 }

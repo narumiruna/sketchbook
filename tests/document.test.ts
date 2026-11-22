@@ -89,9 +89,11 @@ describe("document validation", () => {
     const deck = value.blocks[0]
     if (deck?.type !== "diagram-deck") throw new Error("Fixture missing deck")
     const overview = deck.slides[0]
-    deck.slides.push({ ...overview, id: "detail", focusNodes: ["A", "B"] })
+    if (!("mermaid" in overview)) throw new Error("Expected Mermaid fixture")
+    const detail = { ...overview, id: "detail", focusNodes: ["A", "B"] }
+    deck.slides.push(detail)
     expect(validateDocument(value)).toBe(value)
-    deck.slides[1].mermaid = "flowchart LR\n A[Start]"
+    detail.mermaid = "flowchart LR\n A[Start]"
     expect(() => validateDocument(value)).toThrow("reuse the first slide")
     deck.slides.pop()
     overview.focusNodes = ["A"]

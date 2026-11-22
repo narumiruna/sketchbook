@@ -77,6 +77,12 @@ no external browser requests.
 Other browser engines, physical touch devices, and human visual acceptance
 were not verified for this change; see the [human browser review](acceptance.md#human-browser-review).
 
+## Diagram Design HTML and static SVG
+
+The Viewer uses the pinned Diagram Design light color roles and editorial type for all books. HTML marked `sketchbook-default-layout` aligns to the book’s text edge. Other pages keep their own layout, even when they use the default colors. The Viewer measures the frame from a fixed height and fits again when its width or local fonts change. If rules tied to the frame height still make content taller than the result, readers can scroll inside the frame. The Viewer and its isolated HTML frames share bundled font declarations. Fontsource's Unicode ranges limit font requests to matching text, including Traditional Chinese. The HTML validator still rejects authored `@font-face`, CSS imports, and external resource URLs. The trusted font declarations only point to bundled files, and font license texts ship in `dist/web/EDITORIAL_FONT_LICENSES.md`.
+
+A book can combine entire Diagram Design HTML outputs as blocks. Validation runs before saving and again before displaying a block. An isolated frame has its own styles, permits no scripts, and grows with the page; it does not load external assets, use the diagram camera, or receive the Viewer access token. Existing SVG slides render as standalone images in a scroll region; the SVG source is not inserted into the Viewer DOM. Only Mermaid keeps the diagram camera and toolbar. Older releases may not read records with the new block or slide types. See the [Diagram Design handoff](acceptance.md#diagram-design-handoff) for host and visual checks that require separate evidence.
+
 ## Historical compatibility checks
 
 These results describe earlier revisions, not the current support contract.

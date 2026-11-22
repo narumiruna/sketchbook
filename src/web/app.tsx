@@ -2,8 +2,10 @@ import { useEffect, useId, useRef, useState } from "react"
 import type { Chapter, StoredBook } from "../book.js"
 import type { CodeBlock, DiagramDeck, StoredDocument } from "../document.js"
 import { BookContents, ChapterOrder, chapterNumber, useBookLocation } from "./chapter-navigation"
+import { DesignPage } from "./design-page"
 import { Diagram } from "./diagram"
 import { Markdown } from "./markdown"
+import { StaticDiagram } from "./static-diagram"
 
 interface Session {
   documentId: string
@@ -131,6 +133,7 @@ function Deck({ deck, inSection }: { deck: DiagramDeck; inSection: boolean }) {
     ids: deck.slides.map((slide) => slide.id),
   }))
   const active = currentSlide(deck, selection)
+  const isSvg = "svg" in active
   const index = deck.slides.indexOf(active)
   const ids = deck.slides.map((slide) => slide.id)
   const multiple = deck.slides.length > 1
@@ -155,7 +158,8 @@ function Deck({ deck, inSection }: { deck: DiagramDeck; inSection: boolean }) {
       // biome-ignore lint/a11y/noNoninteractiveTabindex: Focus enables the required deck-local arrow controls.
       tabIndex={0}
       onKeyDown={(event) => {
-        if (event.altKey || event.ctrlKey || event.metaKey) return
+        if (event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return
+        if (event.target instanceof Element && event.target.closest("[data-static-figure]")) return
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
           event.preventDefault()
           move(event.key === "ArrowLeft" ? -1 : 1)
@@ -171,17 +175,25 @@ function Deck({ deck, inSection }: { deck: DiagramDeck; inSection: boolean }) {
             {active.title}
           </SlideTitle>
         </div>
-        <span className="deck-kind">Mermaid</span>
+        <span className="deck-kind">{isSvg ? "SVG" : "Mermaid"}</span>
       </header>
       <div className="slide-content">
         <div className="slide-figure">
           <div className="deck-viewport" id={viewportId}>
-            <Diagram
-              source={active.mermaid}
-              blockId={deck.id}
-              slideId={active.id}
-              focusNodes={active.focusNodes}
-            />
+            {isSvg ? (
+              <StaticDiagram
+                key={`${active.id}/${active.svg}`}
+                source={active.svg}
+                title={active.title}
+              />
+            ) : (
+              <Diagram
+                source={active.mermaid}
+                blockId={deck.id}
+                slideId={active.id}
+                focusNodes={active.focusNodes}
+              />
+            )}
           </div>
           {multiple && (
             <fieldset className="slide-pagination" aria-label={`${deck.title} slide positions`}>
@@ -276,6 +288,8 @@ function Blocks({ blocks, inSection = false }: { blocks: Chapter["blocks"]; inSe
         )
       case "code":
         return <CodeSnippet key={block.id} block={block} />
+      case "diagram-html":
+        return <DesignPage key={block.id} block={block} />
       default:
         return <Deck key={block.id} deck={block} inSection={inSection} />
     }

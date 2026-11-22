@@ -1,6 +1,8 @@
 import { type APIRequestContext, expect, type Locator, type Page } from "@playwright/test"
 import type { DiagramDeck, SketchbookDocument, StoredDocument } from "../../src/document.js"
 
+export { mermaidDeck as getDeck } from "../fixtures/mermaid-deck.js"
+
 const coordinator = "http://127.0.0.1:4179"
 
 export interface Fixture {
@@ -88,12 +90,6 @@ export async function rendered(deck: Locator) {
 
 export async function selectSlide(deck: Locator, id: string) {
   await deck.locator(`.slide-dot[data-slide-id="${id}"]`).click()
-}
-
-export function getDeck(document: SketchbookDocument, id: string) {
-  const block = document.blocks.find((block) => block.id === id)
-  if (block?.type !== "diagram-deck") throw new Error(`Missing fixture deck ${id}`)
-  return block
 }
 
 export async function readingMetrics(deck: Locator) {
