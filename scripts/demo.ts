@@ -20,8 +20,8 @@ async function main() {
   const { signal } = controller
   const interrupted = once(signal, "abort")
   const stop = () => controller.abort()
-  process.once("SIGINT", stop)
-  process.once("SIGTERM", stop)
+  process.on("SIGINT", stop)
+  process.on("SIGTERM", stop)
   try {
     const documentIds: string[] = []
     for (const volume of [1, 2]) {
@@ -52,12 +52,15 @@ async function main() {
   } catch (error) {
     if (!signal.aborted) throw error
   } finally {
-    process.off("SIGINT", stop)
-    process.off("SIGTERM", stop)
     try {
-      await viewer.close()
+      try {
+        await viewer.close()
+      } finally {
+        await rm(workspace, { recursive: true, force: true })
+      }
     } finally {
-      await rm(workspace, { recursive: true, force: true })
+      process.off("SIGINT", stop)
+      process.off("SIGTERM", stop)
     }
   }
 }
