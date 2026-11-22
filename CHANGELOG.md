@@ -1,5 +1,11 @@
 # @narumitw/sketchbook
 
+## 0.6.0
+
+### Minor Changes
+
+- ff9f147: Add Diagram Design as an authoring option in the packaged skills. Compose static Diagram Design HTML into Sketchbook chapters and sections without the Mermaid diagram frame. Existing SVG slides also display as plain images.
+
 ## 0.5.0
 
 ### Minor Changes
