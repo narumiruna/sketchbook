@@ -4,24 +4,24 @@ import { prepareDesignHtml } from "../src/design-html.js"
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), "utf8")
 
-test("the public skill routes directly to packaged Diagram Design HTML", async () => {
-  const [skill, design, format] = await Promise.all([
-    read("skills/sketchbook-create-diagrams/SKILL.md"),
-    read("skills/sketchbook-diagram-design/SKILL.md"),
-    read("skills/sketchbook-create-diagrams/references/document-format.md"),
+test("the Sketchbook skill includes the complete Diagram Design authoring workflow", async () => {
+  const [skill, format] = await Promise.all([
+    read("skills/sketchbook/SKILL.md"),
+    read("skills/sketchbook/references/document-format.md"),
   ])
-  expect(skill).toMatch(/^---\nname: sketchbook-create-diagrams\ndescription: [^\n]+\n---/)
-  for (const route of [
-    "sketchbook-diagram-design",
+  expect(skill).toMatch(/^---\nname: sketchbook\ndescription: [^\n]+\nlicense: MIT\n---/)
+  for (const step of [
+    "upstream/GUIDE.md",
+    "references/document-format.md",
     "diagram-html",
     "sketchbook_write",
     "sketchbook_edit",
+    "sketchbook_read_book",
     "sketchbook_open",
     "390px",
   ])
-    expect(skill).toContain(route)
+    expect(skill).toContain(step)
   expect(skill).not.toMatch(/mermaid|focusNodes|defaultDiagramSource/i)
-  expect(design).toContain("upstream/GUIDE.md")
   expect(format).toContain("### Diagram Design HTML")
   expect(format).toContain("### Static SVG policy")
   expect(format).not.toMatch(/mermaid|focusNodes/i)

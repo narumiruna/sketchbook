@@ -171,13 +171,13 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   assert.equal(extension.flags.size, 0, "The viewer must not require host flags")
   const skills = loader.getSkills()
   assert.deepEqual(skills.diagnostics, [])
-  assert.deepEqual(skills.skills.map((skill) => skill.name).sort(), [
-    "sketchbook-create-diagrams",
-    "sketchbook-diagram-design",
-  ])
+  assert.deepEqual(
+    skills.skills.map((skill) => skill.name),
+    ["sketchbook"],
+  )
   assert.equal(
-    skills.skills.find((skill) => skill.name === "sketchbook-create-diagrams")?.filePath,
-    join(packagePath, "skills/sketchbook-create-diagrams/SKILL.md"),
+    skills.skills[0].filePath,
+    join(packagePath, "skills/sketchbook/SKILL.md"),
     "Pi must discover the skill from the package being tested",
   )
 
@@ -203,17 +203,16 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   await session.bindExtensions({ mode: "rpc", onError: (error) => errors.push(error.error) })
   try {
     assert.equal(
-      await session.followUp("/skill:sketchbook-create-diagrams Explain the API architecture."),
+      await session.followUp("/skill:sketchbook Explain the API architecture."),
       "queued",
     )
     const expanded = session.getFollowUpMessages()[0]
-    assert.ok(expanded.includes('<skill name="sketchbook-create-diagrams"'))
+    assert.ok(expanded.includes('<skill name="sketchbook"'))
     assert.ok(expanded.includes("sketchbook_write"))
     assert.ok(expanded.endsWith("Explain the API architecture."))
     assert.ok(session.getActiveToolNames().includes("sketchbook_write"))
-    assert.equal(await session.followUp("/skill:sketchbook-diagram-design SVG example"), "queued")
-    assert.ok(session.getFollowUpMessages()[1].includes('<skill name="sketchbook-diagram-design"'))
-    const packagedUpstream = join(packagePath, "skills/sketchbook-diagram-design/upstream")
+    assert.ok(expanded.includes("upstream/GUIDE.md"))
+    const packagedUpstream = join(packagePath, "skills/sketchbook/upstream")
     for (const name of ["GUIDE.md", "LICENSE", "assets/template.html", "scripts/export_svg.py"]) {
       assert.ok((await stat(join(packagedUpstream, name))).isFile())
     }
@@ -509,10 +508,10 @@ try {
     )
   }
   for (const path of [
-    "skills/sketchbook-create-diagrams/SKILL.md",
     "examples/diagram-design/http-cache-walkthrough.json",
-    "skills/sketchbook-diagram-design/SKILL.md",
-    "skills/sketchbook-diagram-design/upstream/THIRD_PARTY_LICENSES.md",
+    "skills/sketchbook/SKILL.md",
+    "skills/sketchbook/references/document-format.md",
+    "skills/sketchbook/upstream/THIRD_PARTY_LICENSES.md",
     ".claude-plugin/plugin.json",
     ".claude-plugin/marketplace.json",
     ".codex-plugin/plugin.json",
@@ -521,6 +520,10 @@ try {
   ]) {
     assert.ok(files.includes(path), `Packed file missing: ${path}`)
   }
+  assert.deepEqual(
+    files.filter((file) => file.startsWith("skills/") && file.endsWith("/SKILL.md")),
+    ["skills/sketchbook/SKILL.md"],
+  )
   assert.ok(files.includes("README.md") && files.includes("LICENSE"))
   assert.ok(files.includes("docs/compatibility.md") && files.includes("docs/acceptance.md"))
   assert.ok(!files.some((file) => file.startsWith("docs/plans/")))

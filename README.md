@@ -36,7 +36,7 @@ Review package code before installation and project declarations before granting
 
 ### Claude Code and Codex plugins
 
-Install the plugin to get `sketchbook-create-diagrams` and its MCP tools together. The plugins are for local clients; they use the same `sketchbook-mcp` executable.
+Install the plugin to get the `sketchbook` skill and its MCP tools together. The plugins are for local clients; they use the same `sketchbook-mcp` executable.
 
 Build and install the npm tarball from this checkout with Node.js 26.0.0 or later. This keeps the skill and MCP server on the same version. Run these commands at the repository root:
 
@@ -105,13 +105,13 @@ To run the MCP server from this checkout, use Node.js 26.0.0 or later, run `npm 
 - `sketchbook_open` starts the read-only HTTP viewer, not an HTTP MCP endpoint. The [LAN rules](#lan-access) also apply to MCP.
   - Client disconnect, stdin EOF, SIGINT, or SIGTERM closes the viewer.
 - MCP exposes tools, not Pi slash commands or automatic skill loading.
-  - The bundled [authoring skill](skills/sketchbook-create-diagrams/SKILL.md) and [document format](skills/sketchbook-create-diagrams/references/document-format.md) remain available as guidance.
+  - The bundled [authoring skill](skills/sketchbook/SKILL.md) and [document format](skills/sketchbook/references/document-format.md) remain available as guidance.
   - Client-specific UI behavior still requires the [MCP client handoff](docs/acceptance.md#mcp-client-handoff).
 
 ## Upgrade from Pi Canvas
 
 The package is now `@narumitw/sketchbook`.
-Replace `canvas_*` tool calls with `sketchbook_*` and `/skill:canvas-explain-diagrams` with `/skill:sketchbook-create-diagrams`.
+Replace `canvas_*` tool calls with `sketchbook_*` and `/skill:canvas-explain-diagrams` with `/skill:sketchbook`.
 The old names are not aliases.
 
 Existing documents in `.pi/canvas/` are not moved automatically.
@@ -123,12 +123,12 @@ Start Pi again to load the renamed tools and skill, then open documents for new 
 
 ## Use
 
-If you used `/skill:sketchbook-explain-diagrams`, update your prompts and integrations to use `/skill:sketchbook-create-diagrams`. The old command is not an alias.
+Use `/skill:sketchbook` in Pi. The older commands `/skill:sketchbook-create-diagrams`, `/skill:sketchbook-diagram-design`, and `/skill:sketchbook-explain-diagrams` are not aliases. Update saved prompts to use the new command.
 
 Load the bundled skill explicitly:
 
 ```text
-/skill:sketchbook-create-diagrams Explain this system with an overview, API detail, and storage detail.
+/skill:sketchbook Explain this system with an overview, API detail, and storage detail.
 ```
 
 For a quick overview, answer in chat first: state what the subject does and list its main features. Save a page only when requested or when a visual helps.
@@ -150,7 +150,7 @@ See the [HTTP cache example](examples/diagram-design/http-cache.html) for a grad
 For edits, read the record you intend to change and use its revision. On conflict or an uncertain result, read that same record again before deciding whether to retry.
 A successful write confirms validation and storage. Neither writing nor calling `sketchbook_open` verifies browser rendering.
 Pi and MCP use the same validation and store the exact HTML or SVG source.
-The [document format](skills/sketchbook-create-diagrams/references/document-format.md) defines fields, IDs, limits, heading roles, and tool details.
+The [document format](skills/sketchbook/references/document-format.md) defines fields, IDs, limits, heading roles, and tool details.
 
 For a standalone snippet, add an entry like this to `document.blocks`:
 
@@ -171,7 +171,7 @@ A standalone page needs no cover or contents list. Add a section to give readers
 2. Use `sketchbook_edit` to append a block or slide to its target without resending unrelated content. Use `replace-block` for an explicit replacement. Without `chapterId`, the edit addresses the first chapter. A block or slide edit with neither `chapterId` nor `sectionId` changes the original document and uses the revision from `sketchbook_read`. Every other operation changes the book sidecar and uses its revision. The two revisions are independent; neither is a snapshot of both records.
 3. Use the Viewer’s numbered book contents to switch chapters, or Previous/Next to read in order. Section links appear under the current chapter; select one to jump within that page. For a page with sections but no other chapters, the contents list only those sections. On wide screens the contents stay visible in a left sidebar; on narrow screens they appear above the reading page. A chapter or section link uses `chapter` and/or `section` query parameters with stable IDs. Keep the original token in the URL fragment, after the query. An unqualified link still opens the first chapter; renaming or reordering a chapter does not change its ID. Links remain private and valid only for the running Viewer session.
 
-See [edit operations and targeting](skills/sketchbook-create-diagrams/references/document-format.md#edit-operations) for exact fields and [progressive acceptance](docs/acceptance.md#progressive-sketchbook-handoff) for the verification handoff.
+See [edit operations and targeting](skills/sketchbook/references/document-format.md#edit-operations) for exact fields and [progressive acceptance](docs/acceptance.md#progressive-sketchbook-handoff) for the verification handoff.
 
 ### LAN access
 
@@ -207,7 +207,7 @@ Check the complete heading outline before reviewing individual diagrams. Define 
 
 ## Add Diagram Design HTML
 
-Place the complete self-contained Diagram Design output in a block with `type: "diagram-html"`, an `id`, a `title`, and the full `html` string. Add these blocks to the first page, sections, or chapters to assemble the book. The Viewer keeps the drawings, typography, and captions together without a diagram frame or camera. See the [HTML policy](skills/sketchbook-create-diagrams/references/document-format.md#diagram-design-html).
+Place the complete self-contained Diagram Design output in a block with `type: "diagram-html"`, an `id`, a `title`, and the full `html` string. Add these blocks to the first page, sections, or chapters to assemble the book. The Viewer keeps the drawings, typography, and captions together without a diagram frame or camera. See the [HTML policy](skills/sketchbook/references/document-format.md#diagram-design-html).
 
 Python is not required to import or view HTML. The Viewer works offline. MCP-only clients can read and write the same format; provide your own authoring workflow if the client does not load skills.
 
