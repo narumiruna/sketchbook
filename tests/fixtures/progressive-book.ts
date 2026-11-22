@@ -1,5 +1,6 @@
 import type { Chapter, Section } from "../../src/book.js"
 import type { SketchbookDocument } from "../../src/document.js"
+import { drawing } from "./static-drawing.js"
 
 export const codebaseOverview: SketchbookDocument = {
   schemaVersion: 1,
@@ -11,8 +12,8 @@ export const codebaseOverview: SketchbookDocument = {
       markdown: `Sketchbook saves local technical walkthroughs and opens them in a read-only browser Viewer.
 
 - **Write and read** from Pi or a standalone MCP client.
-- **Explain an idea** with Markdown, code, math, and Mermaid diagrams.
-- **Read at your pace** with slide controls and diagram zoom.`,
+- **Explain an idea** with Markdown, code, math, and diagrams.
+- **Read at your pace** with chapters and slide navigation.`,
     },
   ],
 }
@@ -36,12 +37,7 @@ A **conversation** is a shared message stream. To send a message, the client ask
         {
           id: "send",
           title: "Ack after commit",
-          mermaid: `sequenceDiagram
-participant Client
-participant API
-Client->>API: Send
-Note over API: Commit
-API-->>Client: Ack`,
+          svg: drawing("Send → Commit → Ack"),
           explanationMarkdown:
             "The API checks membership before writing. The database assigns a position in the conversation and saves the text. The API returns that position in the ack only after the database confirms the commit.",
         },
@@ -88,11 +84,7 @@ export const chatChapters: Chapter[] = [
           {
             id: "roles",
             title: "Save path and live path",
-            mermaid: `flowchart TD
-Client["Client"] -->|Send or read| API["API"]
-API -->|Store or load| DB["DB"]
-Relay["Relay"] -->|Read commits| DB
-Relay -->|Live update| Client`,
+            svg: drawing("Client → API → DB; Relay → Client"),
             explanationMarkdown:
               "The arrows show component responsibilities, not the order of requests. The API can save a message even when no one is connected. The Relay watches committed rows, so it cannot deliver a draft or an uncommitted write.",
           },
@@ -182,23 +174,14 @@ The live stream reduces delay. Ordered history makes missed or repeated events r
               {
                 id: "lost-ack",
                 title: "When an ack is lost",
-                mermaid: `sequenceDiagram
-participant Client
-participant API
-Client->>API: Send 17
-API--xClient: Ack lost
-Client->>API: Retry 17
-API-->>Client: Ack 42`,
+                svg: drawing("Send 17 → Ack lost → Retry 17 → Ack 42"),
                 explanationMarkdown:
                   "The first request saves position 42 but the client never gets its response. Reusing client message ID 17 lets the API return position 42 again, without creating a second message.",
               },
               {
                 id: "key-match",
                 title: "When an ID already exists",
-                mermaid: `flowchart TD
-Same{"Same text?"}
-Same -->|Yes| Ack["Return ack"]
-Same -->|No| Reject["Reject"]`,
+                svg: drawing("Same text? Yes: ack. No: reject."),
                 explanationMarkdown:
                   "Once the API finds an existing ID for this sender and conversation, matching text returns the saved result. Different text returns HTTP 409 Conflict and leaves the existing message unchanged. If no row exists, the normal send path can create it.",
               },
@@ -225,9 +208,7 @@ Same -->|No| Reject["Reject"]`,
           {
             id: "chat-tables",
             title: "Members and messages",
-            mermaid: `erDiagram
-CHAT ||--o{ MEMBER : has
-CHAT ||--o{ MSG : holds`,
+            svg: drawing("CHAT has MEMBER and MSG rows"),
             explanationMarkdown:
               "A conversation can have multiple membership and message rows. Each row belongs to one conversation. Membership controls access; the message rows preserve content and order.",
           },

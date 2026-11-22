@@ -22,7 +22,7 @@ export function createSketchbookMcpServer(cwd: string) {
     {
       capabilities: { tools: {} },
       instructions:
-        "Create technical documents with Markdown, standalone code blocks, and Mermaid diagram decks. Use supported headers such as flowchart, sequenceDiagram, classDiagram, and stateDiagram-v2; see the README matrix. Decks can mix types, but focusNodes is flowchart-only. Do not use Mermaid directives, frontmatter, HTML, images, icons, links, click actions, or node metadata. Create documents without documentId or expectedRevision. Use sketchbook_edit to append to an existing page or add sections and chapters without replacing unrelated content. Read the target revision first; use sketchbook_write for deliberate full-page replacement. On conflict, read again. Saving does not verify rendering. Viewer URLs are private capabilities for trusted networks and expire when this server stops. Do not write the same document from different processes.",
+        "Create technical documents with Markdown, standalone code blocks, and static Diagram Design HTML. Save completed Diagram Design pages in `diagram-html` blocks. Do not put raw HTML in Markdown. Create documents without documentId or expectedRevision. Use sketchbook_edit to append to an existing page or add sections and chapters without replacing unrelated content. Read the target revision first; use sketchbook_write for deliberate full-page replacement. On conflict, read again. Saving does not verify rendering. Viewer URLs are private capabilities for trusted networks and expire when this server stops. Do not write the same document from different processes.",
     },
   )
   const catalog: Tool[] = definitions.map((tool) => ({

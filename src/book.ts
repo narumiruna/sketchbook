@@ -12,6 +12,7 @@ import {
   UpdatedAtSchema,
   validateBlocks,
 } from "./document.js"
+import { rejectRetiredBook, rejectRetiredEdit } from "./retired-format.js"
 
 export const MAX_BOOK_BYTES = 4 * 1024 * 1024
 const MAX_CHAPTERS = 32
@@ -88,10 +89,17 @@ export const BookEditInputSchema = Type.Object(
 )
 
 export type BookEditInput = Static<typeof BookEditInputSchema>
+
 export type StoredBook = Static<typeof StoredBookSchema>
 export type Chapter = Static<typeof ChapterSchema>
 export type Section = Static<typeof SectionSchema>
 type Operation = BookEditInput["operation"]
+
+export function validateBookEditInput(input: unknown): BookEditInput {
+  rejectRetiredEdit(input)
+  assertSchema(BookEditInputSchema, input)
+  return input
+}
 type ContentEdit = Extract<Operation, { type: "append-block" | "replace-block" | "append-slide" }>
 
 function validateSections(sections: Section[]): void {
@@ -104,6 +112,7 @@ function validateSections(sections: Section[]): void {
 }
 
 export function validateStoredBook(value: unknown): StoredBook {
+  rejectRetiredBook(value)
   assertSchema(StoredBookSchema, value)
   if (Number.isNaN(Date.parse(value.updatedAt)))
     throw new Error("Invalid sketchbook updatedAt timestamp")

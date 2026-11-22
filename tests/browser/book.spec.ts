@@ -122,9 +122,9 @@ test("the original link gains sections and promotes live without losing its intr
   await page.goBack()
   await expect(title(page)).toBeFocused()
   checkLocation(page.url(), fixture)
-  await diagram.getByRole("button", { name: "Show source", exact: true }).press("Enter")
-  const sourceToggle = diagram.getByRole("button", { name: "Show diagram", exact: true })
-  await expect(sourceToggle).toBeFocused()
+  const scroller = diagram.locator(".static-diagram")
+  await scroller.focus()
+  await expect(scroller).toBeFocused()
 
   await editBook(request, fixture, addedSection.revision, {
     type: "add-chapter",
@@ -139,7 +139,7 @@ test("the original link gains sections and promotes live without losing its intr
   ).toBeVisible()
   await expect(title(page)).toHaveText(chatOverview.title)
   await expect(section).toBeVisible()
-  await expect(sourceToggle).toBeFocused()
+  await expect(scroller).toBeFocused()
   await expect(page.locator(".revision")).toContainText("Revision 1")
   checkLocation(page.url(), fixture)
 

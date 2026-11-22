@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test"
 import { validateDocument } from "../../src/document.js"
 import { rendered, save, selectSlide } from "./helpers.js"
 
-test("static SVG is a scrollable figure with no camera; mixed decks still support Mermaid", async ({
+test("static SVG is a scrollable figure with no camera and revokes replaced Blob URLs", async ({
   page,
   request,
 }) => {
@@ -18,12 +18,6 @@ test("static SVG is a scrollable figure with no camera; mixed decks still suppor
   )
   const model = document.blocks[1]
   if (model.type !== "diagram-deck") throw new Error("Expected cache deck")
-  model.slides.push({
-    id: "mermaid",
-    title: "Mermaid control",
-    explanationMarkdown: "Other source, same deck.",
-    mermaid: "flowchart LR\n A[Original] --> B[Next]",
-  })
   await page.addInitScript(() => {
     const revoked: string[] = []
     Object.defineProperty(window, "svgTestRevoked", { value: revoked })
@@ -51,10 +45,11 @@ test("static SVG is a scrollable figure with no camera; mixed decks still suppor
   await expect.poll(() => scroller.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0)
   await expect(deck).toHaveAttribute("data-slide-id", "fresh")
   expect(await page.evaluate(() => window.document.documentElement.scrollWidth)).toBe(390)
-  await selectSlide(deck, "mermaid")
+  const next = model.slides[1]
+  await selectSlide(deck, next.id)
   await rendered(deck)
-  await expect(deck.getByRole("button", { name: "Zoom in", exact: true })).toBeEnabled()
-  await expect(deck.locator("svg text").filter({ hasText: "Original" })).toBeVisible()
+  await expect(deck.getByRole("img", { name: next.title, exact: true })).toBeVisible()
+  await expect(deck.getByRole("group", { name: "Diagram controls" })).toHaveCount(0)
   await expect
     .poll(() => page.evaluate((url) => Reflect.get(window, "svgTestRevoked").includes(url), blob))
     .toBe(true)

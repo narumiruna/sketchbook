@@ -13,6 +13,7 @@ import {
 } from "../src/document.js"
 import { withFileMutationQueue } from "../src/mutation-queue.js"
 import { DocumentStore } from "../src/store.js"
+import { drawing } from "./fixtures/static-drawing.js"
 
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof fs>()
@@ -23,7 +24,7 @@ const text = { id: "text", type: "markdown", markdown: "Original text" } as cons
 const slide = {
   id: "overview",
   title: "Overview",
-  mermaid: "flowchart LR\n A[Start] --> B[Finish]",
+  svg: drawing("Start → Finish"),
   explanationMarkdown: "Start to finish.",
 }
 const deck: DiagramDeck = { id: "tour", type: "diagram-deck", title: "Tour", slides: [slide] }
@@ -144,7 +145,7 @@ test("changes only the target chapter, section, block or deck; reorder preserves
   await edit(8, { type: "append-block", chapterId: third.id, block: snippet })
   const newText = { ...text, markdown: "Replacement in third section" }
   await edit(9, { type: "replace-block", chapterId: third.id, sectionId: "more", block: newText })
-  const detail = { ...slide, id: "detail", focusNodes: ["A"] }
+  const detail = { ...slide, id: "detail", svg: drawing("Detail") }
   expect(
     await edit(10, {
       type: "append-slide",
@@ -242,7 +243,7 @@ test("shares canonical locks across stores and shares the v1 lock with legacy wr
   ])
 })
 
-test("rejects duplicates, invalid targets, invalid order and blocked Mermaid without consuming revisions", async () => {
+test("rejects duplicates, invalid targets, invalid order and unsafe SVG without consuming revisions", async () => {
   await edit(0, addSection)
   await edit(1, addChapter)
   const previous = await fs.readFile(bookPath, "utf8")
@@ -263,13 +264,7 @@ test("rejects duplicates, invalid targets, invalid order and blocked Mermaid wit
       type: "append-slide",
       sectionId: section.id,
       deckId: deck.id,
-      slide: { ...slide, id: "unsafe", mermaid: "%%{init: {}}%%\nflowchart LR\nA --> B" },
-    },
-    {
-      type: "append-slide",
-      sectionId: section.id,
-      deckId: deck.id,
-      slide: { ...slide, id: "wrong-focus", focusNodes: ["A"], mermaid: "flowchart LR\n A --> C" },
+      slide: { ...slide, id: "unsafe", svg: "<svg><script/></svg>" },
     },
   ]
   for (const operation of invalid) await expect(edit(2, operation)).rejects.toThrow()

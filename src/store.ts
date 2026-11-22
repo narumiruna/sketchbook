@@ -5,15 +5,13 @@ import { join, resolve } from "node:path"
 import {
   applyBookEdit,
   applyContentEdit,
-  type BookEditInput,
-  BookEditInputSchema,
   isDocumentEdit,
   MAX_BOOK_BYTES,
   type StoredBook,
+  validateBookEditInput,
   validateStoredBook,
 } from "./book.js"
 import {
-  assertSchema,
   MAX_DOCUMENT_BYTES,
   type StoredDocument,
   validateDocumentId,
@@ -257,12 +255,11 @@ export class DocumentStore {
   }
 
   async write(
-    input: WriteInput,
+    input: unknown,
     signal?: AbortSignal,
   ): Promise<{ stored: StoredDocument; path: string }> {
     signal?.throwIfAborted()
-    validateWriteInput(input)
-    const snapshot: WriteInput = JSON.parse(JSON.stringify(input))
+    const snapshot: WriteInput = JSON.parse(JSON.stringify(validateWriteInput(input)))
     const directory = await this.directory(true)
     const mutate = this.mutationQueue ?? withFileMutationQueue
     await mutate(join(directory, ".gitignore"), () => this.ensureIgnore(directory))
@@ -295,13 +292,13 @@ export class DocumentStore {
   }
 
   async editBook(
-    input: BookEditInput,
+    input: unknown,
     signal?: AbortSignal,
   ): Promise<{ revision: number; record: "document" | "book" }> {
     signal?.throwIfAborted()
-    const snapshot: unknown = structuredClone(input)
-    assertSchema(BookEditInputSchema, snapshot)
-    const { documentId, expectedRevision, operation } = snapshot
+    const { documentId, expectedRevision, operation } = structuredClone(
+      validateBookEditInput(input),
+    )
     const documentEdit = isDocumentEdit(operation)
     const record = documentEdit ? "document" : "book"
     const directory = await this.directory(false)

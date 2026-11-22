@@ -1,6 +1,6 @@
 {
   "name": "sketchbook",
-  "description": "Create and open local Mermaid and Diagram Design walkthroughs with Sketchbook.",
+  "description": "Create and open local Diagram Design walkthroughs with Sketchbook.",
   "skills": "./skills/",
   "mcpServers": "./.codex-plugin/mcp.json"
 }

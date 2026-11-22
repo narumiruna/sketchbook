@@ -1,5 +1,9 @@
 # Compatibility evidence
 
+## Current compatibility
+
+Sketchbook uses Diagram Design HTML for new diagrams. Static SVG decks, Markdown, KaTeX, code, sections, and chapters remain supported. Root documents or book sidecars containing Mermaid slides are not opened or converted. See [Open older books](../README.md#open-older-books) for the verified recovery build and backup steps. The records below describe earlier revisions, including features and fixtures that have since been retired.
+
 ## Evidence labels
 
 - **Declared** identifies the support contract or a pinned dependency, not a passed test.

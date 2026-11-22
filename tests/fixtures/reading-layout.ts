@@ -1,4 +1,5 @@
 import type { DiagramDeck, SketchbookDocument } from "../../src/document.js"
+import { drawing } from "./static-drawing.js"
 
 export function readingFixture(): SketchbookDocument {
   return {
@@ -18,25 +19,23 @@ export function readingFixture(): SketchbookDocument {
           {
             id: "compact",
             title: "Validate inputs before committing the replacement",
-            mermaid:
-              'flowchart TD\n Client["Client"] --> Check["Check"]\n Check --> Saved["Saved"]',
+            svg: drawing("Client → Check → Saved", 290, 140),
             explanationMarkdown:
               "The client supplies the complete input. Check accepts valid input before Saved records the result.\n\nThis paragraph stays unchanged in before/after layout captures. It must remain readable beside the diagram on desktop and below it on narrow screens.",
           },
           {
             id: "wide",
             title: "Separate independent inputs without clipping the graph",
-            mermaid:
-              'flowchart LR\n A["Input A"] --> B["Check A"] --> C["Saved A"]\n D["Input B"] --> E["Check B"] --> F["Saved B"]',
+            svg: drawing("Inputs A and B → Separate checks → Saved results", 960, 240),
             explanationMarkdown:
               "Two independent inputs follow the same check and save stages. A wide graph remains contained; the layout must not change its direction or meaning.",
           },
           {
             id: "tall",
-            title: "Keep a long process bounded without changing the camera rules",
-            mermaid: `flowchart TD\n${Array.from({ length: 10 }, (_, index) => `N${index}["Stage ${index}"] --> N${index + 1}["Stage ${index + 1}"]`).join("\n")}`,
+            title: "Keep a long process readable alongside its explanation",
+            svg: drawing("Stage 0 → Stage 10", 340, 900),
             explanationMarkdown:
-              "This stress case tests bounded height and camera controls. Its initial fitted labels are not a compact-teaching readability target.\n\n```typescript\nconst stages = 11\n```",
+              "This stress case tests how a tall diagram fits into the reading page.\n\n```typescript\nconst stages = 11\n```",
           },
         ],
       },

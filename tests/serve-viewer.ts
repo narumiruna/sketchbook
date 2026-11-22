@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { mkdtemp, rm } from "node:fs/promises"
 import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -16,21 +16,6 @@ const coordinator = createServer((request, response) => {
     response.setHeader("Content-Type", "application/json")
     if (request.method === "GET" && path === "/health") {
       response.end(JSON.stringify({ ready: true }))
-      return
-    }
-    if (request.method === "GET" && path.startsWith("/assets/")) {
-      const name = path.slice("/assets/".length)
-      if (
-        !["architecture-walkthrough", "process-walkthrough", "sequence-walkthrough"].includes(name)
-      ) {
-        response.writeHead(404).end()
-        return
-      }
-      response.end(
-        await readFile(
-          new URL(`../skills/sketchbook-create-diagrams/assets/${name}.json`, import.meta.url),
-        ),
-      )
       return
     }
     if (request.method !== "POST" || !["/documents", "/books"].includes(path)) {
