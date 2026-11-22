@@ -131,6 +131,20 @@ describe("ViewerServer", () => {
     expect(networkInterfaces).toHaveBeenCalledTimes(1)
   })
 
+  it("can bind only to loopback without detecting or accepting LAN hosts", async () => {
+    const lan = "192.168.1.5"
+    vi.mocked(networkInterfaces).mockReturnValue({ en0: [interfaceAddress(lan)] })
+    const listen = vi.spyOn(Server.prototype, "listen")
+    viewer = new ViewerServer(store, assets, "127.0.0.1")
+    servers.push(viewer)
+    const { url, auth, api } = await opened()
+    expect(url.hostname).toBe("127.0.0.1")
+    expect(listen.mock.calls[0]?.[1]).toBe("127.0.0.1")
+    expect(networkInterfaces).not.toHaveBeenCalled()
+    expect((await get(url, api, auth)).status).toBe(200)
+    expect((await get(url, api, { ...auth, Host: `${lan}:${url.port}` })).status).toBe(403)
+  })
+
   it("publishes book content to the original authenticated endpoint with a fresh ETag", async () => {
     const { url, auth, api } = await opened()
     const before = await get(url, api, auth)
