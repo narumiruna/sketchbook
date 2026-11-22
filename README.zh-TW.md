@@ -4,7 +4,9 @@
 
 把技術解說做成可以在瀏覽器開啟的本機頁面。你可以混用 Markdown、LaTeX、程式碼和圖表，從一頁開始，再視需要加入小節或章節。
 
-Sketchbook 可在 Pi 使用，也提供 Claude Code 和 Codex 外掛，以及獨立的 MCP 伺服器。圖表製作以 [Diagram Design](https://github.com/cathrynlavery/diagram-design) 為基礎，並隨附它的指南、範本與匯出工具。[HTTP 快取教學範例](examples/diagram-design/http-cache-walkthrough.json)展示了含靜態 SVG 投影片的文件。
+Sketchbook 可在 Pi 使用，也提供 Claude Code 和 Codex 外掛，以及獨立的 MCP 伺服器。圖表製作以 [Diagram Design](https://github.com/cathrynlavery/diagram-design) 為基礎，並隨附它的指南、範本與匯出工具。
+
+![Sketchbook Viewer 顯示英文程式碼導覽與架構圖](assets/preview.png)
 
 ## 安裝
 

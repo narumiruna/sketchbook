@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises"
 import { expect, test } from "vitest"
 import { validateDocument } from "../src/document.js"
 import { inspectStaticSvg, MAX_SVG_BYTES } from "../src/static-svg.js"
@@ -16,22 +15,20 @@ function deck(slides: unknown[], defaultDiagramSource?: string) {
   }
 }
 
-test("accepts the three exported cache slides and preserves the exact document source", async () => {
-  const value = JSON.parse(
-    await readFile(
-      new URL("../examples/diagram-design/http-cache-walkthrough.json", import.meta.url),
-      "utf8",
-    ),
-  )
+test("preserves the source of a document with several static slides", () => {
+  const slides = ["Start", "Middle", "End"].map((title) => ({
+    ...baseSlide,
+    id: title.toLowerCase(),
+    title,
+    svg: drawing(`<text x="16" y="32">${title}</text>`, "0 0 960 600"),
+  }))
+  const value = deck(slides)
   const document = validateDocument(value)
   expect(document).toBe(value)
   expect(document.defaultDiagramSource).toBeUndefined()
-  const block = document.blocks[1]
-  if (block.type !== "diagram-deck") throw new Error("Missing cache deck")
-  expect(block.slides).toHaveLength(3)
-  for (const slide of block.slides) {
-    if (!("svg" in slide)) throw new Error("Expected exported SVG")
-    expect(inspectStaticSvg(slide.svg)).toEqual({ width: 960, height: 600 })
+  expect(document.blocks[0]).toMatchObject({ slides })
+  for (const { svg } of slides) {
+    expect(inspectStaticSvg(svg)).toEqual({ width: 960, height: 600 })
   }
 })
 

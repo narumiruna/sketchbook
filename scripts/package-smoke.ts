@@ -19,18 +19,17 @@ import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js"
 import { type Browser, chromium, type Locator } from "@playwright/test"
 import { Check } from "typebox/value"
 import type { SketchbookDocument } from "../src/document.js"
+import { drawing } from "../tests/fixtures/static-drawing.js"
 
 const execute = promisify(execFile)
 const root = resolve(import.meta.dirname, "..")
 const temporary = await realpath(await mkdtemp(join(tmpdir(), "pi-sketchbook-package-")))
 
-async function cacheSlide(packagePath: string) {
-  const file = join(packagePath, "examples/diagram-design/http-cache-walkthrough.json")
-  const document = JSON.parse(await readFile(file, "utf8")) as SketchbookDocument
-  const deck = document.blocks.find((block) => block.type === "diagram-deck")
-  const slide = deck?.slides[0]
-  assert.ok(slide)
-  return slide
+const svgSlide = {
+  id: "storage",
+  title: "Workspace storage",
+  svg: drawing("Shared tools → DocumentStore", 960, 600),
+  explanationMarkdown: "The tools save the document as JSON in the workspace.",
 }
 
 async function checkSvg(deck: Locator, slide: { id: string; title: string }) {
@@ -229,7 +228,6 @@ async function smoke(packagePath: string, label: string): Promise<void> {
       assert.ok(tool.outputSchema && Check(tool.outputSchema, result.structuredContent))
       return result.structuredContent as Record<string, unknown>
     }
-    const svgSlide = await cacheSlide(packagePath)
     const document: SketchbookDocument = {
       schemaVersion: 1,
       title: "Packaged book",
@@ -348,7 +346,7 @@ async function smokeGit(): Promise<void> {
   const repository = join(temporary, "git-source")
   for (const path of [
     ".gitignore",
-    "examples/diagram-design",
+    "assets/preview.png",
     "package.json",
     "package-lock.json",
     "scripts",
@@ -429,7 +427,6 @@ async function smokeMcp(tarball: string): Promise<string> {
     await assert.rejects(stat(join(install, "node_modules", name)), { code: "ENOENT" })
   }
   const installed = join(install, "node_modules/@narumitw/sketchbook")
-  const svgSlide = await cacheSlide(installed)
   const designPage = await cachePage()
   const help = await execute(
     "npx",
@@ -580,7 +577,7 @@ try {
     )
   }
   for (const path of [
-    "examples/diagram-design/http-cache-walkthrough.json",
+    "assets/preview.png",
     "skills/sketchbook/SKILL.md",
     "skills/sketchbook/references/document-format.md",
     "skills/sketchbook/upstream/THIRD_PARTY_LICENSES.md",
