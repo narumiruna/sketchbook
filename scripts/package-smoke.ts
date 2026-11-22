@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
 import { execFile } from "node:child_process"
-import { mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises"
+import { cp, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises"
 import { networkInterfaces, tmpdir } from "node:os"
 import { join, resolve } from "node:path"
+import { pathToFileURL } from "node:url"
 import { promisify } from "node:util"
 import {
   createAgentSession,
@@ -341,6 +342,76 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   }
 }
 
+async function smokeGit(): Promise<void> {
+  const source = "https://github.com/narumiruna/sketchbook"
+  const repository = join(temporary, "git-source")
+  for (const path of [
+    ".gitignore",
+    "examples/diagram-design",
+    "package.json",
+    "package-lock.json",
+    "scripts",
+    "skills/sketchbook/SKILL.md",
+    "skills/sketchbook/references",
+    "src",
+    "tsconfig.json",
+    "tsconfig.web.json",
+    "vite.config.ts",
+  ]) {
+    await cp(join(root, path), join(repository, path), { recursive: true })
+  }
+  const git = (args: string[], cwd = repository) =>
+    execute("git", ["-c", "core.hooksPath=/dev/null", ...args], {
+      cwd,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "Package test",
+        GIT_AUTHOR_EMAIL: "package-test@example.invalid",
+        GIT_COMMITTER_NAME: "Package test",
+        GIT_COMMITTER_EMAIL: "package-test@example.invalid",
+      },
+    })
+  await git(["init", "-b", "main"])
+  await git(["add", "."])
+  await git(["commit", "-m", "test: create Git package fixture"])
+
+  const agentDir = join(temporary, "git-agent")
+  const pi = (args: string[]) =>
+    execute("pi", args, {
+      cwd: temporary,
+      timeout: 180_000,
+      env: {
+        ...process.env,
+        PI_CODING_AGENT_DIR: agentDir,
+        PI_TELEMETRY: "0",
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_CONFIG_COUNT: "1",
+        GIT_CONFIG_KEY_0: `url.${pathToFileURL(repository).href}.insteadOf`,
+        GIT_CONFIG_VALUE_0: source,
+      },
+    })
+  const installed = join(agentDir, "git/github.com/narumiruna/sketchbook")
+  await pi(["install", source])
+  for (const path of [
+    "dist/extension.js",
+    "dist/web/index.html",
+    "skills/sketchbook/upstream/GUIDE.md",
+  ]) {
+    assert.ok((await stat(join(installed, path))).isFile(), `Missing Git install output: ${path}`)
+  }
+
+  await git(["commit", "--allow-empty", "-m", "test: advance Git package fixture"])
+  await pi(["update", source])
+  assert.equal(
+    (await git(["rev-parse", "HEAD"], installed)).stdout.trim(),
+    (await git(["rev-parse", "HEAD"])).stdout.trim(),
+  )
+  for (const name of ["vite", "typebox", "@earendil-works/pi-coding-agent"]) {
+    await assert.rejects(stat(join(installed, "node_modules", name)), { code: "ENOENT" })
+  }
+  await smoke(installed, "Git install and update")
+}
+
 async function smokeMcp(tarball: string): Promise<string> {
   const npmEnvironment = { npm_config_update_notifier: "false" }
   const install = join(temporary, "mcp-install")
@@ -534,6 +605,7 @@ try {
   const installed = await smokeMcp(join(temporary, packed.filename))
   await smoke(installed, "tarball")
   await smoke(root, "local")
+  await smokeGit()
 } finally {
   await rm(temporary, { recursive: true, force: true })
 }

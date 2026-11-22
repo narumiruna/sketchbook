@@ -11,14 +11,26 @@ Matching deck and slide titles appear once visually.
 
 ### Pi
 
-Install the published Pi package from npm:
+Install the latest Sketchbook from GitHub:
+
+```sh
+pi install https://github.com/narumiruna/sketchbook
+```
+
+The Git install uses Node.js 26.0.0 or later, Git, `tar`, and Pi's default package manager (`npm`).
+Pi clones the repository and builds the extension, Viewer, and bundled skill during installation and when an update changes the Git commit. The build needs access to npm and GitHub.
+Restart Pi or use `/reload`, then run `/skill:sketchbook`.
+
+To update the Git installation, run `pi update https://github.com/narumiruna/sketchbook`.
+
+You can also install the prebuilt npm package, which can lag behind this repository:
 
 ```sh
 pi install npm:@narumitw/sketchbook
 ```
 
-This installs the published version, which can lag behind this repository.
-To use the latest changes from this checkout, use Node.js 26.0.0 or later and run:
+If you switch sources, remove the old package first with `pi remove <source>` to avoid loading Sketchbook twice.
+To install from a local checkout for development:
 
 ```sh
 npm ci
@@ -28,8 +40,7 @@ pi install ./
 
 Sketchbook tests against Pi 1.6.0; see [compatibility evidence](docs/compatibility.md).
 
-Local installation requires the built `dist` assets and installed dependencies.
-Git-source installation is not supported in this release.
+Local installation requires Node.js 26.0.0 or later, the built `dist` assets, and installed dependencies.
 
 The release workflow creates version tags and GitHub Releases. It does not publish npm packages.
 Review package code before installation and project declarations before granting Pi project trust.
@@ -256,7 +267,7 @@ Physical second-device LAN access, remote SSH, container forwarding, and WSLg/Wi
 
 ## Verify
 
-Source builds require `tar` and network access to download and verify the pinned Diagram Design source archive. The build packages the skill, templates, exporter, and license notices. An installed Sketchbook package does not download the upstream archive.
+Source builds, including Git installation, require `tar` and network access to download and verify the pinned Diagram Design source archive. The build packages the skill, templates, exporter, and license notices. The prebuilt npm package does not download the upstream archive.
 
 ```sh
 npm run ci
@@ -265,6 +276,8 @@ npm run test:browser -- --output=test-results/browser
 npm pack --dry-run
 npm run test:package
 ```
+
+The package smoke test checks the Git install and update against a disposable repository, as well as the prebuilt npm tarball and local checkout. It does not change your Pi settings.
 
 The pre-commit hook checks a temporary copy of staged content. Biome uses the staged configuration and ignore rules; the comment check uses [the staged baseline](scripts/comment-baseline.json).
 The comment check covers tracked JavaScript, TypeScript, CSS, HTML, YAML, JSONC (including TypeScript configurations), shell scripts, and Husky hooks. Markdown and comment-like text inside strings and fixture data are not source comments.

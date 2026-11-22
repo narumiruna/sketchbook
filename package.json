@@ -50,7 +50,7 @@
     "ci": "npm run check && npm test && npm run build",
     "changeset": "changeset",
     "release": "npm run build && changeset git-tag",
-    "prepare": "husky"
+    "prepare": "node scripts/prepare.mjs"
   },
   "overrides": {
     "katex": "$katex"
