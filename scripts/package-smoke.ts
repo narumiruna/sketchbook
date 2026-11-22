@@ -203,16 +203,17 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   const errors: string[] = []
   await session.bindExtensions({ mode: "rpc", onError: (error) => errors.push(error.error) })
   try {
-    assert.equal(
-      await session.followUp("/skill:sketchbook Explain the API architecture."),
-      "queued",
-    )
+    const question = "What is an npm lifecycle script?"
+    assert.equal(await session.followUp(`/skill:sketchbook ${question}`), "queued")
     const expanded = session.getFollowUpMessages()[0]
     assert.ok(expanded.includes('<skill name="sketchbook"'))
-    assert.ok(expanded.includes("sketchbook_write"))
-    assert.ok(expanded.endsWith("Explain the API architecture."))
-    assert.ok(session.getActiveToolNames().includes("sketchbook_write"))
+    assert.ok(expanded.includes("even if the question is simple"))
+    assert.ok(expanded.endsWith(question))
     assert.ok(expanded.includes("upstream/GUIDE.md"))
+    for (const name of ["sketchbook_write", "sketchbook_open"]) {
+      assert.ok(expanded.includes(name))
+      assert.ok(session.getActiveToolNames().includes(name))
+    }
     const packagedUpstream = join(packagePath, "skills/sketchbook/upstream")
     for (const name of ["GUIDE.md", "LICENSE", "assets/template.html", "scripts/export_svg.py"]) {
       assert.ok((await stat(join(packagedUpstream, name))).isFile())

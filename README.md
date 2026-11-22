@@ -144,10 +144,11 @@ Load the bundled skill explicitly:
 /skill:sketchbook Explain this system with an overview, API detail, and storage detail.
 ```
 
-For a quick overview, answer in chat first: state what the subject does and list its main features. Save a page only when requested or when a visual helps.
-When the skill handles a diagram request, it saves the page, opens the local Viewer, and returns its link by default.
-The skill uses the bundled Diagram Design guide to choose the right diagram type and saves the complete HTML. No renderer choice is needed.
-Simple questions that do not benefit from diagrams should not trigger the skill automatically.
+An explicit `/skill:sketchbook` invocation requests a saved page and a private local Viewer link, even for a short question.
+The page can be Markdown only when prose is clearer.
+When diagrams help or you request one, the skill uses the bundled Diagram Design guide and saves the complete HTML.
+It uses Sketchbook's default light style unless you specify a style or the project has a profile.
+Without an explicit invocation, simple questions that do not benefit from diagrams should stay in chat.
 Automatic skill selection remains unverified.
 See the [HTTP cache example](examples/diagram-design/http-cache.html) for a gradual explanation from a fresh copy to cache validation and the complete decision flow.
 

@@ -144,10 +144,11 @@ npx -y @narumitw/sketchbook --cwd .
 /skill:sketchbook 請先概述這個系統，再說明 API 和資料儲存的細節。
 ```
 
-只需要簡短概覽時，先在對話中說明主題的用途和主要功能。只有在使用者要求或圖解有幫助時，才儲存成頁面。
-skill 處理圖解需求時，預設會儲存頁面、開啟本機 Viewer，並回傳連結。
-skill 依照隨附的 Diagram Design 指南選擇圖表類型，並儲存完整 HTML；不必手動選擇算繪工具。
-不需要圖解的簡單問題不應自動觸發 skill。目前尚未驗證 skill 的自動選用行為。
+明確叫用 `/skill:sketchbook` 就是要求儲存頁面並取得本機 Viewer 的私有連結，即使只是問一個簡短問題。
+如果文字更清楚，頁面可以只用 Markdown，不必硬加圖表。
+需要圖解時，skill 會依照隨附的 Diagram Design 指南製作圖表，並儲存完整 HTML。
+未指定樣式且專案沒有設定樣式時，會直接使用 Sketchbook 的預設淺色樣式。
+未明確叫用時，不需要圖解的簡單問題應直接在對話中回答。目前尚未驗證 skill 的自動選用行為。
 可參考 [HTTP 快取範例](examples/diagram-design/http-cache.html)，從直接使用仍有效的快取副本開始，再瞭解快取驗證和完整決策流程。
 
 | 工具                   | 輸入與結果                                                                                                                                    |
