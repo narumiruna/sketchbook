@@ -21,7 +21,7 @@ Source inspection and automated tests do not establish human visual acceptance o
 | Node.js                         | Automated          | Minimum `>=26.0.0` in `package.json`; see [Node.js 26 validation](#nodejs-26-validation).                                                                     |
 | Pi host                         | Automated          | Pi `1.6.0` and TypeBox `1.4.7`; actual `DefaultResourceLoader` discovery, skill-command expansion, and tool execution pass the package smoke tests.           |
 | MCP stdio                       | Automated          | Official SDK client and subprocess tests cover the standalone tools, book edits and reads, cancellation, viewer cleanup, and an installed tarball without Pi. |
-| Mermaid                         | Declared           | Version `12.3.0`; see the [accepted headers](../README.md#supported-mermaid-diagrams) and [family validation](#mermaid-1230-family-validation).               |
+| Mermaid                         | Declared           | Version `12.3.0`; see the [historical header table][mermaid-headers] and [family validation](#mermaid-1230-family-validation).                                |
 | Hand-drawn output               | Source + Automated | Rough.js `4.6.6`; source trace below plus real rough paths, fixed-seed redraws, markers, styles, and isolated SVG IDs checked in Chromium.                    |
 | KaTeX                           | Automated          | Version `0.19.1` with nested copies overridden; browser math/security checks pass and `npm audit` reports zero vulnerabilities.                               |
 | Skill resources                 | Automated          | Frontmatter, relative local links, strict schema fixtures, allowlist, and connected walkthrough checks pass `tests/skill.test.ts`.                            |
@@ -34,8 +34,8 @@ Source inspection and automated tests do not establish human visual acceptance o
 
 ## Mermaid 12.3.0 family validation
 
-- **Declared:** The [18-family matrix](../README.md#supported-mermaid-diagrams) is the allowlist for the pinned distribution, including current aliases in the table. Registry IDs alone do not qualify for support. A future Mermaid upgrade must review new or missing entries rather than accepting them automatically.
-- **Declared:** Pi and MCP apply the same source policy, preserve the exact source, and do not parse the Mermaid body at save time. Schema version 1, byte limits, and revision behavior are unchanged. The production Viewer parses and renders locally; a malformed body can save but causes a slide-local error. `focusNodes` remains flowchart-only. See the [downgrade instructions](../README.md#downgrade-without-losing-source) for older readers.
+- **Declared:** The [18-family matrix][mermaid-headers] is the allowlist for the pinned distribution, including current aliases in the table. Registry IDs alone do not qualify for support. A future Mermaid upgrade must review new or missing entries rather than accepting them automatically.
+- **Declared:** Pi and MCP apply the same source policy, preserve the exact source, and do not parse the Mermaid body at save time. Schema version 1, byte limits, and revision behavior are unchanged. The production Viewer parses and renders locally; a malformed body can save but causes a slide-local error. `focusNodes` remains flowchart-only. See [Open older books](../README.md#open-older-books) for recovery instructions.
 - **Automated (discovery only):** An inventory pass on WSL used Mermaid `12.3.0`, Chromium `159.0.8154.6`, and Node.js `26.11.1`. It exercised 37 public registry IDs under the Viewer CSP. Basic fixtures retained labels and nonzero geometry for every target header, including both flowchart and state headers and all five C4 headers. Journey produced temporary HTML elements in addition to usable SVG text. Event Modeling required HTML for event labels, so those labels did not survive filtering. The discovery bypassed storage validation and used benign fixtures; it does not establish Pi or MCP round trips, final production rendering, or safety for all optional syntax. Local scratch evidence is under ignored `test-results/mermaid-inventory/`.
 
 ### Delivery verification
@@ -46,7 +46,7 @@ Local integration checks used Node.js `26.11.1`, npm `11.20.0`, Mermaid `12.3.0`
 - `npm run test:browser` covered all 24 accepted headers. It checks visible labels and geometry, mixed-deck navigation and camera controls at 390px and 1440px, independent instances and local markers, live updates, local error recovery, and SVG boundaries. The sequence regression checks that arrowheads and number badges use the message line color after local marker IDs are renamed. The pre-existing flowchart focus and Rough.js checks remain required. The browser suite emits `test-results/mermaid-types-*/mixed-xychart-{390,1440}.png` and `test-results/mermaid-types-*/sequence-walkthrough-{390,1440}.png` by default.
 - `npm pack --dry-run` and `npm run test:package` passed. Package smoke rendered a sequence slide in packed and local Pi and in standalone MCP, and verified Pi skill discovery and explicit `/skill` command expansion without a model call.
 
-Run these same commands in a clean disposable checkout; the pull request records results against the exact delivery commit. No private Viewer URL or user document is retained. Neither this evidence nor the inventory establishes automatic skill selection, other browser engines, or human acceptance. See the [diagram family acceptance checks](acceptance.md#diagram-family-acceptance).
+Run these same commands in a clean disposable checkout; the pull request records results against the exact delivery commit. No private Viewer URL or user document is retained. Neither this evidence nor the inventory establishes automatic skill selection, other browser engines, or human acceptance. See the [historical diagram family acceptance checks][mermaid-acceptance].
 
 ## Node.js 26 validation
 
@@ -80,7 +80,7 @@ graph area. It also checks that hidden diagrams ignore input and focus slides
 reuse the same SVG. Package smoke tests verify that the bundled viewer makes
 no external browser requests.
 Other browser engines, physical touch devices, and human visual acceptance
-were not verified for this change; see the [human browser review](acceptance.md#human-browser-review).
+were not verified for this change; see the [historical human browser review][mermaid-browser-review].
 
 ## Diagram Design HTML and static SVG
 
@@ -258,7 +258,7 @@ The first revised examples exposed genuine fitted-label failures: API validation
 The examples were simplified into useful focused views, including separate revision and atomic-commit views; the label floor was not lowered.
 The fresh Viewer authoring trial also needed a narrower request view after its first 390px result measured 11.01px.
 These corrections are evidence that render success alone is insufficient, not evidence that future model outputs cannot fail.
-The source-backed Viewer and unrelated package-receipt trials, their saved IDs/revisions, limits, and human handoff are recorded in [acceptance](acceptance.md#generation-and-reading-quality-handoff).
+The source-backed Viewer and unrelated package-receipt trials, their saved IDs/revisions, limits, and human handoff are recorded in [the historical reading-quality handoff][mermaid-reading-handoff].
 The existing user walkthrough was not rewritten.
 
 ## Direct diagram controls
@@ -358,7 +358,7 @@ The Viewer checks Mermaid source before staging a diagram in the DOM. It does no
 `tests/browser/viewer.spec.ts` observes calls to the actual bundled Rough.js renderer while preserving its output, and checks real paths, styles, markers, fixed-seed redraws, and isolated SVG IDs.
 The browser suite also checks native-size label readability after Reset at a 390-pixel viewport and rejects quoted or escaped image metadata before Mermaid can request resources.
 Server and browser use the same source policy in `src/mermaid-policy.ts`.
-Diagram types and aliases outside the [header table](../README.md#supported-mermaid-diagrams) remain outside the allowlist even if the dependency can parse them.
+Diagram types and aliases outside the [header table][mermaid-headers] were not allowed, even if the dependency could parse them.
 
 A representative 66-node, 65-edge flowchart completed in 444 ms in one local Node.js 22.19.0/Chromium run.
 This is a single observation, not a performance guarantee or CPU-isolation claim.
@@ -384,3 +384,8 @@ npm audit
 
 Repeat these checks after dependency or rendering changes.
 See [acceptance and external handoff](acceptance.md) for checks that automation does not complete.
+
+[mermaid-headers]: https://github.com/narumiruna/sketchbook/blob/10bc8574615c77f5e2d229850a4340c29cb2bae7/README.md#supported-mermaid-diagrams
+[mermaid-acceptance]: https://github.com/narumiruna/sketchbook/blob/10bc8574615c77f5e2d229850a4340c29cb2bae7/docs/acceptance.md#diagram-family-acceptance
+[mermaid-browser-review]: https://github.com/narumiruna/sketchbook/blob/10bc8574615c77f5e2d229850a4340c29cb2bae7/docs/acceptance.md#human-browser-review
+[mermaid-reading-handoff]: https://github.com/narumiruna/sketchbook/blob/10bc8574615c77f5e2d229850a4340c29cb2bae7/docs/acceptance.md#generation-and-reading-quality-handoff

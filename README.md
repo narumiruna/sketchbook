@@ -34,19 +34,17 @@ pi install https://github.com/narumiruna/sketchbook
 
 Git installation requires Node.js 26.0.0 or later, Git, `tar`, and access to npm and GitHub. Pi uses npm to build the extension, Viewer, and skill on install and when `pi update https://github.com/narumiruna/sketchbook` changes the installed commit. Review the package before installing and the project declarations before granting Pi project trust.
 
-Alternatively, install the prebuilt npm package. It may lag behind this repository:
-
-```sh
-pi install npm:@narumitw/sketchbook
-```
-
-When switching sources, run `pi remove <source>` for the old source first. For local development, run these commands from a checkout with the same build prerequisites:
+For local development, run these commands from a checkout with the same build prerequisites:
 
 ```sh
 npm ci
 npm run build
 pi install ./
 ```
+
+The latest npm release, `0.2.2`, is a legacy version. It uses `/skill:sketchbook-explain-diagrams` and does not support Diagram Design HTML or books with sections and chapters. Use GitHub or a local checkout for the features described here. If you need the legacy version, run `pi install npm:@narumitw/sketchbook@0.2.2`.
+
+When switching sources, run `pi remove <source>` for the old source first.
 
 See [compatibility evidence](docs/compatibility.md) for testing against Pi 1.6.0.
 
@@ -78,38 +76,45 @@ If you already configured the standalone MCP server, remove that entry to avoid 
 
 ### MCP
 
-The standalone server works with stdio MCP clients such as Claude Desktop and Cursor. It does not require Pi. It exposes the tools available in the installed package version, not slash commands or automatic skill loading. For authoring guidance, see the [skill](skills/sketchbook/SKILL.md) and [document format](skills/sketchbook/references/document-format.md).
+The standalone server works with stdio MCP clients such as Claude Desktop and Cursor. It provides tools without Pi, slash commands, or automatic skill loading. For authoring guidance, see the [skill](skills/sketchbook/SKILL.md) and [document format](skills/sketchbook/references/document-format.md).
 
-Run the published server from your workspace:
+Build from a source checkout to use the tools and document formats described here. You need Node.js 26.0.0 or later, `tar`, and access to npm and GitHub. Run these commands from the repository root:
 
 ```sh
-npx -y @narumitw/sketchbook --cwd .
+npm ci
+npm run build
 ```
 
-Or add it to your client's MCP settings (for example, `claude_desktop_config.json` or `.cursor/mcp.json`). Set `--cwd` to an existing workspace directory and restart the client:
+Add the built server to your client's MCP settings (for example, `claude_desktop_config.json` or `.cursor/mcp.json`). Set the path to `dist/mcp-cli.js` in your checkout, set `--cwd` to an existing workspace directory, and restart the client. If the client cannot find `node`, use the absolute path to your Node.js executable.
 
 ```json
 {
   "mcpServers": {
     "sketchbook": {
-      "command": "npx",
-      "args": ["-y", "@narumitw/sketchbook", "--cwd", "/absolute/path/to/workspace"]
+      "command": "node",
+      "args": [
+        "/absolute/path/to/sketchbook/dist/mcp-cli.js",
+        "--cwd",
+        "/absolute/path/to/workspace"
+      ]
     }
   }
 }
 ```
 
-To pin the package, use `@narumitw/sketchbook@<version>`. To use this checkout, run `npm ci` and `npm run build` with Node.js 26.0.0 or later, then launch `node /absolute/path/to/sketchbook/dist/mcp-cli.js --cwd /absolute/path/to/workspace`.
+If you need the legacy npm release, use `npx -y @narumitw/sketchbook@0.2.2 --cwd /absolute/path/to/workspace` with Node.js 22.19.0 or later. This version requires `--cwd` and does not support Diagram Design HTML, `sketchbook_read_book`, or `sketchbook_edit`.
 
 #### MCP workspace and behavior
 
-- `--cwd` is required in published version `0.2.2`. The current checkout uses the server process's working directory if you omit it. Relative paths resolve from that directory, which the client selects and which may differ from the open project. Save files go under `.pi/sketchbook/`; use a separate server configuration for each workspace you want to access.
+- For the source build, omitting `--cwd` uses the server process's working directory. Relative paths resolve from that directory, which the client selects and which may differ from the open project. Save files go under `.pi/sketchbook/`; use a separate server configuration for each workspace you want to access.
 - Stdout is reserved for MCP messages; diagnostics go to stderr. Results include JSON text and `structuredContent`, with `isError: true` on failures. Unlike Pi's bounded text preview, MCP returns the complete `sketchbook_read` record in both channels.
 - `sketchbook_open` starts the read-only HTTP Viewer, not an HTTP MCP endpoint. A client disconnect, stdin EOF, SIGINT, or SIGTERM closes the Viewer.
 
 See [MCP client handoff](docs/acceptance.md#mcp-client-handoff) for client-specific checks.
 
 ## Use
+
+**Before opening the Viewer:** Unlike the loopback-only demo, the regular Viewer listens on all IPv4 interfaces, even if the URL shows `127.0.0.1`. Use it only on a trusted network and keep the full link private. See [LAN access](#lan-access).
 
 In Pi, invoke the skill with a prompt:
 

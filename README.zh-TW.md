@@ -34,19 +34,17 @@ pi install https://github.com/narumiruna/sketchbook
 
 透過 Git 安裝需要 Node.js 26.0.0 以上版本、Git、`tar`，且必須能連線到 npm 和 GitHub。Pi 在安裝時會用 npm 建置擴充功能、Viewer 和 skill；使用 `pi update https://github.com/narumiruna/sketchbook` 更新到不同的 commit 時，也會重新建置。安裝前請先檢視套件；在 Pi 中信任專案前，也請檢視專案設定。
 
-也可以安裝預先建置的 npm 套件，但版本可能落後於此儲存庫：
-
-```sh
-pi install npm:@narumitw/sketchbook
-```
-
-切換來源前，先用 `pi remove <source>` 移除舊的套件。若要從本機開發工作副本安裝，請先準備相同的建置環境，再執行：
+若要從本機開發工作副本安裝，請先準備相同的建置環境，再執行：
 
 ```sh
 npm ci
 npm run build
 pi install ./
 ```
+
+npm 上的最新版本 `0.2.2` 是舊版。它使用 `/skill:sketchbook-explain-diagrams`，不支援 Diagram Design HTML，也不支援含章節或小節的書籍。若要使用本文所述的功能，請從 GitHub 或本機工作副本安裝。若需要舊版，請執行 `pi install npm:@narumitw/sketchbook@0.2.2`。
+
+切換來源前，先用 `pi remove <source>` 移除舊的套件。
 
 Sketchbook 使用 Pi 1.6.0 測試，詳見[相容性驗證紀錄](docs/compatibility.md)。
 
@@ -78,38 +76,45 @@ codex plugin add sketchbook@narumi-sketchbook
 
 ### MCP
 
-獨立伺服器可搭配 Claude Desktop、Cursor 等支援 stdio 的 MCP 用戶端使用，不需要 Pi。可用工具取決於已安裝的套件版本；不提供斜線指令，也不會自動載入 skill。撰寫文件時，可參考 [skill](skills/sketchbook/SKILL.md) 和[文件格式](skills/sketchbook/references/document-format.md)。
+獨立伺服器可搭配 Claude Desktop、Cursor 等支援 stdio 的 MCP 用戶端使用。它不需要 Pi，只提供工具，不提供斜線指令，也不會自動載入 skill。撰寫文件時，可參考 [skill](skills/sketchbook/SKILL.md) 和[文件格式](skills/sketchbook/references/document-format.md)。
 
-在工作區執行已發布的伺服器：
+若要使用本文所述的工具和文件格式，請從原始碼工作副本建置。你需要 Node.js 26.0.0 以上版本及 `tar`，並且要能連線到 npm 和 GitHub。在儲存庫根目錄執行：
 
 ```sh
-npx -y @narumitw/sketchbook --cwd .
+npm ci
+npm run build
 ```
 
-也可以把伺服器加入用戶端的 MCP 設定，例如 `claude_desktop_config.json` 或 `.cursor/mcp.json`。將 `--cwd` 設為既有的工作區目錄，然後重新啟動用戶端：
+將建置好的伺服器加入用戶端的 MCP 設定，例如 `claude_desktop_config.json` 或 `.cursor/mcp.json`。填入工作副本中 `dist/mcp-cli.js` 的路徑，將 `--cwd` 設為既有的工作區目錄，然後重新啟動用戶端。如果用戶端找不到 `node`，請填入 Node.js 執行檔的絕對路徑。
 
 ```json
 {
   "mcpServers": {
     "sketchbook": {
-      "command": "npx",
-      "args": ["-y", "@narumitw/sketchbook", "--cwd", "/absolute/path/to/workspace"]
+      "command": "node",
+      "args": [
+        "/absolute/path/to/sketchbook/dist/mcp-cli.js",
+        "--cwd",
+        "/absolute/path/to/workspace"
+      ]
     }
   }
 }
 ```
 
-若要固定套件版本，請用 `@narumitw/sketchbook@<version>`。若要使用這份工作副本，請用 Node.js 26.0.0 以上版本執行 `npm ci` 和 `npm run build`，再執行 `node /absolute/path/to/sketchbook/dist/mcp-cli.js --cwd /absolute/path/to/workspace`。
+若需要 npm 舊版，請使用 Node.js 22.19.0 以上版本執行 `npx -y @narumitw/sketchbook@0.2.2 --cwd /absolute/path/to/workspace`。這個版本必須指定 `--cwd`，不支援 Diagram Design HTML、`sketchbook_read_book` 或 `sketchbook_edit`。
 
 #### MCP 工作區和行為
 
-- 已發布的 `0.2.2` 版必須指定 `--cwd`。目前的工作副本若省略它，會使用伺服器程序的工作目錄。相對路徑也以該目錄為準。工作目錄由用戶端選定，不一定是目前開啟的專案。文件會存到 `.pi/sketchbook/`；每個要存取的工作區都需要獨立的伺服器設定。
+- 從原始碼建置的版本若省略 `--cwd`，會使用伺服器程序的工作目錄。相對路徑也以該目錄為準。工作目錄由用戶端選定，不一定是目前開啟的專案。文件會存到 `.pi/sketchbook/`；每個要存取的工作區都需要獨立的伺服器設定。
 - 標準輸出（stdout）專供 MCP 訊息使用；診斷訊息寫到標準錯誤（stderr）。工具會回傳 JSON 文字和 `structuredContent`，失敗時會設定 `isError: true`。Pi 的文字預覽有長度限制，MCP 則會在兩種回傳格式中提供完整的 `sketchbook_read` 紀錄。
 - `sketchbook_open` 啟動的是唯讀的 HTTP Viewer，不是 HTTP MCP 端點。用戶端中斷連線、標準輸入到達檔案結尾（EOF），或程序收到 SIGINT 或 SIGTERM 時，Viewer 就會關閉。
 
 各用戶端的檢查方式請參閱 [MCP 用戶端驗收](docs/acceptance.md#mcp-client-handoff)。
 
 ## 使用方式
+
+**開啟 Viewer 前：** 展示版只在本機回送介面監聽。一般 Viewer 則會在所有 IPv4 介面監聽，即使網址顯示的是 `127.0.0.1`。請只在受信任的網路上使用，並對完整連結保密。詳見[區域網路存取](#區域網路存取)。
 
 在 Pi 中，輸入 `/skill:sketchbook`，再接上你的問題：
 
