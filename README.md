@@ -279,7 +279,7 @@ The original page stays schema version 1. A version without book support can sti
   - Footnote targets are local to each Markdown block or slide explanation.
   - In-page links move focus without replacing the viewer token, so the current URL remains valid after navigation.
   - KaTeX uses `trust: false`, `maxExpand: 1000`, and `maxSize: 20`.
-- The Viewer uses Diagram Design's default light palette and editorial typography for every document. The book and default imported pages share the same paper color and reading-column edge. Custom HTML keeps its own colors and layout.
+- The Viewer uses Diagram Design's default light palette and editorial typography for every document. Diagram Design pages can opt into the book's reading-column alignment with `<body class="sketchbook-default-layout">`. Other imported pages keep their own margins, width, and colors.
 - Font files, licenses, scripts, styles, and renderers ship with the Viewer. The Viewer provides Instrument Serif, Geist, Geist Mono, and Traditional Chinese Noto families without a CDN. For glyphs outside those fonts, the browser uses system fallbacks.
 - See [LAN access](#lan-access) for viewer network controls and URL privacy.
 - A parse error is shown locally with source details instead of removing the rest of the document.

@@ -5,6 +5,46 @@ import { save } from "./helpers.js"
 const source = () =>
   readFile(new URL("../../examples/diagram-design/http-cache.html", import.meta.url), "utf8")
 
+test("viewport-dependent HTML does not grow the frame or hide its overflow", async ({
+  page,
+  request,
+}) => {
+  const fixture = await save(request, {
+    schemaVersion: 1,
+    title: "Viewport-dependent book",
+    blocks: [
+      {
+        type: "diagram-html",
+        id: "viewport-height",
+        title: "Viewport-height drawing",
+        html: `<!doctype html><html><head><style>main{min-height:100vh}</style></head><body><main><svg viewBox="0 0 100 50" width="100" height="50"><text y="20">Drawing</text></svg></main><p>End of design page</p></body></html>`,
+      },
+      { type: "markdown", id: "next", markdown: "Next book block" },
+    ],
+  })
+  await page.goto(fixture.url)
+  const frame = page.locator('iframe[title="Viewport-height drawing"]')
+  await expect(frame.contentFrame().getByText("Drawing")).toBeVisible()
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 850 })
+    const heights = await frame.evaluate(async (element) => {
+      const results = []
+      for (let i = 0; i < 16; i++) {
+        await new Promise(requestAnimationFrame)
+        results.push(element.getBoundingClientRect().height)
+      }
+      return results.slice(3)
+    })
+    expect(new Set(heights).size).toBe(1)
+    expect(heights[0]).toBeGreaterThan(50)
+    expect(heights[0]).toBeLessThan(400)
+    await expect(page.getByText("Next book block")).toBeInViewport()
+    const end = frame.contentFrame().getByText("End of design page")
+    await end.scrollIntoViewIfNeeded()
+    await expect(end).toBeInViewport()
+  }
+})
+
 async function usedFonts(page: Page) {
   const cdp = await page.context().newCDPSession(page)
   try {
@@ -73,7 +113,7 @@ for (const width of [390, 1280]) {
             id: "summary-design",
             type: "diagram-html",
             title: "Cache notes",
-            html: `<!doctype html><html><head><style>body{background:#e8efde;padding:20px}h1{color:#395b32}</style></head><body><h1>Cache notes</h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80"><text x="16" y="36">No body with 304</text></svg></body></html>`,
+            html: `<!doctype html><html><head><style>:root{--color-paper:#f5f5f5;--color-ink:#2d3142;--color-accent:#bf4520}body{background:var(--color-paper);padding:20px}main{max-width:340px;padding:12px}h1{color:#395b32}</style></head><body><main><h1>Cache notes</h1><svg viewBox="0 0 320 80" width="320" height="80"><text x="16" y="36">No body with 304</text></svg></main></body></html>`,
           },
         ],
       },
@@ -192,8 +232,10 @@ for (const width of [390, 1280]) {
       "color",
       "rgb(57, 91, 50)",
     )
-    await expect(custom.locator("body")).toHaveCSS("background-color", "rgb(232, 239, 222)")
+    await expect(custom.locator("body")).toHaveCSS("background-color", "rgb(245, 245, 245)")
     await expect(custom.locator("body")).toHaveCSS("padding-inline-start", "20px")
+    await expect(custom.locator("main")).toHaveCSS("max-width", "340px")
+    await expect(custom.locator("main")).toHaveCSS("padding-inline-start", "12px")
     await expect(page.getByRole("heading", { name: "What to remember" })).toHaveCSS(
       "color",
       "rgb(45, 49, 66)",

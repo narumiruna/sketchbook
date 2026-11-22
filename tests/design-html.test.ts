@@ -27,8 +27,17 @@ test("keeps the original diagram HTML on write and preserves its layout on displ
   expect(safe).not.toContain("fonts.googleapis.com")
 })
 
+test("validates implicit SVG namespaces without rewriting the HTML", () => {
+  const implicit = inline.replace(' xmlns="http://www.w3.org/2000/svg"', "")
+  expect(prepareDesignHtml(html(implicit))).toContain(implicit)
+  expect(() => prepareDesignHtml(html(implicit.replace("<text>", '<text onclick="">')))).toThrow(
+    "Invalid static SVG",
+  )
+})
+
 test.each([
   ["non-document", inline],
+  ["incorrect SVG namespace", html(inline.replace("http://www.w3.org/2000/svg", "urn:not-svg"))],
   ["no drawing", html("<p>Text</p>")],
   ["script", html(`${inline}<script></script>`)],
   ["event attribute", html(`<main onload="">${inline}</main>`)],

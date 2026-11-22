@@ -23,19 +23,7 @@ export function DesignPage({ block }: { block: DesignHtmlBlock }) {
 }
 
 function alignDefaultPaper(frame: HTMLIFrameElement, document: Document) {
-  const view = frame.contentWindow
-  if (!view) return
-  const shell = getComputedStyle(frame.ownerDocument.documentElement)
-  const palette = view.getComputedStyle(document.documentElement)
-  const color = (style: CSSStyleDeclaration, property: string) =>
-    style.getPropertyValue(property).trim().toLowerCase()
-  if (
-    color(palette, "--color-paper") !== color(shell, "--paper") ||
-    color(palette, "--color-ink") !== color(shell, "--ink") ||
-    !["", color(shell, "--accent")].includes(color(palette, "--color-accent")) ||
-    view.getComputedStyle(document.body).backgroundColor !== shell.backgroundColor
-  )
-    return
+  if (!document.body.classList.contains("sketchbook-default-layout")) return
   const style = document.createElement("style")
   style.textContent = `
     html body { display: block; margin: 0; padding: 0; }
@@ -47,8 +35,8 @@ function alignDefaultPaper(frame: HTMLIFrameElement, document: Document) {
 }
 
 function DesignDocument({ id, title, html }: { id: string; title: string; html: string }) {
-  const observer = useRef<ResizeObserver | undefined>(undefined)
-  useEffect(() => () => observer.current?.disconnect(), [])
+  const cleanup = useRef<(() => void) | undefined>(undefined)
+  useEffect(() => () => cleanup.current?.(), [])
   return (
     <iframe
       className="design-page"
@@ -57,9 +45,10 @@ function DesignDocument({ id, title, html }: { id: string; title: string; html: 
       srcDoc={html}
       sandbox="allow-same-origin"
       onLoad={({ currentTarget: frame }) => {
-        observer.current?.disconnect()
+        cleanup.current?.()
         const child = frame.contentDocument
-        if (!child?.body) return
+        const view = frame.contentWindow
+        if (!child?.body || !view) return
         installEditorialFonts(child)
         alignDefaultPaper(frame, child)
         const { body } = child
@@ -67,6 +56,11 @@ function DesignDocument({ id, title, html }: { id: string; title: string; html: 
           (element) => !element.hasAttribute("tabindex"),
         )
         const update = () => {
+          frame.style.height = "150px"
+          const bounds = body.getBoundingClientRect()
+          const margin = Number.parseFloat(view.getComputedStyle(body).marginBottom) || 0
+          const height = Math.ceil(bounds.top + Math.max(bounds.height, body.scrollHeight) + margin)
+          frame.style.height = `${Math.max(1, height)}px`
           for (const element of scrollRegions) {
             const overflow = element.scrollWidth > element.clientWidth
             element.tabIndex = overflow ? 0 : -1
@@ -82,18 +76,28 @@ function DesignDocument({ id, title, html }: { id: string; title: string; html: 
               element.setAttribute("role", "region")
             }
           }
-          const margin = frame.contentWindow?.getComputedStyle(body).marginBottom ?? "0"
-          const bounds = body.getBoundingClientRect()
-          const height = Math.ceil(
-            bounds.top +
-              Math.max(bounds.height, body.scrollHeight) +
-              (Number.parseFloat(margin) || 0),
-          )
-          const cssHeight = `${height}px`
-          if (frame.style.height !== cssHeight) frame.style.height = cssHeight
         }
-        observer.current = new ResizeObserver(update)
-        observer.current.observe(body)
+        let width = frame.clientWidth
+        let pending = 0
+        const schedule = () => {
+          if (pending) return
+          pending = requestAnimationFrame(() => {
+            pending = 0
+            update()
+          })
+        }
+        const observer = new ResizeObserver(() => {
+          if (width === frame.clientWidth) return
+          width = frame.clientWidth
+          schedule()
+        })
+        observer.observe(frame)
+        child.fonts.addEventListener("loadingdone", schedule)
+        cleanup.current = () => {
+          observer.disconnect()
+          cancelAnimationFrame(pending)
+          child.fonts.removeEventListener("loadingdone", schedule)
+        }
         update()
       }}
     />

@@ -131,6 +131,7 @@ Flowcharts use the hand-drawn look and a fixed seed. Other families use Mermaid'
 
 - Put the complete HTML document with its `<!doctype html>`, embedded styles, and at least one inline SVG in `html`. Use `title` to label the page for assistive technology.
 - Place these blocks in the original page, a section, or a chapter using the existing book tools. The main book controls organize and navigate the content; the imported HTML does not use the Mermaid diagram frame or toolbar.
+- Add `class="sketchbook-default-layout"` to `<body>` only to let the Viewer align the standard Diagram Design wrapper with the book. Omit it to keep authored spacing and width. Use content-based sizing if possible; a page with viewport-height rules can scroll inside its frame.
 - Use static HTML and CSS only. Scripts, embedded pages, forms, links, refresh metadata, external assets and animations are not supported. The Viewer removes stylesheet links and uses fallback fonts; use embedded CSS. Give wide diagrams a local scrolling wrapper.
 
 ### Static SVG policy
