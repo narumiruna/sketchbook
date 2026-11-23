@@ -21,6 +21,8 @@ import {
 } from "./document.js"
 import { type FileMutationQueue, withFileMutationQueue } from "./mutation-queue.js"
 
+export const STORAGE_DIR = ".sketchbook"
+
 const MAX_STORED_BYTES = MAX_DOCUMENT_BYTES + 4096
 
 function hasCode(error: unknown, code: string): boolean {
@@ -35,6 +37,22 @@ function nextRevision(expected: number, current: number, readTool: string): numb
   }
   if (current === Number.MAX_SAFE_INTEGER) throw new Error("Sketchbook revision limit reached")
   return current + 1
+}
+
+async function legacyDirectory(workspace: string): Promise<string | undefined> {
+  try {
+    if (!(await lstat(join(workspace, ".pi"))).isDirectory()) return
+  } catch (error) {
+    if (hasCode(error, "ENOENT")) return
+    throw error
+  }
+  for (const relative of [".pi/sketchbook", ".pi/canvas"]) {
+    try {
+      if ((await lstat(join(workspace, relative))).isDirectory()) return relative
+    } catch (error) {
+      if (!hasCode(error, "ENOENT")) throw error
+    }
+  }
 }
 
 async function readRecord(
@@ -78,24 +96,26 @@ export class DocumentStore {
   }
 
   private async directory(create: boolean): Promise<string> {
-    let directory = await realpath(this.cwd)
-    for (const part of [".pi", "sketchbook"]) {
-      directory = join(directory, part)
-      if (create) {
-        try {
-          await mkdir(directory, { mode: 0o700 })
-        } catch (error) {
-          if (!hasCode(error, "EEXIST")) throw error
-        }
+    const workspace = await realpath(this.cwd)
+    const directory = join(workspace, STORAGE_DIR)
+    const info = await lstat(directory).catch(async (error: unknown) => {
+      if (!hasCode(error, "ENOENT")) throw error
+      const legacy = await legacyDirectory(workspace)
+      if (legacy) {
+        throw new Error(
+          `Sketchbook storage moved to ${STORAGE_DIR}/. Stop all Sketchbook sessions in this workspace, back up your files, then move ${legacy}/ to ${STORAGE_DIR}/ without overwriting existing files.`,
+        )
       }
-      const info = await lstat(directory)
-      if (
-        !info.isDirectory() ||
-        info.isSymbolicLink() ||
-        (await realpath(directory)) !== directory
-      ) {
-        throw new Error("Sketchbook storage must use real directories inside the workspace")
+      if (!create) throw error
+      try {
+        await mkdir(directory, { mode: 0o700 })
+      } catch (mkdirError) {
+        if (!hasCode(mkdirError, "EEXIST")) throw mkdirError
       }
+      return lstat(directory)
+    })
+    if (!info.isDirectory() || info.isSymbolicLink() || (await realpath(directory)) !== directory) {
+      throw new Error("Sketchbook storage must use a real directory inside the workspace")
     }
     return directory
   }

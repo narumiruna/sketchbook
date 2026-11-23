@@ -186,12 +186,13 @@ If opening is unavailable, return the saved ID and revision and explain this lim
 
 ## Storage and lifecycle
 
-The original document lives at `.pi/sketchbook/<documentId>.json`. The optional sidecar lives at `.pi/sketchbook/<documentId>.book.json`. Use the tools, not direct edits to these files.
-The package creates only a local ignore file at `.pi/sketchbook/.gitignore`, not a workspace-root ignore rule.
+The original document lives at `.sketchbook/<documentId>.json` in the workspace selected by Pi or MCP. The optional sidecar lives at `.sketchbook/<documentId>.book.json`. Use the tools, not direct edits to these files.
+The package creates only a local ignore file at `.sketchbook/.gitignore`, not a workspace-root ignore rule.
+If the new directory is absent and a legacy `.pi/sketchbook/` or `.pi/canvas/` directory exists, tools return an error with manual migration instructions. When `.sketchbook/` exists, tools use only that directory. They never move or merge old folders.
 Writes are queued by destination within one process and use atomic rename. All sidecar sections and chapters share a revision, so edits to different sections can still conflict. There is no cross-process lock: do not write the same document from multiple Pi or MCP processes.
 Tree navigation, resume, and fork do not undo disk writes; create a new ID for a separate document branch.
 Shutdown closes the viewer server, but preserves saved files.
 After reload, new, resume, or fork, open again for a current URL.
 Physical second-device LAN access, remote host forwarding, and a user's browser access require separate verification.
 
-The original page stays schema version 1. A compatible older build can still open it but does not show sidecar content. Back up and keep both records before downgrading; reopen with a book-aware build to see the extra content. An older reader that accepts only `flowchart` cannot open a page containing a newer header. Keep the original source intact.
+The original page stays schema version 1. A compatible older build can still open it but does not show sidecar content. Back up and keep both records before downgrading; reopen with a book-aware build to see the extra content. Builds that predate `.sketchbook/` need a copy in their original storage directory. An older reader that accepts only `flowchart` cannot open a page containing a newer header. Keep the original source intact.

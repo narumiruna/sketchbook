@@ -72,7 +72,7 @@ codex plugin marketplace add "$plugin_root"
 codex plugin add sketchbook@narumi-sketchbook
 ```
 
-If you already configured the standalone MCP server, remove that entry to avoid loading it twice. Start a new session in the workspace where you want to save documents. Claude Code uses the project root. In the tested local setup, Codex starts the server in the CLI session's working directory. Both save under `.pi/sketchbook/` in that workspace.
+If you already configured the standalone MCP server, remove that entry to avoid loading it twice. Start a new session in the workspace where you want to save documents. Claude Code uses the project root. In the tested local setup, Codex starts the server in the CLI session's working directory. Both save under `.sketchbook/` in that workspace.
 
 ### MCP
 
@@ -106,7 +106,7 @@ If you need the legacy npm release, use `npx -y @narumitw/sketchbook@0.2.2 --cwd
 
 #### MCP workspace and behavior
 
-- For the source build, omitting `--cwd` uses the server process's working directory. Relative paths resolve from that directory, which the client selects and which may differ from the open project. Save files go under `.pi/sketchbook/`; use a separate server configuration for each workspace you want to access.
+- For the source build, omitting `--cwd` uses the server process's working directory. Relative paths resolve from that directory, which the client selects and which may differ from the open project. Save files go under `.sketchbook/`; use a separate server configuration for each workspace you want to access.
 - Stdout is reserved for MCP messages; diagnostics go to stderr. Results include JSON text and `structuredContent`, with `isError: true` on failures. Unlike Pi's bounded text preview, MCP returns the complete `sketchbook_read` record in both channels.
 - `sketchbook_open` starts the read-only HTTP Viewer, not an HTTP MCP endpoint. A client disconnect, stdin EOF, SIGINT, or SIGTERM closes the Viewer.
 
@@ -184,16 +184,24 @@ VPNs, virtual interfaces, firewalls, and Wi-Fi isolation can prevent another dev
 
 ## Files and lifecycle
 
-- The original page lives at `.pi/sketchbook/<documentId>.json`. Sections and extra chapters live in the optional `<documentId>.book.json` alongside it. Supported records need no migration; replacing the original page leaves the book file unchanged. Sketchbook creates a local `.pi/sketchbook/.gitignore`, not a workspace-root rule.
+- Pi and MCP store documents in `.sketchbook/` under the selected workspace. The original page lives at `.sketchbook/<documentId>.json`. Sections and extra chapters live in the optional `<documentId>.book.json` alongside it. Replacing the original page leaves the book file unchanged. Sketchbook creates `.sketchbook/.gitignore`, not a workspace-root rule.
 - Writes check revisions, queue changes per record within one process, and use atomic rename. There is no cross-process lock or transaction spanning both files. Do not write the same document from multiple Pi or MCP processes.
 - Only `sketchbook_open` starts the Viewer. Pi TUI and RPC can open it; print and JSON modes can only read and write. Stopping Pi or the MCP server invalidates the links without deleting files. Open again after reload, new, resume, or fork. Session history does not undo writes; create a new document ID for a separate branch of the content.
 - Physical second-device access, remote SSH, container forwarding, and WSLg or Windows browser access need separate verification.
+
+### Move existing files
+
+If `.sketchbook/` is absent and Sketchbook finds `.pi/sketchbook/` or `.pi/canvas/`, it asks you to move the files instead of creating an empty store. It does not read or write legacy storage.
+
+1. Stop all Pi and MCP sessions that use the workspace and back up the old directory.
+2. If `.sketchbook/` is absent and there is only one old directory, move that directory to `.sketchbook/`. If more than one directory exists, resolve duplicate document IDs before moving any files. Keep each document and its optional `.book.json` file together. Do not overwrite either record.
+3. Restart the client and open the documents again for new Viewer URLs. IDs, revisions, and the file format do not change.
 
 ## Upgrade from Pi Canvas
 
 Use `@narumitw/sketchbook`, `sketchbook_*` tools, and `/skill:sketchbook`. The old `canvas_*` tools and `/skill:canvas-explain-diagrams` are not aliases. Replace `/skill:sketchbook-create-diagrams`, `/skill:sketchbook-diagram-design`, and `/skill:sketchbook-explain-diagrams` in saved prompts as well.
 
-Sketchbook does not move `.pi/canvas/` automatically. Stop all Pi sessions in that workspace and back up the files first. If `.pi/sketchbook/` does not exist, move the entire `.pi/canvas/` directory there. If both exist, keep both and resolve conflicting document IDs before moving files. Do not overwrite either directory. IDs, revisions, and schema version 1 stay the same. Restart Pi and reopen the documents for new URLs.
+Follow [Move existing files](#move-existing-files) to move documents from `.pi/canvas/`.
 
 ## Open older books
 
@@ -201,7 +209,7 @@ Schema version 1 still supports Markdown, code, Diagram Design HTML, and static 
 
 Mermaid slides prevent the Viewer from opening a book. It will not skip, convert, or rewrite them. If only the book file contains Mermaid, you can still read the original page if its content is supported.
 
-Back up all of `.pi/sketchbook/`, including both `.json` and `.book.json` records. The last verified reader for the full older format is revision `10bc8574615c77f5e2d229850a4340c29cb2bae7`. In a separate recovery checkout of that revision, run the following with Node.js 26:
+Back up both the original `.json` files and their `.book.json` files from your storage directory. The last verified reader for the full older format is revision `10bc8574615c77f5e2d229850a4340c29cb2bae7`. In a separate recovery checkout of that revision, run the following with Node.js 26:
 
 ```sh
 npm ci
@@ -209,7 +217,7 @@ npm run build
 npm pack
 ```
 
-Install the resulting tarball or point your MCP client at the recovery checkout's `dist/mcp-cli.js`. Open a backup copy first. This reader also supports Diagram Design HTML and static SVG. If you redraw a Mermaid book, save it as a new book.
+Install the resulting tarball or point your MCP client at the recovery checkout's `dist/mcp-cli.js`. In a disposable workspace, put copies of both records under `.pi/sketchbook/`, which is the path that reader expects. This reader also supports Diagram Design HTML and static SVG. If you redraw a Mermaid book, save it as a new book.
 
 ## Verify
 

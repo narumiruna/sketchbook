@@ -168,7 +168,7 @@ describe("MCP cancellation in one stdio batch", () => {
     expect(cancelled.isError).toBe(true)
     expect(kept.isError).not.toBe(true)
     expect(kept.structuredContent).toMatchObject({ ok: true, revision: 1 })
-    const files = await readdir(join(cwd, ".pi/sketchbook"))
+    const files = await readdir(join(cwd, ".sketchbook"))
     expect(files.filter((file) => file.endsWith(".json"))).toHaveLength(1)
   })
 })

@@ -236,7 +236,7 @@ describe("Sketchbook MCP protocol", () => {
       expect(tool.inputSchema.properties).toEqual({ documentId: DocumentIdSchema })
       expect(tool.inputSchema.required).toEqual(["documentId"])
     }
-    expect(catalog.tools[0].description).toContain(".pi/sketchbook/*.json")
+    expect(catalog.tools[0].description).toContain(".sketchbook/*.json")
     expect(catalog.tools[0].description).toContain("never changes the workspace root .gitignore")
     expect(catalog.tools[1].description).toContain("complete stored document")
     expect(catalog.tools[2].description).toContain("trusted networks")
@@ -320,6 +320,9 @@ describe("Sketchbook MCP protocol", () => {
       },
     })
     expect((await read(client, documentId)).stored).toMatchObject({ document, revision: 1 })
+    expect(
+      JSON.parse(await readFile(join(cwd, ".sketchbook", `${documentId}.book.json`), "utf8")),
+    ).toMatchObject({ documentId, revision: 3 })
   })
 
   it("creates, reads, replaces, and rejects revision conflicts without opening a viewer", async () => {
@@ -337,7 +340,7 @@ describe("Sketchbook MCP protocol", () => {
       ],
     })
     expect(Check(DocumentIdSchema, written.documentId)).toBe(true)
-    expect(written.path).toBe(join(cwd, ".pi/sketchbook", `${written.documentId}.json`))
+    expect(written.path).toBe(join(cwd, ".sketchbook", `${written.documentId}.json`))
     const initial = await read(client, written.documentId)
     expect(initial).toMatchObject({ path: written.path, contentTruncated: false })
     expect(initial.stored).toMatchObject({
@@ -348,7 +351,7 @@ describe("Sketchbook MCP protocol", () => {
     expect(Number.isNaN(Date.parse(initial.stored.updatedAt))).toBe(false)
     expect(JSON.parse(await readFile(written.path, "utf8"))).toEqual(initial.stored)
     expect(await readFile(join(cwd, ".gitignore"), "utf8")).toBe("workspace-rule\n")
-    expect(await readFile(join(cwd, ".pi/sketchbook/.gitignore"), "utf8")).toBe("*\n")
+    expect(await readFile(join(cwd, ".sketchbook/.gitignore"), "utf8")).toBe("*\n")
 
     const replacement: SketchbookDocument = {
       schemaVersion: 1,
