@@ -1,10 +1,19 @@
-import { useEffect, useId, useRef, useState } from "react"
+import { lazy, Suspense, useEffect, useId, useRef, useState } from "react"
 import type { Chapter, StoredBook } from "../book.js"
 import type { CodeBlock, DiagramDeck, StoredDocument } from "../document.js"
-import { BookContents, ChapterOrder, chapterNumber, useBookLocation } from "./chapter-navigation"
+import { feedbackHeader } from "../viewer-feedback.js"
+import {
+  BookContents,
+  ChapterOrder,
+  chapterNumber,
+  scopeViewerLocation,
+  useBookLocation,
+} from "./chapter-navigation"
 import { DesignPage } from "./design-page"
 import { Markdown } from "./markdown"
 import { StaticDiagram } from "./static-diagram"
+
+const Feedback = lazy(() => import("./feedback"))
 
 interface Session {
   documentId: string
@@ -23,6 +32,7 @@ function mergeDocument(current: ViewerDocument | null, next: ViewerDocument): Vi
 function useDocument({ documentId, token }: Session) {
   const [stored, setStored] = useState<ViewerDocument | null>(null)
   const [status, setStatus] = useState("Loading document…")
+  const [canSend, setCanSend] = useState(false)
 
   useEffect(() => {
     if (!documentId || !token) {
@@ -81,6 +91,7 @@ function useDocument({ documentId, token }: Session) {
               ? (response.headers.get("ETag") ?? "")
               : ""
         }
+        setCanSend(response.headers.get(feedbackHeader) === "pi")
         setStatus("Connected")
       } catch (error) {
         if (!stopped) {
@@ -106,7 +117,7 @@ function useDocument({ documentId, token }: Session) {
       document.removeEventListener("visibilitychange", visibility)
     }
   }, [documentId, token])
-  return { stored, status }
+  return { stored, status, canSend }
 }
 
 interface Selection {
@@ -182,7 +193,12 @@ function Deck({ deck, inSection }: { deck: DiagramDeck; inSection: boolean }) {
       </header>
       <div className="slide-content">
         <div className="slide-figure">
-          <div className="deck-viewport" id={viewportId}>
+          <div
+            className="deck-viewport"
+            id={viewportId}
+            data-feedback-block={deck.id}
+            data-feedback-slide={active.id}
+          >
             <StaticDiagram
               key={`${active.id}/${active.svg}`}
               source={active.svg}
@@ -293,7 +309,17 @@ function Blocks({ blocks, inSection = false }: { blocks: Chapter["blocks"]; inSe
 const sectionHeadingId = (sectionId: string) => `sketchbook-section-${sectionId}`
 const chapterHeadingId = "sketchbook-chapter"
 
-function Reader({ stored, token }: { stored: ViewerDocument; token: string }) {
+function Reader({
+  stored,
+  token,
+  feedback,
+  canSend,
+}: {
+  stored: ViewerDocument
+  token: string
+  feedback: boolean
+  canSend: boolean
+}) {
   const { documentId, revision, updatedAt, document: original, book } = stored
   const first: Chapter = {
     id: documentId,
@@ -302,7 +328,7 @@ function Reader({ stored, token }: { stored: ViewerDocument; token: string }) {
     sections: book?.sections ?? [],
   }
   const chapters = [first, ...(book?.chapters ?? [])]
-  const { location, links } = useBookLocation(documentId, token)
+  const { location, links } = useBookLocation(documentId, token, feedback)
   const query = new URLSearchParams(location.search)
   const chapterId = query.get("chapter")
   const sectionId = query.get("section")
@@ -370,21 +396,48 @@ function Reader({ stored, token }: { stored: ViewerDocument; token: string }) {
         ))}
         <ChapterOrder previous={chapters[index - 1]} next={chapters[index + 1]} links={links} />
       </main>
+      {feedback && requested && (
+        <Suspense fallback={<p role="status">Loading annotation tools…</p>}>
+          <Feedback
+            key={chapter.id}
+            token={token}
+            canSend={canSend}
+            chapterId={chapterId ?? undefined}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
 
 export function App({ session }: { session: Session }) {
-  const { stored, status } = useDocument(session)
+  const { stored, status, canSend } = useDocument(session)
+  const [feedback, setFeedback] = useState(false)
   return (
     <div className="viewer">
       <header className="viewer-header">
         <span className="brand">Sketchbook</span>
-        <p role="status" className="connection-status">
-          {status}
-        </p>
+        <div className="viewer-actions">
+          {stored && (
+            <button
+              type="button"
+              aria-pressed={feedback}
+              onClick={() => {
+                if (!feedback) scopeViewerLocation(stored.documentId)
+                setFeedback(!feedback)
+              }}
+            >
+              Annotate
+            </button>
+          )}
+          <p role="status" className="connection-status">
+            {status}
+          </p>
+        </div>
       </header>
-      {stored && <Reader stored={stored} token={session.token} />}
+      {stored && (
+        <Reader stored={stored} token={session.token} feedback={feedback} canSend={canSend} />
+      )}
     </div>
   )
 }

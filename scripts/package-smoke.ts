@@ -140,6 +140,11 @@ async function checkCacheBook(
 async function smoke(packagePath: string, label: string): Promise<void> {
   const manifest = JSON.parse(await readFile(join(packagePath, "package.json"), "utf8"))
   assert.equal(manifest.name, "@narumitw/sketchbook")
+  const viewerNotices = await readFile(
+    join(packagePath, "dist/web/THIRD_PARTY_LICENSES.md"),
+    "utf8",
+  )
+  assert.match(viewerNotices, /## agentation - [^\n]+\(PolyForm-Shield-1\.0\.0\)/)
   const workspace = join(temporary, label)
   const agentDir = join(workspace, "agent")
   await mkdir(workspace, { recursive: true })
@@ -168,6 +173,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
     "sketchbook_read_book",
     "sketchbook_write",
   ])
+  assert.ok(extension.commands.has("sketchbook-interact"))
   assert.equal(extension.flags.size, 0, "The viewer must not require host flags")
   const skills = loader.getSkills()
   assert.deepEqual(skills.diagnostics, [])

@@ -162,6 +162,14 @@ npm run build
 
 省略 `language` 就不會顯示語言標籤。Viewer 只會將程式碼顯示為文字，不會執行。用 Tab 把焦點移到區塊，再用方向鍵捲動長行。若要在正文或投影片說明中插入程式碼，請用 Markdown 程式碼區塊。
 
+### 標註頁面並送給 Pi
+
+在 Viewer 頁首選取 **Annotate**，再開啟右下角的 Agentation 工具列。點選頁面元素並留言。**Copy feedback** 會匯出標註，不包含 Viewer 的存取權杖或位址。若瀏覽器不允許存取剪貼簿，請從對話框手動複製。草稿依 Viewer 位址、文件和章節留在瀏覽器。
+
+若要直接送出標註，在持續運作的 Pi 工作階段執行 `/sketchbook-interact <documentId>`。在同一部裝置開啟私人連結，再從已啟用的工具列選取 **Send Annotations**。Pi 閒置時會開啟新一輪；忙碌時會排入下一輪。標註會進入目前的 Pi 對話，回覆也留在 Pi。不用新增 tool，也不用設定 Agentation MCP。
+
+互動連結只能開啟指定文件，並可向 Pi 送出訊息，請勿分享。開啟新的互動連結會讓舊連結失效；執行 `/sketchbook-interact stop` 或結束 Pi 工作階段也可撤銷。一般 `sketchbook_open` 連結（包括 MCP 回傳的連結）只能複製標註。兩種 Viewer 都不能直接修改文件。
+
 ## 算繪和安全性
 
 - **Diagram Design HTML：** Viewer 在沙箱中顯示匯入的頁面，可離線使用。不支援指令碼、頁面導覽或外部資源。外部樣式表會被移除，內嵌樣式與本機 SVG 定義則會保留。
