@@ -50,6 +50,13 @@ body {
   text-align: right;
   overflow-wrap: anywhere;
 }
+.viewer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0 0.75rem;
+}
 h1,
 h2,
 h3,
@@ -264,6 +271,59 @@ button:hover:not(:disabled) {
 button:disabled {
   opacity: 0.4;
   cursor: default;
+}
+.viewer-actions button,
+.feedback-copy button {
+  min-block-size: 1.5rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--rule-solid);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+.viewer-actions button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+}
+.feedback-copy {
+  inline-size: min(36rem, calc(100% - 2rem));
+  border: 1px solid var(--rule-solid);
+  background: var(--paper);
+  color: var(--ink);
+}
+.feedback-copy:modal {
+  overscroll-behavior: contain;
+}
+.feedback-copy::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgb(45 49 66 / 35%);
+}
+.feedback-copy h2 {
+  margin-block-start: 0;
+}
+.feedback-copy textarea {
+  inline-size: 100%;
+  font: 0.85rem / 1.5 var(--font-mono);
+}
+.feedback-copy button {
+  display: block;
+  margin-block-start: 0.5rem;
+}
+.feedback-status {
+  position: fixed;
+  z-index: 2;
+  inset-inline-end: 1rem;
+  inset-block-end: 5rem;
+  max-inline-size: min(22rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+.feedback-status:not(:empty) {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--rule-solid);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.85rem;
 }
 :focus-visible {
   outline: 3px solid var(--link);

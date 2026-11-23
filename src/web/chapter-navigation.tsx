@@ -1,18 +1,27 @@
 import { type MouseEvent, useEffect, useId, useState } from "react"
 import type { Chapter, Section } from "../book.js"
+import { isViewerPagePath, viewerPagePath } from "../viewer-path.js"
 
 interface ChapterLinks {
   href: (chapterId: string, sectionId?: string) => string
   follow: (event: MouseEvent<HTMLAnchorElement>) => void
 }
 
-export function useBookLocation(documentId: string, token: string) {
+export function scopeViewerLocation(documentId: string) {
+  const path = viewerPagePath(documentId, new URLSearchParams(location.search).get("chapter"))
+  if (path && path !== location.pathname) {
+    history.replaceState(history.state, "", `${path}${location.search}${location.hash}`)
+  }
+}
+
+export function useBookLocation(documentId: string, token: string, feedback: boolean) {
   const [location, setLocation] = useState(() => ({ search: window.location.search, focus: false }))
   useEffect(() => {
     let frame = 0
     const pop = () => {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
+        if (feedback) scopeViewerLocation(documentId)
         const search = window.location.search
         setLocation((previous) => (previous.search === search ? previous : { search, focus: true }))
       })
@@ -22,14 +31,18 @@ export function useBookLocation(documentId: string, token: string) {
       cancelAnimationFrame(frame)
       window.removeEventListener("popstate", pop)
     }
-  }, [])
+  }, [documentId, feedback])
 
   const links: ChapterLinks = {
     href(chapterId, sectionId) {
       const search = new URLSearchParams({ documentId })
       if (chapterId !== documentId) search.set("chapter", chapterId)
       if (sectionId !== undefined) search.set("section", sectionId)
-      return `${window.location.pathname}?${search}#${new URLSearchParams({ token })}`
+      const path =
+        feedback || isViewerPagePath(window.location.pathname)
+          ? (viewerPagePath(documentId, search.get("chapter")) ?? "/")
+          : window.location.pathname
+      return `${path}?${search}#${new URLSearchParams({ token })}`
     },
     follow(event) {
       if (

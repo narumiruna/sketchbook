@@ -44,6 +44,16 @@ Use a fresh session for each skill-routing check:
 
 Record the host, model ID, exact package revision, saved record revisions, checks, and any missing evidence. Do not record credentials or Viewer links.
 
+## Pi interactive feedback handoff
+
+With a rebuilt local extension, a disposable workspace, a synthetic document, and an authorized Pi model session:
+
+1. Open `/sketchbook-interact <documentId>` on the same machine as Pi. Keep the private link and token out of logs and review artifacts.
+2. In the Viewer, select **Annotate**, add a note, and select **Send Annotations**. While Pi is idle, expect a new turn; while it is working, expect the feedback after the current work. Read the response in Pi, not in the browser.
+3. Run `/sketchbook-interact stop` and verify that sending is no longer possible. Open the ordinary `sketchbook_open` link and verify it still offers **Copy feedback** but not **Send Annotations**.
+
+Browser tests exercise delivery to a fake Pi host, including retry and duplicate-click protection. A live model response, real TUI or RPC link presentation, and human visual acceptance require separate checks. Paid model evaluations require separate authorization.
+
 ## LAN device handoff
 
 The user operates the physical second device and controls any firewall or router permissions.
