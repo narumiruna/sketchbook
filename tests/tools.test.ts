@@ -7,6 +7,7 @@ import { join } from "node:path"
 import type {
   ExtensionAPI,
   ExtensionToolContext,
+  MessageStartEvent,
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent"
 import * as Pi from "@earendil-works/pi-coding-agent"
@@ -52,8 +53,9 @@ const document: SketchbookDocument = {
 function fakeHost() {
   const tools = new Map<string, ToolDefinition>()
   type ShutdownHandler = (event: { type: "session_shutdown"; reason: string }) => Promise<void>
-  const handlers = new Map<string, ShutdownHandler>()
-  const sendUserMessage = vi.fn()
+  let shutdown: ShutdownHandler | undefined
+  let messageStart: ((event: MessageStartEvent) => void) | undefined
+  const sendUserMessage = vi.fn<(text: string) => void>()
   const hasPendingMessages = vi.fn(() => false)
   const pi = {
     registerTool(tool: ToolDefinition) {
@@ -61,8 +63,9 @@ function fakeHost() {
     },
     registerCommand() {},
     sendUserMessage,
-    on(event: string, handler: ShutdownHandler) {
-      handlers.set(event, handler)
+    on(event: string, handler: ShutdownHandler | ((event: MessageStartEvent) => void)) {
+      if (event === "session_shutdown") shutdown = handler as ShutdownHandler
+      if (event === "message_start") messageStart = handler as (event: MessageStartEvent) => void
     },
   } as unknown as ExtensionAPI
   extension(pi)
@@ -70,8 +73,14 @@ function fakeHost() {
     tools,
     sendUserMessage,
     hasPendingMessages,
+    receiveUserMessage(text: string) {
+      messageStart?.({
+        type: "message_start",
+        message: { role: "user", content: [{ type: "text", text }], timestamp: Date.now() },
+      })
+    },
     async shutdown(reason = "quit") {
-      await handlers.get("session_shutdown")?.({ type: "session_shutdown", reason })
+      await shutdown?.({ type: "session_shutdown", reason })
     },
     async call(name: string, input: unknown, cwd: string, mode = "tui", signal?: AbortSignal) {
       const tool = tools.get(name)
@@ -443,7 +452,14 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
     expect(await post(url.origin, headers.Authorization)).toBe(429)
     expect(host.sendUserMessage).not.toHaveBeenCalled()
     host.hasPendingMessages.mockReturnValue(false)
-    expect(await post(url.origin, headers.Authorization)).toBe(204)
+    const queued = Promise.withResolvers<string>()
+    host.sendUserMessage.mockImplementationOnce(queued.resolve)
+    const posting = post(url.origin, headers.Authorization)
+    const feedback = await queued.promise
+    host.receiveUserMessage("An unrelated user message")
+    expect(await post(url.origin, headers.Authorization)).toBe(429)
+    host.receiveUserMessage(feedback)
+    expect(await posting).toBe(204)
     expect(await post(url.origin, headers.Authorization)).toBe(429)
     expect(host.sendUserMessage).toHaveBeenCalledExactlyOnceWith(
       expect.stringContaining("Make it shorter. [redacted]"),
@@ -457,6 +473,68 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
         () => false,
       ),
     ).toBe(false)
+  })
+
+  it("does not confirm feedback that Pi rejects during compaction", async () => {
+    const { documentId } = await write()
+    const result = await host.call("sketchbook_open", { documentId, sendFeedback: true }, cwd)
+    const url = new URL(data<Opened>(result).url)
+    const token = new URLSearchParams(url.hash.slice(1)).get("token")
+    const attempted = Promise.withResolvers<void>()
+    // Pi's void wrapper reports compaction errors separately and emits no user message.
+    host.sendUserMessage.mockImplementationOnce(() => attempted.resolve())
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+    try {
+      const posting = fetch(new URL(annotationPath, url), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Origin: url.origin,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ notes: [{ element: "p", excerpt: "Example", comment: "Fix it." }] }),
+      })
+      await attempted.promise
+      await vi.advanceTimersByTimeAsync(8_000)
+      const response = await posting
+      expect(response.status).toBe(503)
+      expect(await response.text()).toContain("could not be confirmed")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("keeps an overlapping feedback open alive when the first caller cancels", async () => {
+    const { documentId } = await write()
+    const reading = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const readViewer = DocumentStore.prototype.readViewer
+    const spy = vi
+      .spyOn(DocumentStore.prototype, "readViewer")
+      .mockImplementationOnce(async function (this: DocumentStore, ...args) {
+        reading.resolve()
+        await release.promise
+        return readViewer.apply(this, args)
+      })
+    const first = new AbortController()
+    const input = { documentId, sendFeedback: true }
+    const cancelled = host.call("sketchbook_open", input, cwd, "rpc", first.signal)
+    await reading.promise
+    const continuing = host.call("sketchbook_open", input, cwd, "rpc")
+    try {
+      first.abort(new Error("First caller cancelled"))
+      expect(text(await cancelled)).toBe("First caller cancelled")
+      expect(spy).toHaveBeenCalledTimes(1)
+    } finally {
+      release.resolve()
+    }
+    const usable = await continuing
+    expect(usable.isError).not.toBe(true)
+    const { url } = data<Opened>(usable)
+    expect((await fetch(new URL(url).origin)).status).toBe(200)
+    expect(data<Opened>(await host.call("sketchbook_open", input, cwd, "rpc")).url === url).toBe(
+      true,
+    )
   })
 
   it("reports interface discovery failure without a URL or listener and keeps stored data readable", async () => {

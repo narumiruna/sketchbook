@@ -171,6 +171,8 @@ export function Annotations({
         if (review.current?.open) closeReview.current?.focus()
       } else if (response.status === 429) {
         setStatus("Pi is not ready for another message. Try again shortly.")
+      } else if (response.status === 503) {
+        setStatus("Delivery could not be confirmed. Check Pi before sending again.")
       } else {
         setStatus("Pi did not accept the feedback. Reopen the Viewer from the Pi session.")
       }

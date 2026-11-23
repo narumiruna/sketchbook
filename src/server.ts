@@ -7,6 +7,7 @@ import { extname, isAbsolute, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Type } from "typebox"
 import {
+  type AnnotationDeliveryResult,
   annotationHeader,
   annotationPath,
   formatAnnotations,
@@ -21,7 +22,7 @@ import type { DocumentStore } from "./store.js"
 
 interface AnnotationDelivery {
   documentId: string
-  send(message: string): boolean
+  send(message: string): AnnotationDeliveryResult | Promise<AnnotationDeliveryResult>
 }
 
 const AnnotationSchema = Type.Object(
@@ -326,15 +327,21 @@ export class ViewerServer {
       return
     }
     if (this.closed || response.destroyed) return
-    if (
-      performance.now() < this.nextDeliveryAt ||
-      !delivery.send(formatAnnotations(delivery.documentId, batch, this.token))
-    ) {
+    const result =
+      performance.now() < this.nextDeliveryAt
+        ? "busy"
+        : await delivery.send(
+            `Feedback submitted through the Sketchbook Viewer. ${formatAnnotations(delivery.documentId, batch, this.token)}`,
+          )
+    if (result === "delivered") this.nextDeliveryAt = performance.now() + 2_000
+    if (this.closed || response.destroyed) return
+    if (result === "busy") {
       reply(response, 429, "Pi is not ready for another message. Try again shortly.")
-      return
+    } else if (result === "unconfirmed") {
+      reply(response, 503, "Pi delivery could not be confirmed.")
+    } else {
+      response.writeHead(204).end()
     }
-    this.nextDeliveryAt = performance.now() + 2_000
-    response.writeHead(204).end()
   }
 
   private async document(

@@ -45,7 +45,7 @@ const coordinator = createServer((request, response) => {
         documentId,
         send(message) {
           deliveries.push(message)
-          return true
+          return "delivered"
         },
       })
       response.end(JSON.stringify({ url: await annotationViewer.open(documentId) }))

@@ -170,7 +170,7 @@ type Operation =
 
 `sketchbook_open({ documentId })` returns an ephemeral viewer URL while the viewer server is running.
 In Pi, opening requires a persistent TUI or RPC session. In a client using the MCP tools, the connection to the MCP server must stay open.
-Pi also accepts `sketchbook_open({ documentId, sendFeedback: true })`. This opens a separate Viewer that listens only on `127.0.0.1` and only serves the specified document. The **Notes → Send to Pi** button sends the notes as a user message to that Pi session without changing any files. Keep this link private, and do not forward its port. MCP does not accept `sendFeedback`.
+Pi also accepts `sketchbook_open({ documentId, sendFeedback: true })`. This opens a separate Viewer that listens only on `127.0.0.1` and only serves the specified document. The **Notes → Send to Pi** button sends the notes as a user message to that Pi session without changing any files. The Viewer clears the notes only if Pi starts the matching user message within its confirmation window. If Pi queues it for longer, check Pi before sending again. Anyone with the full link and access to local loopback can submit feedback as a user message. Keep this link private, and do not forward its port. MCP does not accept `sendFeedback`.
 Without `sendFeedback: true`, the read-only Viewer listens on `0.0.0.0` and automatically returns the first detected non-internal private IPv4 address in operating-system interface order, or `127.0.0.1` if none is detected.
 No host flag or manual IP entry is required.
 The wildcard listener opens every IPv4 interface, even when the URL falls back to loopback; use only trusted networks and firewall policy.

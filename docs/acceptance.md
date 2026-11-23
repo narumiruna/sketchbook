@@ -49,7 +49,8 @@ Record the host, model ID, exact package revision, saved record revisions, check
 
 1. In a disposable Pi workspace, open a synthetic document with `sketchbook_open({ documentId, sendFeedback: true })`. Confirm the Viewer listens only on loopback and the URL only grants access to that document.
 2. Choose **Annotate**, select a heading, and add a comment. In **Notes**, select **Send to Pi**. Verify that one user message arrives in the originating conversation with the target and comment but no Viewer token. Verify that sending alone does not change the saved document.
-3. Open a read-only LAN or MCP link. Verify that it offers **Copy feedback** but not **Send to Pi**. Confirm that closing or reloading the Pi session revokes its feedback link.
+3. If Pi rejects a batch or does not start the matching message within the confirmation window, verify that the Viewer does not show **Sent** and keeps the notes available to copy. A queued follow-up can appear later; check Pi before retrying.
+4. Open a read-only LAN or MCP link. Verify that it offers **Copy feedback** but not **Send to Pi**. Confirm that closing or reloading the Pi session revokes its feedback link.
 
 Use a fake Pi host for automated delivery checks. Human acceptance and any live-model behavior require separate checks; do not run paid model evaluations without authorization.
 

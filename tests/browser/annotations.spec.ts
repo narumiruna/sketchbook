@@ -130,6 +130,13 @@ test("at 390px selects through the keyboard and an HTML diagram by touch, then d
   await expect(review.getByRole("status")).toContainText("Try again shortly.")
   await expect(review.getByRole("listitem")).toHaveCount(2)
   await expect(send).toBeFocused()
+  await page.route("**/api/annotations", (route) => route.fulfill({ status: 503 }), { times: 1 })
+  await send.press("Enter")
+  await expect(review.getByRole("status")).toHaveText(
+    "Delivery could not be confirmed. Check Pi before sending again.",
+  )
+  await expect(review.getByRole("listitem")).toHaveCount(2)
+  await expect(copy).toBeEnabled()
   await send.press("Enter")
   await expect(review.getByRole("status")).toContainText("Sent.")
   await expect(review.getByText("No notes yet.")).toBeVisible()
@@ -142,7 +149,8 @@ test("at 390px selects through the keyboard and an HTML diagram by touch, then d
   const received = await request.get(`${coordinator}/annotation-deliveries`)
   const messages = (await received.json()) as string[]
   expect(messages).toHaveLength(1)
-  const message = messages[0].split("\n\n")[1]
+  const [source, message] = messages[0].split("\n\n")
+  expect(source).toContain("Feedback submitted through the Sketchbook Viewer.")
   expect(JSON.parse(message)).toEqual({
     documentId: fixture.stored.documentId,
     notes: [

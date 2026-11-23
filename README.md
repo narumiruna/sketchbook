@@ -164,7 +164,7 @@ Omit `language` to hide the label. The Viewer shows code as text and never runs 
 
 ### Annotate the Viewer
 
-Select **Annotate**, then click or tap a heading, paragraph, or diagram. You can also choose a target from the **Page element** list. Imported HTML and SVG diagrams are selectable as a whole, not as individual shapes. Write a comment and select **Add note**. Open **Notes** to review or remove notes. On a same-device Pi Viewer, select **Send to Pi** to send the feedback as a user message. Pi replies in the conversation, not in the browser. On a read-only LAN or MCP Viewer, use **Copy feedback** instead. The Viewer does not edit the document. Drafts are cleared on reload or when you switch chapters.
+Select **Annotate**, then click or tap a heading, paragraph, or diagram. You can also choose a target from the **Page element** list. Imported HTML and SVG diagrams are selectable as a whole, not as individual shapes. Write a comment and select **Add note**. Open **Notes** to review or remove notes. On a same-device Pi Viewer, select **Send to Pi** to send the feedback as a user message. The Viewer clears the notes only when Pi starts processing the matching message. If delivery is not confirmed, check the Pi conversation before you retry or use **Copy feedback**. Pi replies in the conversation, not in the browser. On a read-only LAN or MCP Viewer, use **Copy feedback** instead. The Viewer does not edit the document. Drafts are cleared on reload or when you switch chapters.
 
 ## Rendering and security
 

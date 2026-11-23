@@ -164,7 +164,7 @@ Pi 內建的 `/skill:sketchbook` 也可以使用。即使問題很短，或只�
 
 ### 在 Viewer 加上標註
 
-按 **Annotate**，再點選標題、段落或圖表。也可用 **Page element** 清單選取元素。匯入的 HTML 和 SVG 圖表只能選取整張圖，不能選取圖內的個別圖形。輸入留言後按 **Add note**，再到 **Notes** 檢查或移除標註。在 Pi 的同機 Viewer 按 **Send to Pi**，就會把回饋當成使用者訊息送進目前的 Pi 對話。Pi 會在對話中回覆，不會在瀏覽器回覆。若使用唯讀的區域網路或 MCP Viewer，請用 **Copy feedback**。Viewer 不會直接修改文件。重新整理或切換章節會清除草稿。
+按 **Annotate**，再點選標題、段落或圖表。也可用 **Page element** 清單選取元素。匯入的 HTML 和 SVG 圖表只能選取整張圖，不能選取圖內的個別圖形。輸入留言後按 **Add note**，再到 **Notes** 檢查或移除標註。在 Pi 的同機 Viewer 按 **Send to Pi**，就會把回饋當成使用者訊息送進目前的 Pi 對話。Viewer 只會在 Pi 開始處理這則訊息後清除標註。若無法確認送達，請先查看 Pi 對話，再重試或使用 **Copy feedback**。Pi 會在對話中回覆，不會在瀏覽器回覆。若使用唯讀的區域網路或 MCP Viewer，請用 **Copy feedback**。Viewer 不會直接修改文件。重新整理或切換章節會清除草稿。
 
 ## 算繪和安全性
 

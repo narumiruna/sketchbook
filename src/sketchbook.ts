@@ -1,5 +1,7 @@
+import { addAbortListener } from "node:events"
 import { resolve } from "node:path"
 import { type Static, Type } from "typebox"
+import type { AnnotationDeliveryResult } from "./annotation.js"
 import { BookEditInputSchema, StoredBookSchema, validateBookEditInput } from "./book.js"
 import {
   assertSchema,
@@ -118,10 +120,23 @@ function sourceContent(
   }
 }
 
+interface FeedbackViewer {
+  viewer: ViewerServer
+  opening?: Promise<string>
+}
+
 interface Workspace {
   store: DocumentStore
   viewer?: ViewerServer
-  feedbackViewers: Map<string, ViewerServer>
+  feedbackViewers: Map<string, FeedbackViewer>
+}
+
+function waitForOpen(opening: Promise<string>, signal: AbortSignal): Promise<string> {
+  signal.throwIfAborted()
+  return new Promise((resolve, reject) => {
+    const listener = addAbortListener(signal, () => reject(signal.reason))
+    void opening.then(resolve, reject).finally(() => listener[Symbol.dispose]())
+  })
 }
 
 /** Allocate workspace resources only when a tool executes. */
@@ -281,7 +296,7 @@ export function createSketchbookTools(mutationQueue?: FileMutationQueue) {
       input: unknown,
       cwd: string,
       signal?: AbortSignal,
-      send?: (message: string) => boolean,
+      send?: (message: string) => AnnotationDeliveryResult | Promise<AnnotationDeliveryResult>,
     ) {
       try {
         const active = signalFor(signal)
@@ -291,27 +306,35 @@ export function createSketchbookTools(mutationQueue?: FileMutationQueue) {
         const documentId = input.documentId
         let url: string
         if (send && "sendFeedback" in input && input.sendFeedback === true) {
-          const existing = state.feedbackViewers.get(documentId)
-          if (existing) {
-            url = await existing.open(documentId, active)
-          } else {
+          let feedback = state.feedbackViewers.get(documentId)
+          if (!feedback) {
             const viewer = new ViewerServer(state.store, undefined, "127.0.0.1", {
               documentId,
               send,
             })
-            state.feedbackViewers.set(documentId, viewer)
-            try {
-              url = await viewer.open(documentId, active)
-            } catch (error) {
-              state.feedbackViewers.delete(documentId)
-              await viewer.close()
-              throw error
-            }
+            const entry: FeedbackViewer = { viewer }
+            entry.opening = viewer.open(documentId, lifetime.signal).then(
+              (opened) => {
+                entry.opening = undefined
+                return opened
+              },
+              async (error) => {
+                state.feedbackViewers.delete(documentId)
+                await viewer.close()
+                throw error
+              },
+            )
+            state.feedbackViewers.set(documentId, entry)
+            feedback = entry
           }
+          url = feedback.opening
+            ? await waitForOpen(feedback.opening, active)
+            : await feedback.viewer.open(documentId, active)
         } else {
           state.viewer ??= new ViewerServer(state.store)
           url = await state.viewer.open(documentId, active)
         }
+        active.throwIfAborted()
         const data: Static<typeof OpenOutputSchema> = {
           ok: true,
           documentId,
@@ -330,7 +353,7 @@ export function createSketchbookTools(mutationQueue?: FileMutationQueue) {
       lifetime.abort(new Error("Sketchbook session has shut down."))
       const viewers = [...workspaces.values()].flatMap(({ viewer, feedbackViewers }) => [
         ...(viewer ? [viewer] : []),
-        ...feedbackViewers.values(),
+        ...Array.from(feedbackViewers.values(), ({ viewer: feedbackViewer }) => feedbackViewer),
       ])
       workspaces.clear()
       closing = Promise.all(viewers.map((viewer) => viewer.close())).then(() => undefined)

@@ -5,6 +5,8 @@ export const maxCommentLength = 2000
 export const maxExcerptLength = 160
 export const maxAnnotationBytes = 144 * 1024
 
+export type AnnotationDeliveryResult = "delivered" | "busy" | "unconfirmed"
+
 export interface AnnotationTarget {
   sectionId?: string
   blockId?: string
