@@ -6,9 +6,7 @@ import { networkInterfaces, tmpdir } from "node:os"
 import { join } from "node:path"
 import type {
   ExtensionAPI,
-  ExtensionCommandContext,
   ExtensionToolContext,
-  RegisteredCommand,
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent"
 import * as Pi from "@earendil-works/pi-coding-agent"
@@ -52,16 +50,9 @@ const document: SketchbookDocument = {
 
 function fakeHost() {
   const tools = new Map<string, ToolDefinition>()
-  const commands = new Map<string, RegisteredCommand["handler"]>()
-  const sendUserMessage = vi.fn<ExtensionAPI["sendUserMessage"]>()
-  const hasPendingMessages = vi.fn(() => false)
   type ShutdownHandler = (event: { type: "session_shutdown"; reason: string }) => Promise<void>
   const handlers = new Map<string, ShutdownHandler>()
   const pi = {
-    sendUserMessage,
-    registerCommand(name: string, command: RegisteredCommand) {
-      commands.set(name, command.handler)
-    },
     registerTool(tool: ToolDefinition) {
       tools.set(tool.name, tool)
     },
@@ -72,20 +63,6 @@ function fakeHost() {
   extension(pi)
   return {
     tools,
-    sendUserMessage,
-    hasPendingMessages,
-    async interact(args: string, cwd: string, mode = "tui") {
-      const handler = commands.get("sketchbook-interact")
-      if (!handler) throw new Error("Missing interactive Viewer command")
-      const messages: string[] = []
-      await handler(args, {
-        cwd,
-        mode,
-        hasPendingMessages,
-        ui: { notify: (text: string) => messages.push(text) },
-      } as unknown as ExtensionCommandContext)
-      return messages[0] ?? ""
-    },
     async shutdown(reason = "quit") {
       await handlers.get("session_shutdown")?.({ type: "session_shutdown", reason })
     },
@@ -377,108 +354,6 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
       expect((await fetch(url.origin)).status).toBe(200)
     },
   )
-
-  it("sends authorized local feedback once to the current Pi conversation without a new tool", async () => {
-    const { documentId } = await write()
-    const other = await write()
-    const listen = vi.spyOn(Server.prototype, "listen")
-    const notice = await host.interact(documentId, cwd)
-    const url = new URL(notice.split("\n")[1])
-    const parseToken = (address: URL) => new URLSearchParams(address.hash.slice(1)).get("token")
-    const token = parseToken(url)
-    expect(Boolean(token)).toBe(true)
-    expect(url.hostname).toBe("127.0.0.1")
-    expect(listen.mock.calls[0]?.slice(0, 2)).toEqual([0, "127.0.0.1"])
-    expect(networkInterfaces).not.toHaveBeenCalled()
-    const read = (id: string) =>
-      fetch(`${url.origin}/api/documents/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-    expect((await read(documentId)).headers.get("X-Sketchbook-Feedback")).toBe("pi")
-    expect((await read(other.documentId)).status).toBe(404)
-    const normal = data<Opened>(await host.call("sketchbook_open", { documentId }, cwd)).url
-    const body = { chapterId: "extra", notes: [{ comment: "Trim this note.", blockId: "intro" }] }
-    const submit = (
-      overrides: Record<string, string> = {},
-      payload: unknown = body,
-      origin = url.origin,
-    ) =>
-      fetch(`${origin}/api/feedback`, {
-        method: "POST",
-        headers: {
-          Origin: origin,
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          ...overrides,
-        },
-        body: JSON.stringify(payload),
-      })
-    const missingOrigin = await fetch(`${url.origin}/api/feedback`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-    expect(missingOrigin.status).toBe(403)
-    expect((await submit({ Origin: "null" })).status).toBe(403)
-    expect((await submit({ Origin: "http://localhost" })).status).toBe(403)
-    expect((await submit({ Authorization: "" })).status).toBe(401)
-    expect((await submit({ Authorization: `Bearer ${parseToken(new URL(normal))}` })).status).toBe(
-      401,
-    )
-    expect((await submit({ "Content-Type": "text/plain" })).status).toBe(415)
-    expect((await submit({}, { ...body, documentId: other.documentId })).status).toBe(400)
-    expect((await submit({}, { notes: [{ comment: "x".repeat(100_000) }] })).status).toBe(413)
-    expect((await submit({}, body, new URL(normal).origin)).status).toBe(405)
-    const put = await fetch(`${url.origin}/api/documents/${documentId}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, Origin: url.origin },
-    })
-    expect(put.status).toBe(405)
-    host.hasPendingMessages.mockReturnValueOnce(true)
-    expect((await submit()).status).toBe(429)
-    expect(host.sendUserMessage).not.toHaveBeenCalled()
-    expect(
-      (await submit({}, { ...body, notes: [...body.notes, { comment: `Re: ${url.href}` }] }))
-        .status,
-    ).toBe(204)
-    expect((await submit()).status).toBe(429)
-    expect(host.sendUserMessage).toHaveBeenCalledTimes(1)
-    const [message, options] = host.sendUserMessage.mock.calls[0] ?? []
-    expect(typeof message).toBe("string")
-    expect(String(message).includes(String(token))).toBe(false)
-    expect(String(message).includes(url.origin)).toBe(false)
-    expect(String(message)).toContain(documentId)
-    expect(String(message)).toContain("Trim this note.")
-    expect(String(message)).toContain(`"blockId": "intro"`)
-    expect(options).toEqual({ deliverAs: "followUp", expandPromptTemplates: false })
-    expect((await new DocumentStore(cwd).read(documentId)).revision).toBe(1)
-  })
-
-  it("can revoke, replace or close interactive links without affecting the ordinary Viewer", async () => {
-    const first = await write()
-    const second = await write()
-    const open = async (id: string) => new URL((await host.interact(id, cwd)).split("\n")[1])
-    const normal = data<Opened>(
-      await host.call("sketchbook_open", { documentId: first.documentId }, cwd),
-    ).url
-    const a = await open(first.documentId)
-    expect(await host.interact("bad id", cwd)).toContain("Usage:")
-    expect(await host.interact("00000000-0000-4000-8000-000000000000", cwd)).toContain(
-      "Could not open",
-    )
-    expect(await host.interact(first.documentId, cwd, "print")).toContain("persistent Pi")
-    expect((await fetch(a.origin)).status).toBe(200)
-    const b = await open(second.documentId)
-    await expect(fetch(a.origin)).rejects.toThrow()
-    expect((await fetch(b.origin)).status).toBe(200)
-    expect(await host.interact("stop", cwd)).toContain("stopped")
-    await expect(fetch(b.origin)).rejects.toThrow()
-    expect((await fetch(new URL(normal).origin)).status).toBe(200)
-    const reopened = await open(first.documentId)
-    await host.shutdown("reload")
-    await expect(fetch(reopened.origin)).rejects.toThrow()
-    expect(host.sendUserMessage).not.toHaveBeenCalled()
-  })
 
   it("automatically discovers a LAN URL only on first open without a model-controlled host input", async () => {
     vi.mocked(networkInterfaces).mockReturnValue({

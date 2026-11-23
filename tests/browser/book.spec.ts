@@ -195,8 +195,6 @@ for (const width of [390, 1440]) {
     checkLocation((await defaultLink.getAttribute("href")) ?? "", fixture)
     await capture(page, testInfo.outputPath("01-message.png"))
     await page.keyboard.press("Tab")
-    await expect(page.getByRole("button", { name: "Annotate", exact: true })).toBeFocused()
-    await page.keyboard.press("Tab")
     await expect(defaultLink).toBeFocused()
     await page.keyboard.press("Tab")
     await expect(
