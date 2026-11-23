@@ -9,7 +9,10 @@ import { DocumentStore } from "../src/store.js"
 
 const workspace = await mkdtemp(join(tmpdir(), "pi-sketchbook-browser-"))
 const store = new DocumentStore(workspace)
-const viewer = new ViewerServer(store, new URL("../dist/web/", import.meta.url))
+const assets = new URL("../dist/web/", import.meta.url)
+const viewer = new ViewerServer(store, assets)
+let annotationViewer: ViewerServer | undefined
+let deliveries: string[] = []
 const coordinator = createServer((request, response) => {
   void (async () => {
     const path = new URL(request.url ?? "/", "http://127.0.0.1:4179").pathname
@@ -18,7 +21,14 @@ const coordinator = createServer((request, response) => {
       response.end(JSON.stringify({ ready: true }))
       return
     }
-    if (request.method !== "POST" || !["/documents", "/books"].includes(path)) {
+    if (request.method === "GET" && path === "/annotation-deliveries") {
+      response.end(JSON.stringify(deliveries))
+      return
+    }
+    if (
+      request.method !== "POST" ||
+      !["/documents", "/books", "/annotation-viewer"].includes(path)
+    ) {
       response.writeHead(404).end()
       return
     }
@@ -26,6 +36,20 @@ const coordinator = createServer((request, response) => {
     for await (const chunk of request) {
       body += chunk
       if (Buffer.byteLength(body) > 2 * 1024 * 1024) throw new Error("Test fixture too large")
+    }
+    if (path === "/annotation-viewer") {
+      const { documentId } = JSON.parse(body) as { documentId: string }
+      await annotationViewer?.close()
+      deliveries = []
+      annotationViewer = new ViewerServer(store, assets, "127.0.0.1", {
+        documentId,
+        send(message) {
+          deliveries.push(message)
+          return true
+        },
+      })
+      response.end(JSON.stringify({ url: await annotationViewer.open(documentId) }))
+      return
     }
     if (path === "/books") {
       response.end(JSON.stringify(await store.editBook(JSON.parse(body) as BookEditInput)))
@@ -51,7 +75,7 @@ async function stop() {
   stopping = true
   const closed = new Promise<void>((accept) => coordinator.close(() => accept()))
   coordinator.closeAllConnections()
-  await Promise.all([closed, viewer.close()])
+  await Promise.all([closed, viewer.close(), annotationViewer?.close()])
   await rm(workspace, { recursive: true, force: true })
 }
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

@@ -266,6 +266,18 @@ describe("Sketchbook MCP protocol", () => {
     expect(listen).not.toHaveBeenCalled()
   })
 
+  it("rejects Pi feedback links without starting an MCP Viewer", async () => {
+    const { client } = await session()
+    const { documentId } = await write(client)
+    const listen = vi.spyOn(HttpServer.prototype, "listen")
+    const result = await client.callTool({
+      name: "sketchbook_open",
+      arguments: { documentId, sendFeedback: true },
+    })
+    expect(result.isError).toBe(true)
+    expect(listen).not.toHaveBeenCalled()
+  })
+
   it("uses a distinct book revision for scoped MCP edits and preserves the original payload", async () => {
     const { client } = await session()
     const { documentId } = await write(client)

@@ -12,6 +12,7 @@ import type {
 import * as Pi from "@earendil-works/pi-coding-agent"
 import { Check } from "typebox/value"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { annotationHeader, annotationPath } from "../src/annotation.js"
 import type { SketchbookDocument, StoredDocument } from "../src/document.js"
 import extension from "../src/extension.js"
 import { DocumentStore } from "../src/store.js"
@@ -52,10 +53,14 @@ function fakeHost() {
   const tools = new Map<string, ToolDefinition>()
   type ShutdownHandler = (event: { type: "session_shutdown"; reason: string }) => Promise<void>
   const handlers = new Map<string, ShutdownHandler>()
+  const sendUserMessage = vi.fn()
+  const hasPendingMessages = vi.fn(() => false)
   const pi = {
     registerTool(tool: ToolDefinition) {
       tools.set(tool.name, tool)
     },
+    registerCommand() {},
+    sendUserMessage,
     on(event: string, handler: ShutdownHandler) {
       handlers.set(event, handler)
     },
@@ -63,6 +68,8 @@ function fakeHost() {
   extension(pi)
   return {
     tools,
+    sendUserMessage,
+    hasPendingMessages,
     async shutdown(reason = "quit") {
       await handlers.get("session_shutdown")?.({ type: "session_shutdown", reason })
     },
@@ -72,7 +79,8 @@ function fakeHost() {
       const result = await tool.execute("test-call", input, signal, undefined, {
         cwd,
         mode,
-      } as ExtensionToolContext)
+        hasPendingMessages,
+      } as unknown as ExtensionToolContext)
       expect(tool.outputSchema).toBeDefined()
       if (tool.outputSchema) expect(Check(tool.outputSchema, result.structuredContent)).toBe(true)
       expect(result.details).toEqual(result.structuredContent)
@@ -388,6 +396,67 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
     expect(second.url).toBe(first.url)
     expect(binding).toHaveBeenCalledTimes(1)
     expect(networkInterfaces).toHaveBeenCalledTimes(1)
+  })
+
+  it("enables same-device feedback for one document and queues it in the Pi session", async () => {
+    const { documentId } = await write()
+    const other = await write()
+    const listen = vi.spyOn(Server.prototype, "listen")
+    const input = { documentId, sendFeedback: true }
+    const result = await host.call("sketchbook_open", input, cwd, "rpc")
+    expect(result.isError).not.toBe(true)
+    const url = new URL(data<Opened>(result).url)
+    expect(url.hostname).toBe("127.0.0.1")
+    expect(listen.mock.calls[0]?.slice(0, 2)).toEqual([0, "127.0.0.1"])
+    expect(networkInterfaces).not.toHaveBeenCalled()
+    const reopened = await host.call("sketchbook_open", input, cwd, "rpc")
+    expect(data<Opened>(reopened).url === url.href).toBe(true)
+    expect(listen).toHaveBeenCalledTimes(1)
+
+    const token = new URLSearchParams(url.hash.slice(1)).get("token") ?? ""
+    const headers = { Authorization: `Bearer ${token}` }
+    const own = await fetch(`${url.origin}/api/documents/${documentId}`, { headers })
+    expect(own.headers.get(annotationHeader)).toBe("pi")
+    await own.body?.cancel()
+    const denied = await fetch(`${url.origin}/api/documents/${other.documentId}`, { headers })
+    expect(denied.status).toBe(404)
+    await denied.body?.cancel()
+
+    const post = async (origin: string, authorization: string) => {
+      const response = await fetch(new URL(annotationPath, url), {
+        method: "POST",
+        headers: {
+          Authorization: authorization,
+          Origin: origin,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          notes: [{ element: "p", excerpt: "Example", comment: `Make it shorter. ${token}` }],
+        }),
+      })
+      await response.body?.cancel()
+      return response.status
+    }
+    expect(await post("https://example.invalid", headers.Authorization)).toBe(403)
+    expect(await post(url.origin, "Bearer invalid")).toBe(401)
+    host.hasPendingMessages.mockReturnValue(true)
+    expect(await post(url.origin, headers.Authorization)).toBe(429)
+    expect(host.sendUserMessage).not.toHaveBeenCalled()
+    host.hasPendingMessages.mockReturnValue(false)
+    expect(await post(url.origin, headers.Authorization)).toBe(204)
+    expect(await post(url.origin, headers.Authorization)).toBe(429)
+    expect(host.sendUserMessage).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining("Make it shorter. [redacted]"),
+      { deliverAs: "followUp", expandPromptTemplates: false },
+    )
+    expect((await new DocumentStore(cwd).read(documentId)).revision).toBe(1)
+    await host.shutdown("reload")
+    expect(
+      await fetch(url.origin).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(false)
   })
 
   it("reports interface discovery failure without a URL or listener and keeps stored data readable", async () => {

@@ -112,7 +112,7 @@ section {
   padding-block: 1.5rem 0.75rem;
   border-block-end: 1px solid var(--rule-solid);
 }
-.book-chapter-header:has(+ .design-page[data-default-paper]) {
+.book-chapter-header:has(+ [data-annotation-frame] > .design-page[data-default-paper]) {
   border-block-end-color: transparent;
 }
 .chapter-position {
@@ -377,8 +377,131 @@ button:disabled {
   width: 100%;
   border: 0;
 }
-.design-page[data-default-paper] {
+[data-annotation-frame]:has(> .design-page[data-default-paper]) {
   margin-block-start: 1.25rem;
+}
+
+.annotations {
+  margin-block: 0.75rem;
+  font-size: 0.875rem;
+}
+.annotation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.annotation-actions button,
+.annotation-list button,
+.annotation-actions select {
+  min-block-size: 2.25rem;
+  max-inline-size: 100%;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--rule-solid);
+  border-radius: 0.3rem;
+  font: inherit;
+}
+.annotation-actions button[aria-pressed="true"] {
+  border-color: var(--link);
+  background: var(--paper-2);
+}
+.annotation-actions button svg {
+  inline-size: 1em;
+  block-size: 1em;
+  margin-inline-end: 0.35em;
+  vertical-align: -0.12em;
+}
+.annotation-picker-help p {
+  margin-block: 0.5rem;
+}
+.annotation-picker-help select {
+  inline-size: min(32rem, 100%);
+}
+main:has(.annotations[data-picking]) [data-annotation-frame] > iframe {
+  pointer-events: none;
+}
+[data-annotation-hover] {
+  outline: 2px solid var(--link);
+  outline-offset: -2px;
+  cursor: crosshair;
+}
+.annotation-dialog {
+  inline-size: min(32rem, calc(100% - 2rem));
+  max-block-size: calc(100% - 2rem);
+  overflow: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--rule-solid);
+  border-radius: 0.5rem;
+  background: var(--paper);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.annotation-dialog:modal,
+.annotation-dialog::backdrop {
+  overscroll-behavior: contain;
+}
+.annotation-dialog::backdrop {
+  overflow: hidden;
+  background: rgb(45 49 66 / 35%);
+}
+.annotation-dialog h1 {
+  margin-block: 0 0.5rem;
+  font-size: 1.5rem;
+}
+.annotation-dialog textarea {
+  display: block;
+  inline-size: 100%;
+  margin-block: 0.25rem 0.75rem;
+  padding: 0.5rem;
+  font: inherit;
+  resize: vertical;
+}
+.annotation-review-actions button {
+  min-block-size: 2.75rem;
+  padding: 0.5rem;
+  border-color: var(--muted);
+  border-radius: 0.25rem;
+  background: var(--paper);
+  font-weight: 500;
+}
+.annotation-review-actions button:enabled:not([aria-disabled="true"]):hover {
+  background: var(--paper-2);
+}
+.annotation-review-actions button:enabled:not([aria-disabled="true"]):active {
+  translate: 0 1px;
+}
+.annotation-review-actions .annotation-primary-action {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+}
+.annotation-review-actions .annotation-primary-action:enabled:not([aria-disabled="true"]):hover {
+  background: color-mix(in srgb, var(--accent), black 12%);
+}
+.annotation-review-actions button:is(:disabled, [aria-disabled="true"]) {
+  border-color: var(--rule-solid);
+  background: var(--paper-2);
+  color: var(--muted);
+  opacity: 1;
+  cursor: default;
+}
+.annotation-dialog [role="status"]:empty {
+  margin: 0;
+}
+.annotation-target {
+  color: var(--muted);
+}
+.annotation-list {
+  padding-inline-start: 1.5rem;
+}
+.annotation-list li + li {
+  margin-block-start: 0.75rem;
+}
+.annotation-list p {
+  margin-block: 0.25rem;
+}
+.annotation-comment {
+  white-space: pre-wrap;
 }
 .static-diagram {
   overflow-x: auto;
