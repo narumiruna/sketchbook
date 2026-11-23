@@ -18,7 +18,9 @@ export function DesignPage({ block }: { block: DesignHtmlBlock }) {
       </p>
     )
   return (
-    <DesignDocument key={prepared.html} id={block.id} title={block.title} html={prepared.html} />
+    <div data-annotation-frame="">
+      <DesignDocument key={prepared.html} id={block.id} title={block.title} html={prepared.html} />
+    </div>
   )
 }
 

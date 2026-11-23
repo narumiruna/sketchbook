@@ -168,6 +168,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
     "sketchbook_read_book",
     "sketchbook_write",
   ])
+  assert.deepEqual([...extension.commands.keys()], ["sketchbook"])
   assert.equal(extension.flags.size, 0, "The viewer must not require host flags")
   const skills = loader.getSkills()
   assert.deepEqual(skills.diagnostics, [])
@@ -203,10 +204,21 @@ async function smoke(packagePath: string, label: string): Promise<void> {
   await session.bindExtensions({ mode: "rpc", onError: (error) => errors.push(error.error) })
   try {
     const question = "What is an npm lifecycle script?"
-    assert.equal(await session.followUp(`/skill:sketchbook ${question}`), "queued")
+    let forwarded: ReturnType<typeof session.followUp> | undefined
+    // Route the command's outgoing message through Pi's skill expansion without starting a model turn.
+    session.sendUserMessage = async (text, options) => {
+      assert.equal(options?.expandPromptTemplates, true)
+      assert.equal(options?.deliverAs, "followUp")
+      assert.ok(typeof text === "string")
+      forwarded = session.followUp(text)
+      await forwarded
+    }
+    await session.prompt(`/sketchbook ${question}`, { source: "rpc" })
+    assert.equal(await forwarded, "queued")
     const expanded = session.getFollowUpMessages()[0]
     assert.ok(expanded.includes('<skill name="sketchbook"'))
     assert.ok(expanded.includes("even if the question is simple"))
+    assert.ok(expanded.includes("[Open Sketchbook Viewer](URL_FROM_SKETCHBOOK_OPEN)"))
     assert.ok(expanded.endsWith(question))
     assert.ok(expanded.includes("upstream/GUIDE.md"))
     for (const name of ["sketchbook_write", "sketchbook_open"]) {
@@ -331,7 +343,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
     await assert.rejects(fetch(url.origin, { signal: AbortSignal.timeout(2000) }))
     assert.deepEqual(errors, [])
     console.log(
-      `Passed ${label}: Pi discovery, skill command expansion, automatic LAN URL without flags, tools, packed browser assets and static diagrams, shutdown`,
+      `Passed ${label}: Pi discovery, /sketchbook skill expansion, automatic LAN URL without flags, tools, packed browser assets and static diagrams, shutdown`,
     )
   } finally {
     for (const handler of extension.handlers.get("session_shutdown") ?? []) {

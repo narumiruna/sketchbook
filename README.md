@@ -114,25 +114,25 @@ See [MCP client handoff](docs/acceptance.md#mcp-client-handoff) for client-speci
 
 ## Use
 
-**Before opening the Viewer:** Unlike the loopback-only demo, the regular Viewer listens on all IPv4 interfaces, even if the URL shows `127.0.0.1`. Use it only on a trusted network and keep the full link private. See [LAN access](#lan-access).
+**Before opening the Viewer:** `/sketchbook` opens a same-device Viewer with feedback delivery in Pi. The read-only LAN Viewer listens on all IPv4 interfaces, even if its URL shows `127.0.0.1`. Use LAN links only on a trusted network and keep all full links private. See [LAN access](#lan-access).
 
 In Pi, invoke the skill with a prompt:
 
 ```text
-/skill:sketchbook Explain this system with an overview, API detail, and storage detail.
+/sketchbook Explain this system with an overview, API detail, and storage detail.
 ```
 
-This explicitly requests a saved page and a private Viewer link, even for a short question. The skill can use Markdown alone or save complete Diagram Design HTML when diagrams help. It uses Sketchbook's light style unless you specify a style or the project has a profile. Without an explicit request, simple questions that do not need a diagram should stay in chat. Automatic skill selection remains unverified.
+Pi's built-in `/skill:sketchbook` command also works. Both commands request a saved page and a private Viewer link, even for a short question or an update to an existing page. After saving, the skill opens the Viewer unless you ask it not to. The first line of the reply is a clickable **Open Sketchbook Viewer** link. If opening fails, the skill reports the blocker and gives the saved document ID and revision, not a static preview. The skill can use Markdown alone or save complete Diagram Design HTML when diagrams help. It uses Sketchbook's light style unless you specify a style or the project has a profile. Without an explicit request, simple questions that do not need a diagram should stay in chat. Automatic skill selection remains unverified.
 
 ### Tools
 
-| Tool                   | Purpose                                                                                                                                                                    |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sketchbook_write`     | Create with `{document}` (omit `documentId` and `expectedRevision`). To replace the original page, pass `{document, documentId, expectedRevision}` with the full document. |
-| `sketchbook_read`      | Read the original page and its revision with `{documentId}`.                                                                                                               |
-| `sketchbook_open`      | Get a private, temporary Viewer URL with `{documentId}`. Open it in your browser; the tool does not launch one.                                                            |
-| `sketchbook_read_book` | Read sections, extra chapters, and their revision with `{documentId}`. If `book` is `null`, the initial revision is `0`.                                                   |
-| `sketchbook_edit`      | Make one revision-checked change with `{documentId, expectedRevision, operation}`.                                                                                         |
+| Tool                   | Purpose                                                                                                                                                                     |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sketchbook_write`     | Create with `{document}` (omit `documentId` and `expectedRevision`). To replace the original page, pass `{document, documentId, expectedRevision}` with the full document.  |
+| `sketchbook_read`      | Read the original page and its revision with `{documentId}`.                                                                                                                |
+| `sketchbook_open`      | Get a private, temporary Viewer URL with `{documentId}`. In Pi, add `sendFeedback: true` for a same-device link that can send feedback. The tool does not launch a browser. |
+| `sketchbook_read_book` | Read sections, extra chapters, and their revision with `{documentId}`. If `book` is `null`, the initial revision is `0`.                                                    |
+| `sketchbook_edit`      | Make one revision-checked change with `{documentId, expectedRevision, operation}`.                                                                                          |
 
 Read the record you intend to change and use its revision. If an edit conflicts or its result is uncertain, read that record again before retrying. Pi and MCP use the same validation and store the HTML and SVG sources unchanged. A successful write confirms validation and storage, not rendering; opening a URL does not verify rendering either. See the [document format and tool contract](skills/sketchbook/references/document-format.md) for result fields and limits.
 
@@ -162,6 +162,10 @@ For a standalone snippet, add a `code` block to `document.blocks`:
 
 Omit `language` to hide the label. The Viewer shows code as text and never runs it. Tab to the block and use the arrow keys to scroll long lines. For code within prose or a slide explanation, use a fenced Markdown block.
 
+### Annotate the Viewer
+
+Select **Annotate**, then click or tap a heading, paragraph, or diagram. You can also choose a target from the **Page element** list. Imported HTML and SVG diagrams are selectable as a whole, not as individual shapes. Write a comment and select **Add note**. Open **Notes** to review or remove notes. On a same-device Pi Viewer, select **Send to Pi** to send the feedback as a user message. The Viewer clears the notes only when Pi starts processing the matching message. If delivery is not confirmed, check the Pi conversation before you retry or use **Copy feedback**. Pi replies in the conversation, not in the browser. On a read-only LAN or MCP Viewer, use **Copy feedback** instead. The Viewer does not edit the document. Drafts are cleared on reload or when you switch chapters.
+
 ## Rendering and security
 
 - **Diagram Design HTML:** The Viewer sandboxes imported pages and works offline. Scripts, navigation, and external resources are not supported. External stylesheets are removed; embedded styles and local SVG definitions stay with the page.
@@ -176,7 +180,7 @@ Check the heading outline before reviewing diagrams. The page title is H1; deck 
 
 ### LAN access
 
-Use the complete `sketchbook_open` URL on another device on the **same trusted LAN**. No manual IP or host flag is needed. Keep the full URL private: its fragment contains a token that permits document reads across that workspace, not just for the linked document. HTTP is unencrypted. Do not expose or forward the port to the Internet, and keep secrets out of documents.
+Ask for a read-only LAN link, or call `sketchbook_open` without `sendFeedback: true`. Use the complete URL on another device on the **same trusted LAN**. No manual IP or host flag is needed. Keep the full URL private: its fragment contains a token that permits document reads across that workspace, not just for the linked document. HTTP is unencrypted. Do not expose or forward the port to the Internet, and keep secrets out of documents.
 
 The Viewer listens on all IPv4 interfaces (`0.0.0.0`) on a random port. The URL uses the first detected non-internal private IPv4 address in system interface order, or `127.0.0.1` if none is found. The fallback does not restrict the listener to loopback, and IPv6 is not supported. Host and Origin checks and the Content Security Policy (CSP) restrict browser access but do not filter client IPs. Follow your firewall policy. See the [Viewer access rules](skills/sketchbook/references/document-format.md#open) for allowed addresses, ports, and origins.
 
@@ -199,7 +203,7 @@ If `.sketchbook/` is absent and Sketchbook finds `.pi/sketchbook/` or `.pi/canva
 
 ## Upgrade from Pi Canvas
 
-Use `@narumitw/sketchbook`, `sketchbook_*` tools, and `/skill:sketchbook`. The old `canvas_*` tools and `/skill:canvas-explain-diagrams` are not aliases. Replace `/skill:sketchbook-create-diagrams`, `/skill:sketchbook-diagram-design`, and `/skill:sketchbook-explain-diagrams` in saved prompts as well.
+Use `@narumitw/sketchbook`, `sketchbook_*` tools, and `/sketchbook`. The old `canvas_*` tools and `/skill:canvas-explain-diagrams` are not aliases. Replace `/skill:sketchbook-create-diagrams`, `/skill:sketchbook-diagram-design`, and `/skill:sketchbook-explain-diagrams` in saved prompts as well.
 
 Follow [Move existing files](#move-existing-files) to move documents from `.pi/canvas/`.
 

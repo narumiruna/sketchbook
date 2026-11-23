@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react"
+import { annotationHeader } from "../annotation.js"
 import type { Chapter, StoredBook } from "../book.js"
 import type { CodeBlock, DiagramDeck, StoredDocument } from "../document.js"
+import { Annotations } from "./annotations"
 import { BookContents, ChapterOrder, chapterNumber, useBookLocation } from "./chapter-navigation"
 import { DesignPage } from "./design-page"
 import { Markdown } from "./markdown"
@@ -23,6 +25,7 @@ function mergeDocument(current: ViewerDocument | null, next: ViewerDocument): Vi
 function useDocument({ documentId, token }: Session) {
   const [stored, setStored] = useState<ViewerDocument | null>(null)
   const [status, setStatus] = useState("Loading document…")
+  const [canSend, setCanSend] = useState(false)
 
   useEffect(() => {
     if (!documentId || !token) {
@@ -76,6 +79,7 @@ function useDocument({ documentId, token }: Session) {
           }
           current = mergeDocument(current, next)
           setStored(current)
+          setCanSend(response.headers.get(annotationHeader) === "pi")
           etag =
             current.revision === next.revision && current.book?.revision === next.book?.revision
               ? (response.headers.get("ETag") ?? "")
@@ -106,7 +110,7 @@ function useDocument({ documentId, token }: Session) {
       document.removeEventListener("visibilitychange", visibility)
     }
   }, [documentId, token])
-  return { stored, status }
+  return { stored, status, canSend }
 }
 
 interface Selection {
@@ -293,7 +297,16 @@ function Blocks({ blocks, inSection = false }: { blocks: Chapter["blocks"]; inSe
 const sectionHeadingId = (sectionId: string) => `sketchbook-section-${sectionId}`
 const chapterHeadingId = "sketchbook-chapter"
 
-function Reader({ stored, token }: { stored: ViewerDocument; token: string }) {
+function Reader({
+  stored,
+  token,
+  canSend,
+}: {
+  stored: ViewerDocument
+  token: string
+  canSend: boolean
+}) {
+  const content = useRef<HTMLElement>(null)
   const { documentId, revision, updatedAt, document: original, book } = stored
   const first: Chapter = {
     id: documentId,
@@ -341,7 +354,7 @@ function Reader({ stored, token }: { stored: ViewerDocument; token: string }) {
       {hasContents && (
         <BookContents chapters={chapters} chapter={chapter} section={section} links={links} />
       )}
-      <main>
+      <main ref={content}>
         <header className={chapters.length > 1 ? "book-chapter-header" : undefined}>
           {chapters.length > 1 && (
             <p className="chapter-position">
@@ -357,11 +370,19 @@ function Reader({ stored, token }: { stored: ViewerDocument; token: string }) {
               {new Date(revisionRecord.updatedAt).toLocaleString()}
             </time>
           </p>
+          <Annotations
+            key={chapter.id}
+            content={content}
+            documentId={documentId}
+            chapterId={chapter.id}
+            token={token}
+            canSend={canSend}
+          />
         </header>
         {notice && <p role="status">{notice}</p>}
         <Blocks key={chapter.id} blocks={chapter.blocks} />
         {chapter.sections.map(({ id, title, blocks }) => (
-          <section key={`${chapter.id}/${id}`} className="chapter-section">
+          <section key={`${chapter.id}/${id}`} className="chapter-section" data-section-id={id}>
             <h2 id={sectionHeadingId(id)} tabIndex={-1}>
               {title}
             </h2>
@@ -375,7 +396,7 @@ function Reader({ stored, token }: { stored: ViewerDocument; token: string }) {
 }
 
 export function App({ session }: { session: Session }) {
-  const { stored, status } = useDocument(session)
+  const { stored, status, canSend } = useDocument(session)
   return (
     <div className="viewer">
       <header className="viewer-header">
@@ -384,7 +405,7 @@ export function App({ session }: { session: Session }) {
           {status}
         </p>
       </header>
-      {stored && <Reader stored={stored} token={session.token} />}
+      {stored && <Reader stored={stored} token={session.token} canSend={canSend} />}
     </div>
   )
 }

@@ -38,11 +38,21 @@ The provider or account owner must authorize API usage before running these chec
 Use a fresh session for each skill-routing check:
 
 1. Ask “What is an npm lifecycle script?” without invoking the skill. Expect a chat answer without a Sketchbook tool call.
-2. Ask `/skill:sketchbook What is an npm lifecycle script?` with no existing style profile. Expect a saved page that answers the question and a private Viewer link, without a style prompt. A Markdown-only page is sufficient.
+2. Ask `/sketchbook What is an npm lifecycle script?` with no existing style profile. Expect the reply to start with a clickable Markdown link that preserves the full URL from `sketchbook_open`, including the token fragment. Open the link and check that the saved page answers the question. A Markdown-only page is sufficient; expect no style prompt.
 3. Explicitly request a Sketchbook diagram for a multi-step process with no existing style profile. Expect Diagram Design HTML and a Viewer link without a renderer or style prompt.
-4. Ask to add a chapter to an existing Sketchbook. Expect the original page to remain first.
+4. Ask to add a chapter to an existing Sketchbook. Expect the original page to remain first and the skill to open the Viewer after the edit.
+5. Invoke `/sketchbook` in a disposable workspace with a synthetic legacy `.pi/sketchbook/` store and no `.sketchbook/` store. Expect the skill to report the migration requirement without moving the old store, saving to a different workspace, or presenting a static preview as the result.
 
 Record the host, model ID, exact package revision, saved record revisions, checks, and any missing evidence. Do not record credentials or Viewer links.
+
+## Viewer annotations
+
+1. In a disposable Pi workspace, open a synthetic document with `sketchbook_open({ documentId, sendFeedback: true })`. Confirm the Viewer listens only on loopback and the URL only grants access to that document.
+2. Choose **Annotate**, select a heading, and add a comment. In **Notes**, select **Send to Pi**. Verify that one user message arrives in the originating conversation with the target and comment but no Viewer token. Verify that sending alone does not change the saved document.
+3. If Pi rejects a batch or does not start the matching message within the confirmation window, verify that the Viewer does not show **Sent** and keeps the notes available to copy. A queued follow-up can appear later; check Pi before retrying.
+4. Open a read-only LAN or MCP link. Verify that it offers **Copy feedback** but not **Send to Pi**. Confirm that closing or reloading the Pi session revokes its feedback link.
+
+Use a fake Pi host for automated delivery checks. Human acceptance and any live-model behavior require separate checks; do not run paid model evaluations without authorization.
 
 ## LAN device handoff
 

@@ -5,9 +5,46 @@ import { isIPv4, type Socket } from "node:net"
 import { networkInterfaces } from "node:os"
 import { extname, isAbsolute, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
-import { validateDocumentId } from "./document.js"
+import { Type } from "typebox"
+import {
+  type AnnotationDeliveryResult,
+  annotationHeader,
+  annotationPath,
+  formatAnnotations,
+  maxAnnotationBytes,
+  maxCommentLength,
+  maxExcerptLength,
+  maxNotes,
+} from "./annotation.js"
+import { assertSchema, IdSchema, validateDocumentId } from "./document.js"
 import { RetiredMermaidError } from "./retired-format.js"
 import type { DocumentStore } from "./store.js"
+
+interface AnnotationDelivery {
+  documentId: string
+  send(message: string): AnnotationDeliveryResult | Promise<AnnotationDeliveryResult>
+}
+
+const AnnotationSchema = Type.Object(
+  {
+    chapterId: Type.Optional(IdSchema),
+    notes: Type.Array(
+      Type.Object(
+        {
+          sectionId: Type.Optional(IdSchema),
+          blockId: Type.Optional(IdSchema),
+          slideId: Type.Optional(IdSchema),
+          element: Type.String({ pattern: "^[a-z][a-z0-9-]{0,31}$" }),
+          excerpt: Type.String({ maxLength: maxExcerptLength }),
+          comment: Type.String({ maxLength: maxCommentLength, pattern: "\\S" }),
+        },
+        { additionalProperties: false },
+      ),
+      { minItems: 1, maxItems: maxNotes },
+    ),
+  },
+  { additionalProperties: false },
+)
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -58,7 +95,7 @@ function viewerHosts(): string[] {
   return [...new Set([...addresses, "127.0.0.1"])]
 }
 
-/** One session-scoped, read-only viewer. A closed instance cannot restart. */
+/** One session-scoped viewer with read-only access to documents. */
 export class ViewerServer {
   private server?: Server
   private starting?: Promise<void>
@@ -70,17 +107,22 @@ export class ViewerServer {
   private assetsRoot = ""
   private readonly token = randomBytes(32).toString("base64url")
   private readonly sockets = new Set<Socket>()
+  private nextDeliveryAt = 0
 
   constructor(
     private readonly store: DocumentStore,
     private readonly assets: string | URL = new URL("./web/", import.meta.url),
     private readonly listenHost: "0.0.0.0" | "127.0.0.1" = "0.0.0.0",
+    private readonly annotationDelivery?: AnnotationDelivery,
   ) {}
 
   async open(documentId: string, signal?: AbortSignal): Promise<string> {
     signal?.throwIfAborted()
     this.assertOpen()
     validateDocumentId(documentId)
+    if (this.annotationDelivery && documentId !== this.annotationDelivery.documentId) {
+      throw new Error("Interactive Viewer can only open its assigned document.")
+    }
     await this.store.readViewer(documentId, signal)
     signal?.throwIfAborted()
     this.assertOpen()
@@ -113,7 +155,8 @@ export class ViewerServer {
         throw new Error("Sketchbook viewer index is not a regular bundled file.")
       }
       this.assertOpen()
-      const hosts = this.listenHost === "127.0.0.1" ? [this.listenHost] : viewerHosts()
+      const listenHost = this.annotationDelivery ? "127.0.0.1" : this.listenHost
+      const hosts = listenHost === "127.0.0.1" ? [listenHost] : viewerHosts()
       const server = createServer((request, response) => {
         void this.handle(request, response).catch(() => {
           if (response.destroyed) return
@@ -133,7 +176,7 @@ export class ViewerServer {
       await new Promise<void>((accept, reject) => {
         const onError = (error: Error) => reject(error)
         server.once("error", onError)
-        server.listen(0, this.listenHost, () => {
+        server.listen(0, listenHost, () => {
           server.off("error", onError)
           server.on("error", (error) => {
             this.failure = error
@@ -201,6 +244,10 @@ export class ViewerServer {
       reply(response, 403, "Forbidden.")
       return
     }
+    if (request.method === "POST" && request.url === annotationPath && this.annotationDelivery) {
+      await this.submitAnnotations(request, response, this.annotationDelivery)
+      return
+    }
     if (request.method !== "GET" && request.method !== "HEAD") {
       response.setHeader("Allow", "GET, HEAD")
       reply(response, 405, "Read-only viewer.")
@@ -235,15 +282,75 @@ export class ViewerServer {
     }
   }
 
+  private authorized(request: IncomingMessage) {
+    const supplied = Buffer.from(request.headers.authorization ?? "")
+    const expected = Buffer.from(`Bearer ${this.token}`)
+    return supplied.length === expected.length && timingSafeEqual(supplied, expected)
+  }
+
+  private async submitAnnotations(
+    request: IncomingMessage,
+    response: ServerResponse,
+    delivery: AnnotationDelivery,
+  ): Promise<void> {
+    if (request.headers.origin !== this.origin) {
+      reply(response, 403, "Forbidden.")
+      return
+    }
+    if (!this.authorized(request)) {
+      reply(response, 401, "Unauthorized.")
+      return
+    }
+    if (request.headers["content-type"] !== "application/json") {
+      reply(response, 415, "Expected JSON annotations.")
+      return
+    }
+    const chunks: Buffer[] = []
+    let bytes = 0
+    for await (const chunk of request.iterator({
+      destroyOnReturn: false,
+    }) as AsyncIterable<Buffer>) {
+      bytes += chunk.length
+      if (bytes > maxAnnotationBytes) {
+        response.setHeader("Connection", "close")
+        reply(response, 413, "Annotations are too large.")
+        return
+      }
+      chunks.push(chunk)
+    }
+    let batch: unknown
+    try {
+      batch = JSON.parse(Buffer.concat(chunks).toString("utf8"))
+      assertSchema(AnnotationSchema, batch)
+    } catch {
+      reply(response, 400, "Invalid annotations.")
+      return
+    }
+    if (this.closed || response.destroyed) return
+    const result =
+      performance.now() < this.nextDeliveryAt
+        ? "busy"
+        : await delivery.send(
+            `Feedback submitted through the Sketchbook Viewer. ${formatAnnotations(delivery.documentId, batch, this.token)}`,
+          )
+    if (result === "delivered") this.nextDeliveryAt = performance.now() + 2_000
+    if (this.closed || response.destroyed) return
+    if (result === "busy") {
+      reply(response, 429, "Pi is not ready for another message. Try again shortly.")
+    } else if (result === "unconfirmed") {
+      reply(response, 503, "Pi delivery could not be confirmed.")
+    } else {
+      response.writeHead(204).end()
+    }
+  }
+
   private async document(
     request: IncomingMessage,
     response: ServerResponse,
     path: string,
     signal: AbortSignal,
   ): Promise<void> {
-    const supplied = Buffer.from(request.headers.authorization ?? "")
-    const expected = Buffer.from(`Bearer ${this.token}`)
-    if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+    if (!this.authorized(request)) {
       reply(response, 401, "Unauthorized.")
       return
     }
@@ -257,6 +364,10 @@ export class ViewerServer {
       validateDocumentId(id)
     } catch {
       reply(response, 400, "Invalid document ID.")
+      return
+    }
+    if (this.annotationDelivery && id !== this.annotationDelivery.documentId) {
+      reply(response, 404, "Document not found.")
       return
     }
     let stored: Awaited<ReturnType<DocumentStore["readViewer"]>>
@@ -275,6 +386,7 @@ export class ViewerServer {
     const body = JSON.stringify(stored)
     const etag = `"${createHash("sha256").update(body).digest("hex")}"`
     response.setHeader("ETag", etag)
+    if (this.annotationDelivery) response.setHeader(annotationHeader, "pi")
     const conditional = request.headers["if-none-match"]
     if (
       conditional

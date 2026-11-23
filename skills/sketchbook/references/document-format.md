@@ -170,14 +170,15 @@ type Operation =
 
 `sketchbook_open({ documentId })` returns an ephemeral viewer URL while the viewer server is running.
 In Pi, opening requires a persistent TUI or RPC session. In a client using the MCP tools, the connection to the MCP server must stay open.
-It listens on `0.0.0.0` and automatically returns the first detected non-internal private IPv4 address in operating-system interface order, or `127.0.0.1` if none is detected.
+Pi also accepts `sketchbook_open({ documentId, sendFeedback: true })`. This opens a separate Viewer that listens only on `127.0.0.1` and only serves the specified document. The **Notes → Send to Pi** button sends the notes as a user message to that Pi session without changing any files. The Viewer clears the notes only if Pi starts the matching user message within its confirmation window. If Pi queues it for longer, check Pi before sending again. Anyone with the full link and access to local loopback can submit feedback as a user message. Keep this link private, and do not forward its port. MCP does not accept `sendFeedback`.
+Without `sendFeedback: true`, the read-only Viewer listens on `0.0.0.0` and automatically returns the first detected non-internal private IPv4 address in operating-system interface order, or `127.0.0.1` if none is detected.
 No host flag or manual IP entry is required.
 The wildcard listener opens every IPv4 interface, even when the URL falls back to loopback; use only trusted networks and firewall policy.
 Accepted Host values are detected private IPv4 addresses in `10/8`, `172.16/12`, or `192.168/16`, plus `127.0.0.1`, on the actual viewer port.
 An Origin header must match that request's allowed Host; public, wildcard, hostname, unassigned, and mismatched-origin requests are rejected.
-A tool argument does not select the host.
+Read-only links support copying feedback, not sending it to Pi.
 Use the returned URL and keep its capability token private.
-The default link opens the original page. Add `chapter=<chapterId>` to the query for an additional chapter, and `section=<sectionId>` for a named position. For a first-page section, omit `chapter`. Keep the original `documentId` query field and `#token=…` fragment; never move the token into the query. Chapter and section links require the same read-only access and expire with the same session.
+The default link opens the original page. Add `chapter=<chapterId>` to the query for an additional chapter, and `section=<sectionId>` for a named position. For a first-page section, omit `chapter`. Keep the original `documentId` query field and `#token=…` fragment; never move the token into the query. Chapter and section links use the same access and expire with the same session.
 VPN or virtual interfaces can affect automatic selection; network changes require a reload and a fresh URL.
 LAN HTTP is unencrypted, and the token permits document reads within that viewer's workspace, not only the linked document.
 Opening does not launch an operating-system browser.

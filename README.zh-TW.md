@@ -114,15 +114,15 @@ npm run build
 
 ## 使用方式
 
-**開啟 Viewer 前：** 展示版只在本機回送介面監聽。一般 Viewer 則會在所有 IPv4 介面監聽，即使網址顯示的是 `127.0.0.1`。請只在受信任的網路上使用，並對完整連結保密。詳見[區域網路存取](#區域網路存取)。
+**開啟 Viewer 前：** Pi 的 `/sketchbook` 會開啟可傳送回饋的同機 Viewer。唯讀的區域網路 Viewer 會在所有 IPv4 介面監聽，即使網址顯示 `127.0.0.1`。請只在受信任的網路使用區域網路連結，並對所有完整連結保密。詳見[區域網路存取](#區域網路存取)。
 
-在 Pi 中，輸入 `/skill:sketchbook`，再接上你的問題：
+在 Pi 中，輸入 `/sketchbook`，再接上你的問題：
 
 ```text
-/skill:sketchbook 請先概述這個系統，再說明 API 和資料儲存的細節。
+/sketchbook 請先概述這個系統，再說明 API 和資料儲存的細節。
 ```
 
-即使問題很短，這個指令也會明確要求儲存頁面，並提供私有的 Viewer 連結。頁面可以只用 Markdown；適合用圖解時，skill 會儲存完整的 Diagram Design HTML。未指定樣式且專案沒有樣式設定時，會用 Sketchbook 的淺色樣式。未明確要求時，不需圖解的簡單問題應直接在對話中回答。skill 的自動選用仍未驗證。
+Pi 內建的 `/skill:sketchbook` 也可以使用。即使問題很短，或只是更新既有頁面，這兩個指令都會要求儲存頁面並提供私有的 Viewer 連結。儲存後，除非你要求不開啟，skill 都會開啟 Viewer，並在回覆第一行附上可點擊的連結。若無法開啟，skill 會說明原因並提供已儲存的文件 ID 與修訂版號，不會改給靜態預覽。頁面可以只用 Markdown；適合用圖解時，skill 會儲存完整的 Diagram Design HTML。未指定樣式且專案沒有樣式設定時，會用 Sketchbook 的淺色樣式。未明確要求時，不需圖解的簡單問題應直接在對話中回答。skill 的自動選用仍未驗證。
 
 ### 工具
 
@@ -130,7 +130,7 @@ npm run build
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sketchbook_write`     | 用 `{document}` 建立文件（省略 `documentId` 和 `expectedRevision`）。要替換原始頁面，請用 `{document, documentId, expectedRevision}` 傳入完整文件。 |
 | `sketchbook_read`      | 用 `{documentId}` 讀取原始頁面和修訂版號。                                                                                                          |
-| `sketchbook_open`      | 用 `{documentId}` 取得暫時有效的私有 Viewer 網址。請自行在瀏覽器開啟；工具不會啟動瀏覽器。                                                          |
+| `sketchbook_open`      | 用 `{documentId}` 取得暫時有效的私有 Viewer 網址。在 Pi 中加上 `sendFeedback: true`，可取得能傳送回饋的同機連結。工具不會啟動瀏覽器。               |
 | `sketchbook_read_book` | 用 `{documentId}` 讀取小節、額外章節和修訂版號。若 `book` 是 `null`，初始修訂版號為 `0`。                                                           |
 | `sketchbook_edit`      | 用 `{documentId, expectedRevision, operation}` 進行一次會檢查修訂版號的編輯。                                                                       |
 
@@ -162,6 +162,10 @@ npm run build
 
 省略 `language` 就不會顯示語言標籤。Viewer 只會將程式碼顯示為文字，不會執行。用 Tab 把焦點移到區塊，再用方向鍵捲動長行。若要在正文或投影片說明中插入程式碼，請用 Markdown 程式碼區塊。
 
+### 在 Viewer 加上標註
+
+按 **Annotate**，再點選標題、段落或圖表。也可用 **Page element** 清單選取元素。匯入的 HTML 和 SVG 圖表只能選取整張圖，不能選取圖內的個別圖形。輸入留言後按 **Add note**，再到 **Notes** 檢查或移除標註。在 Pi 的同機 Viewer 按 **Send to Pi**，就會把回饋當成使用者訊息送進目前的 Pi 對話。Viewer 只會在 Pi 開始處理這則訊息後清除標註。若無法確認送達，請先查看 Pi 對話，再重試或使用 **Copy feedback**。Pi 會在對話中回覆，不會在瀏覽器回覆。若使用唯讀的區域網路或 MCP Viewer，請用 **Copy feedback**。Viewer 不會直接修改文件。重新整理或切換章節會清除草稿。
+
 ## 算繪和安全性
 
 - **Diagram Design HTML：** Viewer 在沙箱中顯示匯入的頁面，可離線使用。不支援指令碼、頁面導覽或外部資源。外部樣式表會被移除，內嵌樣式與本機 SVG 定義則會保留。
@@ -176,7 +180,7 @@ npm run build
 
 ### 區域網路存取
 
-請在**同一個可信任的區域網路（LAN）**上，用另一部裝置開啟 `sketchbook_open` 回傳的完整網址。不必手動輸入 IP 或指定主機參數。請勿公開完整網址：URL 片段中的權杖可讀取該工作區的文件，不只連結指定的文件。HTTP 未加密。不要在文件中放入機密資料，也不要將連接埠開放或轉送到網際網路。
+請要求唯讀區域網路連結，或呼叫 `sketchbook_open` 時省略 `sendFeedback: true`。再從**同一個可信任的區域網路（LAN）**上的另一部裝置開啟完整網址。不必手動輸入 IP 或指定主機參數。請勿公開完整網址：URL 片段中的權杖可讀取該工作區的文件，不只連結指定的文件。HTTP 未加密。不要在文件中放入機密資料，也不要將連接埠開放或轉送到網際網路。
 
 Viewer 會在所有 IPv4 介面（`0.0.0.0`）的隨機連接埠監聽。回傳的網址會依系統列出的介面順序，使用第一個偵測到的非內部私有 IPv4 位址；若找不到，才使用 `127.0.0.1`。使用備用位址時，監聽範圍也不會限於本機迴路。不支援 IPv6。`Host` 和 `Origin` 檢查及內容安全政策（CSP）會限制瀏覽器存取，但不會過濾用戶端 IP。請遵守防火牆政策。允許的位址、連接埠和來源詳見 [Viewer 存取規則](skills/sketchbook/references/document-format.md#open)。
 
@@ -199,7 +203,7 @@ VPN、虛擬網路介面、防火牆或 Wi-Fi 用戶端隔離可能阻擋其他�
 
 ## 從 Pi Canvas 升級
 
-請改用 `@narumitw/sketchbook`、`sketchbook_*` 工具和 `/skill:sketchbook`。舊的 `canvas_*` 工具和 `/skill:canvas-explain-diagrams` 不是別名。也請替換已儲存提示中的 `/skill:sketchbook-create-diagrams`、`/skill:sketchbook-diagram-design` 和 `/skill:sketchbook-explain-diagrams`。
+請改用 `@narumitw/sketchbook`、`sketchbook_*` 工具和 `/sketchbook`。舊的 `canvas_*` 工具和 `/skill:canvas-explain-diagrams` 不是別名。也請替換已儲存提示中的 `/skill:sketchbook-create-diagrams`、`/skill:sketchbook-diagram-design` 和 `/skill:sketchbook-explain-diagrams`。
 
 若文件存於 `.pi/canvas/`，請依照[搬移現有檔案](#搬移現有檔案)的步驟操作。
 
