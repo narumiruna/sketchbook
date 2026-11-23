@@ -1,5 +1,11 @@
 # @narumitw/sketchbook
 
+## 0.8.0
+
+### Minor Changes
+
+- f71451b: Store Pi and MCP documents in `.sketchbook/` under the selected workspace. If only a legacy `.pi/sketchbook/` or `.pi/canvas/` directory exists, Sketchbook asks you to back up and move the files manually. Document IDs, revisions, and file formats stay the same.
+
 ## 0.7.0
 
 ### Minor Changes
