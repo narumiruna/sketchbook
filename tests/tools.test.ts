@@ -160,26 +160,26 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
     expect(listen).not.toHaveBeenCalled()
     expect(interval).not.toHaveBeenCalled()
     expect(timeout).not.toHaveBeenCalled()
-    await expect(access(join(cwd, ".pi"))).rejects.toThrow()
+    await expect(access(join(cwd, ".sketchbook"))).rejects.toThrow()
     await fresh.shutdown()
     expect(listen).not.toHaveBeenCalled()
   })
 
   it("documents exact write scope and never promises successful rendering", async () => {
     const description = host.tools.get("sketchbook_write")?.description ?? ""
-    expect(description).toContain(".pi/sketchbook/*.json")
-    expect(description).toContain(".pi/sketchbook/.gitignore")
+    expect(description).toContain(".sketchbook/*.json")
+    expect(description).toContain(".sketchbook/.gitignore")
     expect(description).toContain("never changes the workspace root .gitignore")
     const written = await write()
     expect(written.renderingVerified).toBe(false)
     expect(written.revision).toBe(1)
-    expect(written.path).toBe(join(cwd, ".pi/sketchbook", `${written.documentId}.json`))
+    expect(written.path).toBe(join(cwd, ".sketchbook", `${written.documentId}.json`))
     expect(written.blocks).toEqual([
       { id: "intro", type: "markdown" },
       { id: "deck", type: "diagram-deck", slides: 1 },
     ])
     await expect(access(join(cwd, ".gitignore"))).rejects.toThrow()
-    expect(await readFile(join(cwd, ".pi/sketchbook/.gitignore"), "utf8")).toContain("*")
+    expect(await readFile(join(cwd, ".sketchbook/.gitignore"), "utf8")).toContain("*")
   })
 
   it.each(["tui", "rpc", "print", "json"])(
@@ -195,6 +195,7 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
       )
       const read = data<Read>(result)
       expect(read.ok).toBe(true)
+      expect(read.path).toBe(written.path)
       expect(read.stored.document).toEqual(document)
       expect(read.stored.revision).toBe(1)
       expect(read.contentTruncated).toBe(false)
@@ -472,7 +473,7 @@ describe("Pi Sketchbook tool registration and lifecycle", () => {
     const other = join(cwd, "other")
     await mkdir(other)
     const second = data<Written>(await host.call("sketchbook_write", { document }, other))
-    expect(second.path).toContain(join(other, ".pi/sketchbook"))
+    expect(second.path).toContain(join(other, ".sketchbook"))
     const absent = await host.call("sketchbook_read", { documentId: first.documentId }, other)
     expect(absent.isError).toBe(true)
     const present = await host.call("sketchbook_read", { documentId: first.documentId }, cwd)

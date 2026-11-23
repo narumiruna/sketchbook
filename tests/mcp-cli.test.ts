@@ -47,7 +47,7 @@ describe("MCP stdio executable", () => {
     })
     expect(stdout).toBe("Usage: sketchbook-mcp [--cwd <workspace-directory>]\n")
     expect(stderr).toBe("")
-    await expect(access(join(temporary, ".pi"))).rejects.toThrow()
+    await expect(access(join(temporary, ".sketchbook"))).rejects.toThrow()
   })
 
   it.each([["--cwd"], ["--cwd", ""], ["--cwd", "   "], ["--unknown"], ["extra"]])(
@@ -56,7 +56,7 @@ describe("MCP stdio executable", () => {
       await expect(
         execute(process.execPath, [...args, ...input], { cwd: temporary }),
       ).rejects.toMatchObject({ code: 1, stdout: "", stderr: expect.any(String) })
-      await expect(access(join(temporary, ".pi"))).rejects.toThrow()
+      await expect(access(join(temporary, ".sketchbook"))).rejects.toThrow()
     },
   )
 
@@ -117,16 +117,16 @@ describe("MCP stdio executable", () => {
         )
         const listed = await request("tools/list", {})
         expect(listed.tools).toHaveLength(5)
-        await expect(access(join(workspace, ".pi"))).rejects.toThrow()
+        await expect(access(join(workspace, ".sketchbook"))).rejects.toThrow()
         const created = await request("tools/call", {
           name: "sketchbook_write",
           arguments: { document },
         })
         expect(created.structuredContent.ok).toBe(true)
         expect(created.structuredContent.path).toBe(
-          join(workspace, ".pi/sketchbook", `${created.structuredContent.documentId}.json`),
+          join(workspace, ".sketchbook", `${created.structuredContent.documentId}.json`),
         )
-        await expect(access(join(temporary, ".pi"))).rejects.toThrow()
+        await expect(access(join(temporary, ".sketchbook"))).rejects.toThrow()
         const opened = await request("tools/call", {
           name: "sketchbook_open",
           arguments: { documentId: created.structuredContent.documentId },

@@ -444,7 +444,7 @@ describe("ViewerServer", () => {
       expect((await get(url, path, auth)).status).toBe(400)
     }
     for (const path of [
-      "/.pi/sketchbook/anything.json",
+      "/.sketchbook/anything.json",
       "/.hidden.js",
       "/src/server.ts",
       "/assets/app.js.map",

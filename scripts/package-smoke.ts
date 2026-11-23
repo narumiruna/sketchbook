@@ -256,7 +256,7 @@ async function smoke(packagePath: string, label: string): Promise<void> {
       ],
     }
     const created = await call("sketchbook_write", { document })
-    assert.equal(created.path, join(workspace, ".pi/sketchbook", `${created.documentId}.json`))
+    assert.equal(created.path, join(workspace, ".sketchbook", `${created.documentId}.json`))
     assert.equal(created.renderingVerified, false)
     assert.equal(created.revision, 1)
     const read = await call("sketchbook_read", { documentId: created.documentId })
@@ -485,7 +485,7 @@ async function smokeMcp(tarball: string): Promise<string> {
       return result.structuredContent
     }
     const created = await call("sketchbook_write", { document })
-    assert.equal(created.path, join(workspace, ".pi/sketchbook", `${created.documentId}.json`))
+    assert.equal(created.path, join(workspace, ".sketchbook", `${created.documentId}.json`))
     assert.equal(created.revision, 1)
     const read = await call("sketchbook_read", { documentId: created.documentId })
     assert.deepEqual((read.stored as { document: unknown }).document, document)

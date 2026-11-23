@@ -72,7 +72,7 @@ codex plugin marketplace add "$plugin_root"
 codex plugin add sketchbook@narumi-sketchbook
 ```
 
-如果已設定獨立的 MCP 伺服器，請移除那筆設定，以免重複載入。從想儲存文件的工作區啟動新的工作階段。Claude Code 使用專案根目錄；在已測試的本機環境中，Codex 會在 CLI 工作階段的工作目錄啟動伺服器。兩者都會將文件存到該工作區的 `.pi/sketchbook/`。
+如果已設定獨立的 MCP 伺服器，請移除那筆設定，以免重複載入。從想儲存文件的工作區啟動新的工作階段。Claude Code 使用專案根目錄；在已測試的本機環境中，Codex 會在 CLI 工作階段的工作目錄啟動伺服器。兩者都會將文件存到該工作區的 `.sketchbook/`。
 
 ### MCP
 
@@ -106,7 +106,7 @@ npm run build
 
 #### MCP 工作區和行為
 
-- 從原始碼建置的版本若省略 `--cwd`，會使用伺服器程序的工作目錄。相對路徑也以該目錄為準。工作目錄由用戶端選定，不一定是目前開啟的專案。文件會存到 `.pi/sketchbook/`；每個要存取的工作區都需要獨立的伺服器設定。
+- 從原始碼建置的版本若省略 `--cwd`，會使用伺服器程序的工作目錄。相對路徑也以該目錄為準。工作目錄由用戶端選定，不一定是目前開啟的專案。文件會存到 `.sketchbook/`；每個要存取的工作區都需要獨立的伺服器設定。
 - 標準輸出（stdout）專供 MCP 訊息使用；診斷訊息寫到標準錯誤（stderr）。工具會回傳 JSON 文字和 `structuredContent`，失敗時會設定 `isError: true`。Pi 的文字預覽有長度限制，MCP 則會在兩種回傳格式中提供完整的 `sketchbook_read` 紀錄。
 - `sketchbook_open` 啟動的是唯讀的 HTTP Viewer，不是 HTTP MCP 端點。用戶端中斷連線、標準輸入到達檔案結尾（EOF），或程序收到 SIGINT 或 SIGTERM 時，Viewer 就會關閉。
 
@@ -184,16 +184,24 @@ VPN、虛擬網路介面、防火牆或 Wi-Fi 用戶端隔離可能阻擋其他�
 
 ## 檔案與生命週期
 
-- 原始頁面存於 `.pi/sketchbook/<documentId>.json`。小節和額外章節存於同一目錄下的選用檔案 `<documentId>.book.json`。受支援的紀錄不須移轉；替換原始頁面不會變更書籍檔案。Sketchbook 只建立 `.pi/sketchbook/.gitignore`，不修改工作區根目錄的規則。
+- Pi 和 MCP 都會將文件存到所選工作區的 `.sketchbook/`。原始頁面存於 `.sketchbook/<documentId>.json`。小節和額外章節存於同一目錄下的選用檔案 `<documentId>.book.json`。替換原始頁面不會變更書籍檔案。Sketchbook 只建立 `.sketchbook/.gitignore`，不修改工作區根目錄的規則。
 - 寫入時會檢查修訂版號，在同一程序內依紀錄排隊，並用原子性重新命名儲存。沒有跨程序鎖定，也沒有同時涵蓋兩個檔案的交易。不要從多個 Pi 或 MCP 程序寫入同一份文件。
 - 只有 `sketchbook_open` 會啟動 Viewer。Pi 的 TUI 和 RPC 工作階段可以開啟 Viewer；print 和 JSON 模式只能讀寫。停止 Pi 或 MCP 伺服器會使連結失效，但不會刪除檔案。重新載入、新建、繼續或分叉工作階段後，請重新開啟文件。工作階段歷史不會復原寫入；若要保留另一個文件版本，請用新的文件 ID。
 - 第二部實體裝置的存取、遠端 SSH、容器連接埠轉送，以及 WSLg 或 Windows 瀏覽器存取，都要另外驗證。
+
+### 搬移現有檔案
+
+如果沒有 `.sketchbook/`，但偵測到 `.pi/sketchbook/` 或 `.pi/canvas/`，Sketchbook 會提示你搬移檔案，而不是建立空目錄。Sketchbook 不會讀寫舊目錄內的檔案。
+
+1. 停止所有使用該工作區的 Pi 和 MCP 工作階段，並備份舊目錄。
+2. 如果沒有 `.sketchbook/`，且只有一個舊目錄，請將該目錄搬到 `.sketchbook/`。如果有多個目錄，請先處理重複的文件 ID，再搬移檔案。每份文件要和它的 `.book.json`（若有）一起搬移。不要覆寫任何既有檔案。
+3. 重新啟動用戶端並開啟文件，以取得新的 Viewer 網址。文件 ID、修訂版號和檔案格式都不變。
 
 ## 從 Pi Canvas 升級
 
 請改用 `@narumitw/sketchbook`、`sketchbook_*` 工具和 `/skill:sketchbook`。舊的 `canvas_*` 工具和 `/skill:canvas-explain-diagrams` 不是別名。也請替換已儲存提示中的 `/skill:sketchbook-create-diagrams`、`/skill:sketchbook-diagram-design` 和 `/skill:sketchbook-explain-diagrams`。
 
-Sketchbook 不會自動搬移 `.pi/canvas/`。請先停止該工作區的所有 Pi 工作階段並備份檔案。若 `.pi/sketchbook/` 不存在，請把整個 `.pi/canvas/` 搬到該路徑。如果兩個目錄都存在，請保留兩者，先處理重複的文件 ID，再搬移檔案；不要覆寫任一目錄。ID、修訂版號和結構描述版本 1 都不變。重新啟動 Pi，再開啟文件取得新網址。
+若文件存於 `.pi/canvas/`，請依照[搬移現有檔案](#搬移現有檔案)的步驟操作。
 
 ## 開啟舊版書籍
 
@@ -201,7 +209,7 @@ Sketchbook 不會自動搬移 `.pi/canvas/`。請先停止該工作區的所有 
 
 只要書中有 Mermaid 投影片，Viewer 就無法開啟整本書，也不會跳過、轉換或改寫這些投影片。如果只有書籍檔案包含 Mermaid，且原始頁面的內容仍受支援，就還是可以單獨讀取原始頁面。
 
-請備份整個 `.pi/sketchbook/`，包括 `.json` 和 `.book.json` 紀錄。最後一個已驗證能完整讀取舊格式的版本是 `10bc8574615c77f5e2d229850a4340c29cb2bae7`。請另外取用該版本的工作副本，使用 Node.js 26 執行：
+請備份儲存目錄中的原始 `.json` 及對應的 `.book.json` 檔案。最後一個已驗證能完整讀取舊格式的版本是 `10bc8574615c77f5e2d229850a4340c29cb2bae7`。請另外取用該版本的工作副本，使用 Node.js 26 執行：
 
 ```sh
 npm ci
@@ -209,7 +217,7 @@ npm run build
 npm pack
 ```
 
-安裝產生的壓縮套件，或把 MCP 用戶端指向復原工作副本的 `dist/mcp-cli.js`。請先開啟備份副本。此版本也支援 Diagram Design HTML 和靜態 SVG。若重繪含 Mermaid 的書籍，請另存成一本新書。
+安裝產生的壓縮套件，或把 MCP 用戶端指向復原工作副本的 `dist/mcp-cli.js`。請先將兩種檔案的副本放到臨時工作區內的 `.pi/sketchbook/`，這是舊版讀取器使用的路徑。此版本也支援 Diagram Design HTML 和靜態 SVG。若重繪含 Mermaid 的書籍，請另存成一本新書。
 
 ## 驗證
 

@@ -44,10 +44,11 @@ describe("DocumentStore", () => {
     const { stored, path } = await pending
     expect(stored.document.title).toBe("Example")
     expect(stored.revision).toBe(1)
-    expect(path).toBe(join(cwd, ".pi", "sketchbook", `${stored.documentId}.json`))
+    expect(path).toBe(join(cwd, ".sketchbook", `${stored.documentId}.json`))
     expect(await store.read(stored.documentId)).toEqual(stored)
     expect(await fs.readFile(join(cwd, ".gitignore"), "utf8")).toBe("# User rules\n")
-    expect(await fs.readFile(join(cwd, ".pi", "sketchbook", ".gitignore"), "utf8")).toBe("*\n")
+    expect(await fs.readFile(join(cwd, ".sketchbook", ".gitignore"), "utf8")).toBe("*\n")
+    await expect(fs.lstat(join(cwd, ".pi"))).rejects.toMatchObject({ code: "ENOENT" })
     const result = await store.write({
       document: { ...document, title: "Updated" },
       documentId: stored.documentId,
@@ -122,7 +123,7 @@ describe("DocumentStore", () => {
     ).rejects.toThrow("disk failure")
     expect(await fs.readFile(path, "utf8")).toBe(before)
     expect(
-      (await fs.readdir(join(cwd, ".pi", "sketchbook"))).filter((name) => name.endsWith(".tmp")),
+      (await fs.readdir(join(cwd, ".sketchbook"))).filter((name) => name.endsWith(".tmp")),
     ).toEqual([])
     const retried = await new DocumentStore(cwd).write({
       document,
@@ -190,7 +191,7 @@ describe("DocumentStore", () => {
     ).rejects.toThrow()
     expect(await fs.readFile(path, "utf8")).toBe(before)
     expect(
-      (await fs.readdir(join(cwd, ".pi", "sketchbook"))).filter((name) => name.endsWith(".tmp")),
+      (await fs.readdir(join(cwd, ".sketchbook"))).filter((name) => name.endsWith(".tmp")),
     ).toEqual([])
   })
 
@@ -215,19 +216,65 @@ describe("DocumentStore", () => {
     await expect(
       store.write({ document: { ...document, schemaVersion: 2 } as unknown as SketchbookDocument }),
     ).rejects.toThrow()
-    await expect(fs.stat(join(cwd, ".pi"))).rejects.toThrow()
     await expect(store.read(randomUUID())).rejects.toThrow()
+    expect(await fs.readdir(cwd)).toEqual([])
   })
 
-  test.each([".pi", ".pi/sketchbook"])(
-    "refuses symlinked storage directory %s",
+  test.each([".pi/sketchbook", ".pi/canvas"])(
+    "prompts to move %s and preserves both records until manually moved",
     async (relative) => {
-      if (relative.includes("/")) await fs.mkdir(join(cwd, ".pi"))
-      await fs.symlink(outside, join(cwd, relative), "dir")
-      await expect(store.write({ document })).rejects.toThrow("real directories")
-      expect(await fs.readdir(outside)).toEqual([])
+      const { stored } = await store.write({ document })
+      const { documentId } = stored
+      await store.editBook({
+        documentId,
+        expectedRevision: 0,
+        operation: {
+          type: "add-section",
+          section: { id: "details", title: "Details", blocks: [] },
+        },
+      })
+      const view = await store.readViewer(documentId)
+      const current = join(cwd, ".sketchbook")
+      const legacy = join(cwd, relative)
+      await fs.mkdir(join(cwd, ".pi"))
+      await fs.rename(current, legacy)
+
+      const hint = `move ${relative}/ to .sketchbook/ without overwriting`
+      await expect(store.read(documentId)).rejects.toThrow(hint)
+      await expect(store.write({ document })).rejects.toThrow(hint)
+      await expect(fs.lstat(current)).rejects.toMatchObject({ code: "ENOENT" })
+
+      await fs.rename(legacy, current)
+      expect(await store.readViewer(documentId)).toEqual(view)
+      const edit = await store.editBook({
+        documentId,
+        expectedRevision: 1,
+        operation: { type: "add-section", section: { id: "next", title: "Next", blocks: [] } },
+      })
+      expect(edit).toEqual({ revision: 2, record: "book" })
     },
   )
+
+  test("uses only the new directory when legacy storage also exists", async () => {
+    const legacy = join(cwd, ".pi/sketchbook")
+    await fs.mkdir(legacy, { recursive: true })
+    const legacyId = randomUUID()
+    const legacyFile = join(legacy, `${legacyId}.json`)
+    await fs.writeFile(legacyFile, "legacy fixture")
+    await fs.mkdir(join(cwd, ".sketchbook"))
+
+    const { stored, path } = await store.write({ document })
+    expect(path).toBe(join(cwd, ".sketchbook", `${stored.documentId}.json`))
+    await expect(store.read(legacyId)).rejects.toMatchObject({ code: "ENOENT" })
+    expect(await fs.readdir(legacy)).toEqual([`${legacyId}.json`])
+    expect(await fs.readFile(legacyFile, "utf8")).toBe("legacy fixture")
+  })
+
+  test("refuses a symlinked storage directory", async () => {
+    await fs.symlink(outside, join(cwd, ".sketchbook"), "dir")
+    await expect(store.write({ document })).rejects.toThrow("real directory")
+    expect(await fs.readdir(outside)).toEqual([])
+  })
 
   test("removes a failed new artifact ignore and restores exclusions on retry", async () => {
     const failure = Object.assign(new Error("Simulated full disk"), { code: "ENOSPC" })
@@ -238,9 +285,9 @@ describe("DocumentStore", () => {
       return file
     })
     await expect(store.write({ document })).rejects.toBe(failure)
-    const ignore = join(cwd, ".pi", "sketchbook", ".gitignore")
+    const ignore = join(cwd, ".sketchbook", ".gitignore")
     await expect(fs.lstat(ignore)).rejects.toMatchObject({ code: "ENOENT" })
-    expect(await fs.readdir(join(cwd, ".pi", "sketchbook"))).toEqual([])
+    expect(await fs.readdir(join(cwd, ".sketchbook"))).toEqual([])
 
     const { stored } = await store.write({ document })
     expect(await fs.readFile(ignore, "utf8")).toBe("*\n")
@@ -248,8 +295,8 @@ describe("DocumentStore", () => {
   })
 
   test("preserves a pre-existing artifact ignore", async () => {
-    const directory = join(cwd, ".pi", "sketchbook")
-    await fs.mkdir(directory, { recursive: true })
+    const directory = join(cwd, ".sketchbook")
+    await fs.mkdir(directory)
     const ignore = join(directory, ".gitignore")
     await fs.writeFile(ignore, "# User exclusions\n*.json\n")
     await store.write({ document })
@@ -257,10 +304,10 @@ describe("DocumentStore", () => {
   })
 
   test("refuses a symlinked artifact ignore without changing its target", async () => {
-    await fs.mkdir(join(cwd, ".pi", "sketchbook"), { recursive: true })
+    await fs.mkdir(join(cwd, ".sketchbook"))
     const target = join(outside, "ignore")
     await fs.writeFile(target, "User data")
-    await fs.symlink(target, join(cwd, ".pi", "sketchbook", ".gitignore"))
+    await fs.symlink(target, join(cwd, ".sketchbook", ".gitignore"))
     await expect(store.write({ document })).rejects.toThrow("regular file")
     expect(await fs.readFile(target, "utf8")).toBe("User data")
   })

@@ -9,7 +9,7 @@ import {
 } from "./document.js"
 import type { FileMutationQueue } from "./mutation-queue.js"
 import { ViewerServer } from "./server.js"
-import { DocumentStore } from "./store.js"
+import { DocumentStore, STORAGE_DIR } from "./store.js"
 
 const IdInputSchema = Type.Object({ documentId: DocumentIdSchema }, { additionalProperties: false })
 export type ReadInput = Static<typeof IdInputSchema>
@@ -139,8 +139,7 @@ export function createSketchbookTools(mutationQueue?: FileMutationQueue) {
     name: "sketchbook_write" as const,
     label: "Sketchbook Write",
     promptSnippet: "Create or replace a saved Pi Sketchbook document with revision checks",
-    description:
-      "Create or fully replace a Pi Sketchbook document with Markdown, code, static Diagram Design HTML blocks, or static SVG decks. Use `diagram-html` for complete Diagram Design output, not raw HTML in Markdown. Updates require documentId and expectedRevision; read after a conflict. Writes only .pi/sketchbook/*.json, same-directory temporary files, and .pi/sketchbook/.gitignore in the workspace; never changes the workspace root .gitignore. Saving does not verify browser rendering.",
+    description: `Create or fully replace a Pi Sketchbook document with Markdown, code, static Diagram Design HTML blocks, or static SVG decks. Use \`diagram-html\` for complete Diagram Design output, not raw HTML in Markdown. Updates require documentId and expectedRevision; read after a conflict. Writes only ${STORAGE_DIR}/*.json, same-directory temporary files, and ${STORAGE_DIR}/.gitignore in the workspace; never changes the workspace root .gitignore. Saving does not verify browser rendering.`,
     parameters: WriteInputSchema,
     outputSchema: WriteOutputSchema,
     async execute(input: unknown, cwd: string, signal?: AbortSignal) {
@@ -185,7 +184,7 @@ export function createSketchbookTools(mutationQueue?: FileMutationQueue) {
         assertSchema(IdInputSchema, input)
         const stored = await workspace(cwd).store.read(input.documentId, active)
         active.throwIfAborted()
-        const path = resolve(cwd, ".pi/sketchbook", `${stored.documentId}.json`)
+        const path = resolve(cwd, STORAGE_DIR, `${stored.documentId}.json`)
         const content = sourceContent(JSON.stringify(stored, null, 2), path)
         const data: Static<typeof ReadOutputSchema> = {
           ok: true,
@@ -215,7 +214,7 @@ export function createSketchbookTools(mutationQueue?: FileMutationQueue) {
         assertSchema(IdInputSchema, input)
         const book = (await workspace(cwd).store.readBook(input.documentId, active)) ?? null
         active.throwIfAborted()
-        const path = resolve(cwd, ".pi/sketchbook", `${input.documentId}.book.json`)
+        const path = resolve(cwd, STORAGE_DIR, `${input.documentId}.book.json`)
         const content = sourceContent(JSON.stringify(book, null, 2), path, "book")
         const data: Static<typeof ReadBookOutputSchema> = {
           ok: true,
