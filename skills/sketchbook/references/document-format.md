@@ -177,7 +177,7 @@ Accepted Host values are detected private IPv4 addresses in `10/8`, `172.16/12`,
 An Origin header must match that request's allowed Host; public, wildcard, hostname, unassigned, and mismatched-origin requests are rejected.
 A tool argument does not select the host.
 Use the returned URL and keep its capability token private.
-The default link opens the original page. Add `chapter=<chapterId>` to the query for an additional chapter, and `section=<sectionId>` for a named position. For a first-page section, omit `chapter`. Keep the original `documentId` query field and `#token=…` fragment; never move the token into the query. Treat the URL path as opaque: the Viewer normalizes it to separate browser-local annotation drafts by document and chapter. Chapter and section links require the same read-only access and expire with the same session. The Pi-only interactive command uses a separate link; the `sketchbook_open` link cannot send messages.
+The default link opens the original page. Add `chapter=<chapterId>` to the query for an additional chapter, and `section=<sectionId>` for a named position. For a first-page section, omit `chapter`. Keep the original `documentId` query field and `#token=…` fragment; never move the token into the query. Chapter and section links require the same read-only access and expire with the same session.
 VPN or virtual interfaces can affect automatic selection; network changes require a reload and a fresh URL.
 LAN HTTP is unencrypted, and the token permits document reads within that viewer's workspace, not only the linked document.
 Opening does not launch an operating-system browser.

@@ -162,14 +162,6 @@ For a standalone snippet, add a `code` block to `document.blocks`:
 
 Omit `language` to hide the label. The Viewer shows code as text and never runs it. Tab to the block and use the arrow keys to scroll long lines. For code within prose or a slide explanation, use a fenced Markdown block.
 
-### Leave feedback on a page
-
-Select **Annotate** in the Viewer header, then open the Agentation toolbar at the bottom right. Click an element and add a note. **Copy feedback** exports the annotations without the Viewer token or address. If clipboard access is blocked, copy the text from the dialog. Drafts stay in the browser, separately for each document and chapter at that Viewer address.
-
-To send annotations directly to Pi, run `/sketchbook-interact <documentId>` in a persistent Pi session. Open the private link on the same machine and choose **Send Annotations** in the active toolbar. Pi starts a turn if idle or queues a follow-up if busy. The reply stays in Pi; anything you send becomes part of the Pi conversation. No new tool or Agentation MCP configuration is needed.
-
-The interactive link opens only the selected document and can send prompts to Pi. Keep it private. Opening a new interactive link replaces the old one. Run `/sketchbook-interact stop` or end the Pi session to revoke it. Regular `sketchbook_open` links, including MCP links, can only copy feedback. Neither kind of Viewer can edit documents directly.
-
 ## Rendering and security
 
 - **Diagram Design HTML:** The Viewer sandboxes imported pages and works offline. Scripts, navigation, and external resources are not supported. External stylesheets are removed; embedded styles and local SVG definitions stay with the page.
