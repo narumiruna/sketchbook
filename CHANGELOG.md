@@ -1,5 +1,11 @@
 # @narumitw/sketchbook
 
+## 0.9.0
+
+### Minor Changes
+
+- 025e69b: Add Agentation annotations to the Viewer and a Pi-only `/sketchbook-interact` command to send feedback from a private, loopback-only Viewer directly to the current Pi conversation. Normal Viewer links remain read-only and copy-only. No additional tool or MCP configuration is required.
+
 ## 0.8.0
 
 ### Minor Changes
